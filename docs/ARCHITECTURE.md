@@ -201,7 +201,7 @@ POST /mode/{mode_name}
 |---|---|---|---|
 | storage | 360 min | Both | All off |
 | camp | 30 min | Both | Scheduled |
-| trail | 15 min | Exterior only | Auto |
+| trail | 15 min | Both | Manual |
 | in_town | 30 min | Both | Manual |
 
 ---

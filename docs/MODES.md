@@ -35,16 +35,16 @@ Best for: dispersed camping in the Adirondacks, Hiawatha NF, any overnight stay.
 ---
 
 ### `trail`
-**Use case:** Driving to or from a destination. Mountain bike shuttle, road trip leg.
+**Use case:** Van parked and unattended while you're out biking or hiking nearby. Not driving, not camping overnight.
 
 | Setting | Value |
 |---|---|
 | Camera interval | 15 min |
-| Camera scope | Exterior only |
-| Shellys | Fan and lights manual, automation paused |
-| Description | Orion-Tr DC-DC active via ignition solenoid. Exterior camera captures road context. |
+| Camera scope | Both cameras |
+| Shellys | Manual only, automation paused |
+| Description | Van unattended at a trailhead or similar. Shorter camera interval than camp for a light security-watch posture while you're away from it. |
 
-Best for: driving days, shuttle runs to Copper Harbor, approach roads into Debar Mountain.
+Best for: parked at the trailhead in Copper Harbor or the Adirondacks while out riding or hiking, van out of sight for an hour or more.
 
 ---
 

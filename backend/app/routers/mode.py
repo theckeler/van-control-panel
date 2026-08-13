@@ -19,11 +19,11 @@ MODES = {
         "description": "Default active use mode. Shelly schedules active.",
     },
     "trail": {
-        "label": "Trail / Driving",
+        "label": "Trail",
         "camera_interval_min": 15,
-        "camera_exterior_only": True,
+        "camera_exterior_only": False,
         "shellys_off": False,
-        "description": "Exterior camera only. Orion solenoid active via ignition.",
+        "description": "Van parked and unattended while you're out biking or hiking. Both cameras active, Shellys manual only.",
     },
     "in_town": {
         "label": "In Town",
@@ -50,7 +50,7 @@ async def get_current_mode():
         available=list(MODES.keys())
     )
 
-@router.post("/{mode_name}")
+@router.post("/{mode_name}", response_model=ModeResponse)
 async def set_mode(mode_name: str):
     """Switch the active operating mode."""
     global _current_mode
@@ -58,4 +58,8 @@ async def set_mode(mode_name: str):
         raise HTTPException(status_code=400, detail=f"Unknown mode: {mode_name}. Valid: {list(MODES.keys())}")
     _current_mode = mode_name
     # TODO: apply mode — update systemd timer intervals, Shelly schedules
-    return {"mode": _current_mode, "config": MODES[_current_mode]}
+    return ModeResponse(
+        current=_current_mode,
+        config=MODES[_current_mode],
+        available=list(MODES.keys())
+    )

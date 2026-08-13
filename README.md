@@ -132,7 +132,7 @@ The frontend dev server proxies `/api/*` to `http://van-pi.local:8000` — swap 
 |---|---|---|---|
 | `storage` | 4-6 hr interval | All off | Long term parking, battery preservation |
 | `camp` | 30 min, both | Scheduled | Default active mode |
-| `trail` | 15 min, exterior only | Auto | Driving, Orion active via ignition |
+| `trail` | 15 min, both | Manual | Parked and unattended, out biking/hiking |
 | `in_town` | 30 min, both | Manual | Full connectivity |
 
 ---
