@@ -206,3 +206,96 @@ Across 8,937 advertising reports and 249 unfiltered active scans, the fridge (`M
 The Victron only advertised 6 times in the whole window, so the capture was catching even very infrequent advertisers. The fridge was genuinely not broadcasting.
 
 Most likely explanation: BLE peripherals stop advertising while connected, and an iOS device can hold or re-establish a link even with the app swiped away. Next attempt should toggle Bluetooth fully off on the phone before scanning, not just close the apps.
+
+---
+
+# Dometic CFX5 35 / Garmin PowerSwitch — BLE Investigation (Aug 2026)
+
+A long session attempting to reach two non-integrated devices from the Pi over BLE. Neither succeeded. The root cause is documented below and it is not fixable on the Pi as currently built.
+
+---
+
+## Device identification (confirmed)
+
+| Device | MAC | Advertised name | Notes |
+|---|---|---|---|
+| Dometic CFX5 35 | `88:13:BF:8D:87:F6` | `MC1_8d87f4` | Public OUI address, stable. Rare advertiser. |
+| Garmin PowerSwitch | `F0:53:20:C3:99:B4` | `PowerSwitch-99B4` | RSSI -18 to -38. Constant advertiser. |
+
+Dometic GATT (from iOS BLE explorer, phone side):
+- Service `537A0400-0995-481F-926C-1604E23FD515` (vendor specific, 1 service reported)
+- Characteristic `537A0401-0995-481F-926C-1604E23FD515` — **write only**, explicitly does not support reading
+
+Garmin advertising data:
+- Service UUID `0000fe1f` (Garmin)
+- Manufacturer ID `0x0087` (Garmin)
+
+---
+
+## The failure
+
+Every connection attempt from the Pi, to both devices, produced the same result:
+
+```
+[CHG] Device <mac> Connected: yes
+Failed to connect: org.bluez.Error.Failed le-connection-abort-by-local
+[CHG] Device <mac> Connected: no
+```
+
+The link establishes, then the local side aborts during service discovery.
+
+Variables eliminated by testing:
+- **Scan contention** — same failure with `scan off`
+- **BMS holding the radio** — same failure with `van-api` stopped and the BMS GATT tree fully torn down
+- **Device not advertising** — both devices confirmed present and connectable (`ADV_IND`) immediately prior
+- **Cache expiry** — distinguishable, produces `not available` instead
+- **Weak signal** — PowerSwitch at -18 dBm failed identically to devices at -70
+
+---
+
+## Root cause
+
+A sibling project, `prebsit/dometic-fjx7-ha` (Dometic FreshJet FJX7 rooftop AC), documents this exact behaviour. The FJX7's Microchip BLE module requires encrypted Just Works bonding and does not return ATT Write Responses to BlueZ. Every Linux BLE implementation fails on it. The author tested a Pi's onboard radio and a TP-Link UB500 dongle across multiple BlueZ versions with identical results. Apple's CoreBluetooth absorbs the quirk silently, so macOS and iOS work fine. Espressif's ESP-IDF/NimBLE stack also handles it correctly.
+
+This matches observed behaviour exactly: an iPhone BLE explorer connected to the fridge and enumerated its service without difficulty, while the Pi failed on every attempt under every condition.
+
+**Caveat:** the FJX7 is a different product. It is not confirmed that the CFX5 uses the same Microchip module. Same manufacturer, same era, exact symptom match — strong circumstantial evidence, not proof.
+
+**Conclusion: BlueZ cannot talk to this device. A second Bluetooth adapter will not help, because the incompatibility is in the host stack, not the radio.**
+
+---
+
+## Path forward: ESP32 BLE bridge
+
+The working implementations both avoid Linux entirely:
+
+- **ESPHome external component** for Dometic CFX fridges over BLE using the native ESP-IDF BLE stack. Confirmed to exist, targets CFX3/CFX5.
+- **HACS Python integration** for Dometic CFX cool boxes (~185 stars, actively maintained). Runs under Home Assistant, which on a Pi would hit the same BlueZ wall — useful as a protocol reference rather than something to run directly.
+
+Proposed architecture, which fits existing project patterns:
+
+```
+ESP32 (ESPHome + dometic_cfx_ble) --BLE--> CFX5
+        |
+      WiFi/HTTP
+        |
+     van-api  <-- polls like it already polls Shellys
+```
+
+This also sidesteps the single-radio constraint for the PowerSwitch, and gives a general-purpose BLE bridge for any future device the Pi can't reach.
+
+**Do not pursue:** `keshavdv/dometic-cfx3`. Its README is unmodified cookiecutter boilerplate (`BaseClass`, `base_function`). Scaffold only, likely abandoned.
+
+---
+
+## Garmin PowerSwitch — separate blocker
+
+Failed with both `connect` and `pair`, the latter returning `org.bluez.Error.ConnectionAttemptFailed`. Likely bonded to a Garmin head unit or the Garmin Drive app and refusing additional centrals. Protocol is proprietary with no public implementation found. Lower priority than the fridge and no clear path without a phone-side packet capture.
+
+**Safety note for any future work:** the PowerSwitch controls the 52" light bar, KC SlimLite pair, and RGB rock lights. Enumeration and reads are safe. Blind writes to unknown characteristics can energise real exterior circuits and must be done deliberately with the lights in view.
+
+---
+
+## Correction to the earlier rubber duck entry
+
+The previous entry concluded the fridge "was genuinely not broadcasting." That was too strong. It advertises, just rarely — it appeared once in a ~50 minute capture and once more during a later scan. The correct statement is that it is a very infrequent advertiser, not a silent one.

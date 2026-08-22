@@ -3,6 +3,7 @@ import type {
   ShellyUnit, Photo, ModeResponse, SystemData,
   RawReading, HourlyReading, DailyReading,
 } from '../types'
+import { mockApi } from './mock'
 
 const BASE = '/api'
 
@@ -22,7 +23,7 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
   return res.json()
 }
 
-export const api = {
+const realApi = {
   battery: {
     get: () => get<BatteryData>('/battery/'),
     release: () => post<{ status: string; message: string }>('/battery/release'),
@@ -70,3 +71,13 @@ export const api = {
     reboot:   () => post<{ status: string; message: string }>('/system/reboot'),
   },
 }
+
+/**
+ * Demo mode swaps in a fully mocked API so the dashboard can run on Vercel
+ * with no Pi, no Tailscale, and no backend. Set VITE_DEMO=true in the Vercel
+ * environment only — the Pi build never sets it, so production is unaffected
+ * and the mock is tree-shaken out of that bundle.
+ */
+export const isDemo = import.meta.env.VITE_DEMO === 'true'
+
+export const api = isDemo ? (mockApi as typeof realApi) : realApi

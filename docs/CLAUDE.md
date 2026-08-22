@@ -195,6 +195,62 @@ tailscaled       Tailscale VPN
 - **History charts** in frontend — endpoints exist, SQLite is logging, frontend chart components need wiring up
 - **CORS** is `allow_origins=["*"]` — fine for local/Tailscale, tighten if Funnel is used long-term
 - **Maxxfan and Ceiling Lights** Shellys not yet installed — show as `installed: false` in API
+- **Vercel demo build** — idea scoped, not implemented. See "Vercel Demo Mode" below.
+- **Dometic CFX5 / Garmin PowerSwitch** — not reachable from the Pi. BlueZ is incompatible with Dometic's BLE module. Requires an ESP32 bridge. See `rubber-duck-review.md`.
+
+---
+
+## BLE Device Reference
+
+Devices seen on `hci0`, including ones not integrated.
+
+| Device | MAC | Adv name | Status |
+|---|---|---|---|
+| Power Queen BMS | `C8:47:80:5D:08:6F` | `P-12100BNNA70-B00793` | Integrated |
+| Victron SmartSolar | `E8:18:52:D1:81:B7` | `SmartSolar HQ2218GMEKM` | Integrated |
+| Dometic CFX5 35 | `88:13:BF:8D:87:F6` | `MC1_8d87f4` | Blocked — BlueZ incompatible |
+| Garmin PowerSwitch | `F0:53:20:C3:99:B4` | `PowerSwitch-99B4` | Blocked — bonding refused |
+
+The Dometic is a rare advertiser. Expect to wait through several scan cycles before it appears.
+
+### BMS GATT map (undocumented until now)
+
+Enumerated via `bluetoothctl` `list-attributes`. Three things worth knowing:
+
+- **Standard Battery Service** at `0x180F` with Battery Level `0x2A19`. The project reads SOC exclusively via the proprietary FFE1 protocol. If `0x2A19` is populated it is a spec-compliant fallback for when the FFE1 handshake fails. Not yet tested.
+- **Unused characteristics in the FFE0 service.** The code uses `FFE1`. The service also exposes `FFE2` and `FFE3`, and FFE3 carries a CCCD so it supports notify. Contents unknown.
+- **Device Information service** at `0x180A` is fully populated: Manufacturer Name, Model Number, Serial Number, Hardware/Firmware/Software Revision, System ID. Cheap win for an About panel, no reverse engineering needed.
+
+**Leave alone:** vendor service `f000ffc0-0451-4000-b000-000000000000` with `FFC1`/`FFC2`. The `0451` is Texas Instruments and this is TI's OAD (over-the-air firmware download) service. Writing here flashes BMS firmware. A malformed write could brick it beyond what a disconnect power cycle can fix.
+
+---
+
+## Vercel Demo Mode (scoped, not built)
+
+Goal: deploy the dashboard to Vercel as a portfolio piece with convincing fake data, so it can be linked from a résumé without exposing the Pi or requiring Tailscale.
+
+**Why it's easy:** every component reads through the `api` object in `src/api/client.ts`. Nothing else in the app calls `fetch` directly. That single seam is the whole integration point.
+
+**Approach:** add `src/api/mock.ts` exporting an object with the identical shape, then at the bottom of `client.ts`:
+
+```ts
+export const api = import.meta.env.VITE_DEMO === 'true' ? mockApi : realApi
+```
+
+Set `VITE_DEMO=true` in Vercel's environment variables. The Pi build never sets it, so production is untouched and tree-shaking drops the mock from the Pi bundle.
+
+**Where the effort actually is:**
+
+1. *History generation.* `RawReading`, `HourlyReading`, `DailyReading` back the Recharts components. Random numbers look obviously fake. Needs a generator modelling a solar bell curve peaking at solar noon, SOC climbing through the day and drawing down overnight, voltage tracking SOC. Roughly 60-80 lines and the bulk of the work.
+2. *Mutations must feel alive.* `shelly.toggle`, `mode.set`, `battery.release`/`connect`, `orion.toggle` need module-level state that actually changes, or the demo's buttons visibly do nothing. Add small jitter to `battery.get` and `mppt.get` since `usePolling` fires every 5s and static numbers look frozen.
+
+**Three decisions to make before building:**
+
+- **Cameras.** `Photo` returns URLs served by Express from disk. No Express on Vercel. Either ship placeholder images in `public/` or hide the camera card when `VITE_DEMO` is set.
+- **Destructive controls.** `system.shutdown` and `system.reboot` should not be live buttons on a public demo. Mock returns success without doing anything. Consider a "demo mode" badge so visitors know the state isn't real.
+- **Auth.** Session-cookie auth lives in `server.mjs`, which doesn't exist on Vercel. Confirm whether the React app has any login UI of its own or whether Express handles it entirely before serving the SPA.
+
+**Estimate:** 2-3 hours for something convincing, ~45 minutes for a crude version.
 
 ---
 

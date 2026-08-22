@@ -9,6 +9,7 @@ import { PowerModal } from "../components/PowerModal";
 import { usePolling } from "../hooks/usePolling";
 import { useVanStore } from "../store/van";
 import { useSettingsStore } from "../store/settings";
+import { isDemo } from "../api/client";
 import { useState } from "react";
 
 function PowerIcon() {
@@ -42,6 +43,11 @@ export function Dashboard() {
       <header className="flex items-center justify-between">
         <h1 className="text-lg font-mono font-bold text-zinc-600 tracking-tight">
           {vanName}
+          {isDemo && (
+            <span className="ml-2 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-widest text-amber-500 border border-amber-500/40 rounded align-middle">
+              demo
+            </span>
+          )}
         </h1>
         <div className="flex items-center gap-2">
           <div className="text-right">
