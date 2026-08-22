@@ -69,6 +69,8 @@ curl -X POST http://localhost:8000/battery/connect
 ### Cause
 Usually a DNS resolution issue — `van-pi.local` times out on some Mac setups before falling back to mDNS, adding ~5 seconds per request. The frontend polls every 5 seconds so requests pile up faster than they complete.
 
+> **Distinguishing from the WiFi-signal issue below:** DNS timeout adds a consistent ~5s delay per request, everything else is fast. WiFi signal issues make *everything* crawl, including SSH sessions, not just the browser.
+
 ### Fix
 Add the Pi's IP to your Mac's hosts file:
 ```bash
@@ -79,6 +81,64 @@ Find the correct IP first if it's changed:
 ```bash
 ping van-pi.local
 ```
+
+---
+
+## Dashboard slow to load / page hangs but Pi is reachable
+
+### Symptoms
+- `van-pi.local` eventually loads but takes 30-60+ seconds
+- SSH sessions feel laggy too, not just the browser
+- `top` / `free -h` on the Pi show normal CPU and memory (rules out the Pi itself)
+- Network tab in dev tools shows requests "Pending" for a long time or very slow transfer times on small files (e.g. a 14KB CSS file taking 30+ seconds)
+
+### Cause
+Weak or congested WiFi link between the Pi and the router, not an app or auth issue. Check the radio stats:
+```bash
+ssh todd@van-pi.local
+iwconfig wlan0
+```
+Look at:
+- **Tx excessive retries** — climbing into the hundreds means the link is struggling
+- **Signal level** — below about -65 dBm is marginal
+- **Bit Rate** — the radio falls back to a low rate (e.g. 13-14 Mb/s) when the link is unstable
+
+### Fix
+**Switch to 5GHz if the router supports it.** 2.4GHz is more congested and shorter-range-tolerant but noisier. Reconnecting the Pi to a 5GHz SSID (same network, different band) has resolved this outright — retries dropped from 300+ to 0 and bit rate roughly doubled.
+
+If power management is on, turn it off too (can cause latency spikes independent of signal strength):
+```bash
+sudo iwconfig wlan0 power off
+```
+Note: this resets on reboot/reconnect unless made persistent (see below).
+
+**To make power management off persistent across reboots**, add a systemd service or NetworkManager dispatcher rule — not yet set up as of this writing.
+
+**If neither helps**, consider a USB WiFi adapter with an external antenna. The Pi's onboard WiFi chip is known to be mediocre in marginal signal conditions.
+
+### Quick way to isolate WiFi vs. everything else
+Temporarily connect the Pi via Ethernet. If the dashboard loads fast and clean over Ethernet, the problem is confirmed to be WiFi, not the app, auth, or database.
+
+---
+
+## Frontend shows "ENOENT: no such file or directory ... dist/index.html"
+
+### Cause
+`van-frontend.service` is running but the built frontend (`frontend/dist/`) is missing or empty. Seen once after an unexpected full Pi reboot (not just a service restart) triggered by an unrelated `systemctl restart van-frontend` call — root cause of *why* the whole box rebooted wasn't confirmed, worth watching if it recurs.
+
+### Fix
+```bash
+ssh todd@van-pi.local
+ls -la /home/todd/van-control-panel/frontend/dist   # confirm it's actually missing/empty
+cd /home/todd/van-control-panel/frontend
+npm install
+npm run build
+sudo systemctl restart van-frontend
+sudo systemctl status van-frontend
+```
+
+### Note
+If you see `uptime` showing only a few minutes right after this error, the Pi rebooted rather than the service just restarting. A plain `systemctl restart` on `van-frontend` should not reboot the whole machine — if this happens again, check `journalctl -b -1 -n 50` (previous boot's last log lines) to try to catch the trigger, and rule out a power dip on the Pi's 12V feed around the same time.
 
 ---
 
