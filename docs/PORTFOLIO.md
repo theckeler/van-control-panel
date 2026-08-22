@@ -2,92 +2,80 @@
 
 ## Project Overview
 
-A fully self-hosted IoT monitoring and automation system for a converted 2023 Mercedes Sprinter VS30 AWD van. Built from the ground up as a personal project combining front-end development, embedded systems, and electrical engineering into a single cohesive product.
+A fully self-hosted IoT monitoring and automation system for a converted 2023 Mercedes Sprinter VS30 AWD van. Built from the ground up combining React/TypeScript front-end development, Python backend engineering, Bluetooth hardware integration, and 12V electrical system design.
 
-The system monitors a custom 12V electrical build in real time, automates van lighting and ventilation, captures interval photos from two cameras, and provides remote access via a secure tunnel — all running on a $35 Raspberry Pi mounted inside the van's electrical cabinet.
+The system monitors a custom 12V electrical build in real time — battery state of charge, solar input, charge state — controls smart relays for 12V loads, logs time-series data with tiered rollups, and provides remote access via a secure Tailscale tunnel. It runs entirely on a Raspberry Pi mounted inside the van's electrical cabinet.
+
+**Status:** Live and running in the van.
 
 ---
 
 ## The Problem
 
-Off-grid van living involves constant awareness of power — how much battery is left, how fast it's charging from solar or shore power, whether the alternator is topping it off while driving. Most builders check this by walking to the battery and reading a voltmeter, or by opening a manufacturer's app that only shows one device at a time.
+Off-grid van living requires constant awareness of power. Most builders check this by walking to the battery and reading a voltmeter, or by opening three separate manufacturer apps (one for the BMS, one for the MPPT, one for the shore charger) that each show one device at a time.
 
-The goal was a single dashboard that shows the full electrical picture, lets you switch the van's behavior based on context (parked for storage vs. active camping vs. in town), and gives remote visibility when you're away from the van.
+The goal was a single dashboard showing the full electrical picture, live from anywhere via Tailscale, with real-time load control and enough historical data to understand seasonal solar yield and battery health over time.
 
 ---
 
 ## What Was Built
 
 ### Custom 12V Electrical System
-Before writing a line of code, the underlying electrical system had to be designed and built. This involved:
+The software monitors hardware that had to be designed and wired first:
+- Renogy 200W ShadowFlux N-Type rigid panel → Victron SmartSolar MPPT 75/15
+- Power Queen 12V 100Ah LiFePO4 battery with Bluetooth BMS
+- Blue Sea Systems 5025 100A fuse panel for load distribution
+- Shelly 1 Gen4 smart relays on USB outlets, fan, lighting circuits
+- Garmin PowerSwitch for accessory control (Starlink, exterior lights)
+- All wiring sized for planned 300Ah upgrade without rewiring
 
-- Two-panel modular architecture — lower panel for battery protection hardware (ANL fuse, main disconnect, bus bars), upper panel for charge sources and distribution
-- DIN rail terminal blocks at all external wire entry/exit points for clean serviceability
-- Victron SmartSolar MPPT 75/15 for solar charge control
-- Victron Blue Smart IP22 for shore power charging
-- Victron Orion-Tr DC-DC charger for alternator charging (upgrading to Orion XS 50A)
-- Power Queen 100Ah LiFePO4 battery with Bluetooth BMS (upgrading to 300Ah)
-- Shelly 1 Gen4 smart relays for automated lighting, fan, and USB outlet control
-- Blue Sea Systems protection hardware throughout (5191 MRBF, 6006 disconnect, 5046 fuse block, 285 breakers)
-- All wiring sized for the full upgrade path — 2 AWG main feed, 8 AWG charge source runs — so the system never needs rewiring as it grows
+### Backend (Python / FastAPI)
+- FastAPI + uvicorn serving all data endpoints
+- **Victron MPPT via BLE** — `victron-ble` library decrypts advertisement packets using a device-specific encryption key from VictronConnect. One-shot passive scan every 30 seconds
+- **Power Queen BMS via BLE** — `pq_bms_bluetooth` (reverse-engineered library) using FFE1 characteristic. Persistent connection to prevent BMS firmware from entering a lockout state from rapid reconnects
+- **Shelly control** — httpx async calls to Shelly local REST API via mDNS hostnames
+- **SQLite time-series logging** — tiered rollup architecture: raw (30 days) → hourly (1 year) → daily (forever) → monthly (forever)
+- `pydantic-settings` for environment-based configuration, secrets in `.env`
 
-### PWA Dashboard (Frontend)
-- **Vite + React 18 + TypeScript** — same production stack used professionally
-- **Tailwind CSS** with a custom design token system built around the van's orange accent theme
-- **Zustand** for lightweight real-time state management
-- **Recharts** for SOC trend and solar yield visualization
-- **Dexie.js** for IndexedDB offline cache — last known values persist when the Pi is unreachable
-- 5-second polling via custom `usePolling` hook with `Promise.allSettled` so partial API failures never break the UI
-- Responsive, mobile-first layout optimized for iPhone use in the van
-
-### FastAPI Backend (Backend)
-- **FastAPI + uvicorn** serving all data endpoints
-- **pq_bms_bluetooth** — unofficial Python library to read the Power Queen LiFePO4 BMS via Bluetooth LE without pairing
-- **vedirect** — Python library for Victron VE.Direct serial protocol, reading MPPT and shore charger in real time
-- **httpx** async client for Shelly Gen4 local REST API
-- **systemd timers** for camera capture scheduling and rolling 24-hour retention cleanup
-- Static file serving for camera photos via FastAPI mount
-
-### Camera System
-- Interior: Raspberry Pi Camera Module 3 Wide (12MP, 120° FOV, CSI interface) — sanity check on van contents and climate
-- Exterior: USB webcam via `fswebcam` — area awareness
-- 30-minute interval capture with automatic 2-hour extension overnight to reduce SD card wear
-- Rolling 24-hour retention with mtime-based cleanup
-- Swipe gallery in the PWA for reviewing recent captures
+### Frontend (React / TypeScript)
+- Vite + React 18 + TypeScript + Tailwind CSS
+- Zustand store with `Promise.allSettled` — partial API failures never break the UI
+- 5-second polling via custom `usePolling` hook
+- Battery card shows last known values when BLE is offline with elapsed time and reconnect countdown timer
+- Recharts for history charts (data accumulating)
+- Served by Express (Node) with optional basic auth and `/api/*` proxy to FastAPI
 
 ### Infrastructure
-- **Raspberry Pi 4B 1GB** — local server, always on, 3-5W draw
-- **Tailscale** — zero-config encrypted tunnel for remote access when Starlink has internet
-- **Starlink Mini** — WAN internet plus local WiFi hotspot
-- **Operating modes** (Storage, Camp, Trail, In Town) — switch the van's behavior based on context, adjusting camera intervals and Shelly automation schedules
+- Self-hosted GitHub Actions runner on the Pi — push to `backend/**` or `frontend/**` auto-deploys
+- Tailscale mesh VPN for remote access, no port forwarding, works behind Starlink CGNAT
+- WiFi failover configured: home network primary, Starlink auto-fallback
+- Shellys configured with both home and Starlink WiFi profiles
 
 ---
 
 ## Technical Decisions Worth Noting
 
-**Single-board computer selection:** The Raspberry Pi 4B was chosen over the Pi Zero 2W for its ability to handle concurrent BLE polling, two VE.Direct serial connections, camera capture, and a FastAPI server simultaneously. The Pi Zero 2W would handle individual tasks but not all of them reliably at once.
+**BLE over VE.Direct for Victron.** The MPPT has a VE.Direct port and Victron sells a USB cable for it. BLE was chosen instead because the SmartSolar broadcasts encrypted advertisement packets continuously — no cable needed, no USB port consumed, works with the same Bluetooth adapter already required for the BMS.
 
-**FastAPI over Flask:** Async-first design is the right fit here — multiple hardware polling loops run concurrently alongside API request handling. FastAPI's Pydantic models also produce TypeScript-compatible schemas directly, keeping the frontend types in sync with the backend with minimal overhead.
+**Persistent BMS connection vs polling.** The Power Queen BMS firmware has a protection mechanism that stops responding to connection requests if too many rapid attempts are made. A persistent connection (connect once, hold it, read every 30 seconds) prevents this. On disconnect a 5-minute cooldown before reconnecting prevents the lockout state from occurring during normal operation.
 
-**Zustand over Redux:** The state shape for this application is flat and straightforward — battery data, MPPT data, Shelly states, current mode. Redux would be architectural overhead without meaningful benefit. Zustand's selector-based subscriptions give components exactly the re-render behavior needed.
+**Vendored library.** `pq_bms_bluetooth` is a small reverse-engineered Python library with no PyPI package. Rather than depending on a GitHub URL, the two relevant files were copied directly into the project under `app/services/` with the import path updated. This keeps the dependency explicit and under version control.
 
-**Mock-first development:** All FastAPI routers return realistic mock data by default. The entire frontend can be developed and tested on a Mac without the Pi, Shellys, or any electrical hardware. Real hardware integration slots in behind environment-flag-gated service calls.
+**Tiered SQLite rollups over a hosted time-series DB.** InfluxDB and TimescaleDB are the standard tools for this. For a single Pi with one user, a 150-line `db.py` using the stdlib `sqlite3` module handles 30 days of raw data, a year of hourly rollups, and unlimited daily/monthly summaries with zero infrastructure overhead.
 
-**JPEG over WebP for photos:** At 30-minute intervals and 24-hour retention, total storage per camera is 20-45MB. The file size savings from WebP were not worth the added conversion step. JPEG is universally supported, has no conversion overhead, and is directly servable as a static file.
+**Express over nginx for the frontend server.** Nginx is the conventional choice. Express lets the auth middleware, API proxy, and static file serving live in one 40-line JavaScript file that's readable, version-controlled, and restarted by the same systemd pattern as the FastAPI service.
 
-**Tailscale over port forwarding:** Port forwarding the Pi to the public internet would require a static IP, firewall rules, and ongoing security maintenance. Tailscale gives encrypted point-to-point access with zero configuration on the router and no public exposure.
+**Self-hosted CI/CD runner over SSH deployment.** GitHub Actions runners work by polling GitHub from the Pi, so there's no inbound connection needed. This works perfectly behind Starlink CGNAT where port forwarding is unavailable. Push to main, runner picks up the job, deploys in ~10 seconds.
 
 ---
 
-## Upgrade Path Already Designed
+## Hard Problems Encountered
 
-The system was designed from the start with a clear upgrade sequence that the codebase can absorb without rewiring or architectural changes:
+**BMS lockout.** During development, rapid van-api restarts caused ~30 BLE connection attempts in quick succession. The BMS firmware locked out the Pi's MAC address — connecting but returning no data. Fix: physical power cycle of the BMS (house disconnect). Prevention: 5-minute reconnect cooldown. Documented in `docs/rubber-duck-review.md`.
 
-1. **300Ah battery** — BLE library reads new unit automatically, no code change
-2. **Orion XS 50A DC-DC charger** — `orion.py` router already structured for VE.Direct swap; input wire upsizes to 6 AWG at install
-3. **GL.iNet travel router** — persistent local WiFi network independent of Starlink; update Shelly IPs if subnet changes
-4. **Victron Cerbo GX** — when system grows to 4+ Victron devices, replaces individual VE.Direct polling with a single MQTT subscription
-5. **Dometic RTX 2000 rooftop AC** — long-term; requires full prerequisite chain (dual battery, larger MPPT, Orion XS 100A, upsize main feed to 2/0 AWG)
+**BlueZ InProgress error on restart.** Every van-api restart hit `[org.bluez.Error.InProgress]` immediately because the previous session's BLE operation hadn't cleared from BlueZ. Fix: 5-second startup delay in the BMS service to let BlueZ settle.
+
+**mDNS resolution adding 5 seconds to every request.** `van-pi.local` was timing out on DNS before falling back to mDNS, adding ~5 seconds to every API call. The frontend poll fires every 5 seconds so requests piled up faster than they completed. Fix: add `192.168.1.99 van-pi.local` to `/etc/hosts` on dev machines, and use the Pi's Tailscale IP in the Vite dev proxy config.
 
 ---
 
@@ -95,16 +83,20 @@ The system was designed from the start with a clear upgrade sequence that the co
 
 | Area | Specifics |
 |---|---|
-| Frontend development | React 18, TypeScript, Vite, Tailwind CSS, Zustand, Recharts, Dexie.js |
-| API design | RESTful FastAPI with Pydantic models, async endpoints, static file serving |
-| Embedded systems | Raspberry Pi, BLE, serial (VE.Direct), USB camera, systemd, udev |
-| Electrical engineering | 12V DC system design, wire sizing, fuse coordination, protection hardware, LiFePO4 BMS |
-| IoT integration | Shelly REST API, Victron VE.Direct protocol, Power Queen BLE protocol |
-| DevOps | Tailscale VPN, systemd services, Pi headless deployment, SSH workflow |
-| System design | Modular two-panel electrical architecture, mock-first API development, upgrade path planning |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS, Zustand, Recharts |
+| API design | FastAPI, Pydantic v2, async endpoints, tiered data architecture |
+| BLE / hardware | Bluetooth LE protocol reverse engineering, bleak, victron-ble, persistent connection management |
+| Electrical | 12V DC system design, LiFePO4 BMS, solar charge control, wire sizing, protection hardware |
+| IoT | Shelly REST API, Victron BLE advertisement decryption, Power Queen BMS protocol |
+| DevOps | Tailscale, systemd, self-hosted GitHub Actions, SQLite, Pi deployment |
+| System design | Time-series rollup architecture, BLE concurrency, graceful offline degradation |
 
 ---
 
-## Project Status
+## What's Next
 
-Active — the electrical system is functional in the van. The PWA and backend are in active development, being built and tested against mock data on a Mac, with hardware integration planned once the Pi is mounted and wired. The spring build (300Ah battery, Orion XS 50A, HDPE panel transfer from pegboard prototype) will be when the full system comes online.
+- History charts in the frontend (SQLite is logging, chart components need wiring)
+- Camera timelapse system (awaiting USB webcam)
+- Mode persistence across Pi reboots
+- Victron Orion XS 50A DC-DC charger upgrade (adds live alternator charging data)
+- 300Ah LiFePO4 battery upgrade (BLE library reads new unit automatically)

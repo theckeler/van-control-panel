@@ -96,34 +96,33 @@ Last known values stay in Zustand state between polls. Dexie.js IndexedDB cache 
 ```
 app/
 ├── main.py                FastAPI app
-│                          CORS: allow all origins (local network only)
+│                          Lifespan: starts BLE orchestrator + data logger tasks
 │                          Static mount: /static/photos → backend/photos/
-│                          Router includes for all modules
 │
 └── routers/               Each router is a standalone module
-    ├── battery.py         → pq_bms_bluetooth BLE service (TODO: real impl)
-    ├── mppt.py            → vedirect serial service (TODO: real impl)
-    ├── shore.py           → vedirect serial service (TODO: real impl)
-    ├── orion.py           → static config + in-memory toggle
-    ├── shelly.py          → httpx async calls to Shelly local REST API
-    ├── camera.py          → filesystem reads from photos/ directory
-    ├── mode.py            → in-memory mode state (TODO: persist to SQLite)
-    └── system.py          → aggregates battery + mppt + shore + orion
+    ├── battery.py         → battery_ble service (live BLE, persistent connection)
+    ├── mppt.py            → victron_ble service (live BLE, one-shot scan)
+    ├── shore.py           → always returns disconnected (no VE.Direct cable)
+    ├── orion.py           → static config + in-memory toggle (non-smart unit)
+    ├── shelly.py          → httpx async calls to Shelly local REST API (.local mDNS)
+    ├── camera.py          → not yet implemented (awaiting hardware)
+    ├── mode.py            → in-memory mode state (resets on restart)
+    └── system.py          → real math from BMS + MPPT caches
 ```
 
-**Real service implementation plan:**
-Each router currently returns mock data. The production implementation adds a `services/` layer:
-
+**Services layer:**
 ```
 services/
-├── ble_battery.py         Async BLE polling loop via pq_bms_bluetooth
-│                          Updates shared state dict every 10s
-├── vedirect_mppt.py       Serial polling loop for MPPT via /dev/ttyUSB0
-├── vedirect_shore.py      Serial polling loop for IP22 via /dev/ttyUSB1
-└── camera_capture.py      Called by systemd timer, not by FastAPI directly
+├── battery_ble.py         Persistent BLE connection to Power Queen BMS
+│                          FFE1 characteristic, reads every 30s, 5-min reconnect cooldown
+├── victron_ble.py         One-shot BLE scan for Victron MPPT every 30s
+│                          Uses victron-ble library to decrypt advertisements
+├── ble_orchestrator.py    asyncio.gather() — runs both BLE services concurrently
+├── data_logger.py         Writes readings to SQLite every 30s, triggers rollups
+├── db.py                  SQLite schema, 4-tier rollup, prune, query helpers
+├── pq_battery.py          Vendored: pq_bms_bluetooth parse logic
+└── pq_request.py          Vendored: pq_bms_bluetooth BLE request helper
 ```
-
-Routers read from the shared state dicts populated by these service loops. Services run as background asyncio tasks started in `main.py` lifespan handler.
 
 ---
 

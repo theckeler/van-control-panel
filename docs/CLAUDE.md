@@ -1,180 +1,211 @@
 # CLAUDE.md — Van Control Panel
 
-This file gives Claude Code full context on the project so it can assist effectively without re-explaining the architecture every session.
+Context file for Claude Code. Gives full project context so sessions don't require re-explaining the architecture.
 
 ---
 
 ## What This Project Is
 
-A self-hosted PWA that monitors and controls the 12V electrical system in a 2023 Mercedes Sprinter VS30 AWD 144" High Roof van. It runs on a Raspberry Pi 4B mounted inside the van's electrical cabinet. The frontend is a Vite + React + TypeScript PWA served over local WiFi. The backend is a FastAPI Python server that reads real hardware data and controls Shelly relay units.
+A self-hosted IoT monitoring and control dashboard for a converted 2023 Mercedes Sprinter VS30 AWD van. Runs fully on a Raspberry Pi inside the van. Frontend is a React/TypeScript SPA served by an Express server. Backend is a FastAPI Python server reading real hardware via BLE and WiFi REST.
+
+**Status:** Live and running on the Pi. All core data sources are real — no mock data in production.
 
 ---
 
 ## Van Context
 
 - **Vehicle:** 2023 Mercedes Sprinter VS30 AWD 144" High Roof (cargo conversion)
-- **Owner:** Todd — DIY builder, front-end developer, handles all electrical work himself
-- **Use:** Camping (Midwest + East Coast, primarily wooded — limits solar yield), mountain biking (Copper Harbor MI, Adirondacks)
-- **Electrical philosophy:** Buy once, buy right. Size for the next meaningful system state, not just current loads
+- **Owner:** Todd — DIY builder, front-end developer
+- **Use:** Camping (Adirondacks, Midwest), mountain biking (Copper Harbor, Adirondacks)
 
 ---
 
-## Current Electrical System State
+## Actual Implementation (not planned — what's really running)
 
-| Component | Model | Status |
-|---|---|---|
-| House battery | Power Queen 100Ah LiFePO4 (Group 24) | Active. Spring upgrade to 300Ah planned |
-| Solar | Renogy 200W ShadowFlux N-Type | Active |
-| MPPT | Victron SmartSolar 75/15 | Active. VE.Direct connected |
-| Shore charger | Victron Blue Smart IP22 12/15A | Active. VE.Direct connected |
-| DC-DC charger | Victron Orion-Tr 12/12-18 (non-smart) | Active. Static data only — no VE.Direct |
-| DC-DC upgrade | Victron Orion XS 50A | Planned spring. Will add live VE.Direct data |
-| Smart relays | Shelly 1 Gen4 x4 | Maxxfan, ceiling lights, USB outlets, spare |
-| Remote | Shelly BLU RC Button 4 | Bluetooth physical control, no internet needed |
-| Fuse block | Blue Sea 5046 12-circuit | Branch circuits |
-| Main protection | Blue Sea 5191 MRBF at battery terminal | 200A fuse |
-| Disconnect | Blue Sea 6006 rotary | 300A |
-| Distribution | Blue Sea 5196 MRBF 3-circuit | Orion-Tr + PowerSwitch circuits |
-| Switch controller | Garmin PowerSwitch | Starlink, EcoFlow, light bar, KC ditch lights |
-| Cooler | Dometic CFX2 28L | Fed by EcoFlow River 2 Max (separate system) |
-| Connectivity | Starlink Mini | WAN + local WiFi hotspot |
+### BLE Services
+
+**Victron SmartSolar MPPT 75/15** — BLE via `victron-ble` library (NOT VE.Direct). The MPPT broadcasts advertisement packets. A one-shot scanner fires every 30 seconds, captures one packet, parses it. There is no VE.Direct cable.
+
+**Power Queen 100Ah LiFePO4 BMS** — BLE via `pq_bms_bluetooth` (vendored into `app/services/pq_battery.py` + `pq_request.py`). Uses FFE1 characteristic. Persistent connection — connects once and holds it, reading every 30 seconds. Reconnect cooldown is 5 minutes to prevent BMS firmware lockout.
+
+**BMS lockout behaviour** — If too many rapid connection attempts are made, the BMS accepts connections but stops responding to commands. Fix: physically power-cycle the BMS (flip the house main disconnect). Prevention: the 5-minute `RECONNECT_IN` constant.
+
+### Shelly Control
+
+Two Shelly 1 Gen4 units installed, two planned. Uses `.local` mDNS hostnames (NOT hardcoded IPs):
+- `shelly1g4-d885acec6aac.local` → USB outlets
+- `shelly1g4-d885acf36a28.local` → Garage
+
+Control via httpx async HTTP to Shelly local REST API. Both units have home WiFi + Starlink configured as dual-WiFi profiles.
+
+### Frontend Server
+
+Served by **Express** (`frontend/server.mjs`) on port 80. NOT nginx. Express:
+- Serves the built React SPA from `/var/www/van` (production) or `dist/` (dev)
+- Proxies `/api/*` to uvicorn at `localhost:8000`
+- Optional basic auth via `VAN_PASSWORD` in `.env`
+
+### Data Logging
+
+SQLite database at `backend/van_power.db`. Four-tier time-series storage:
+- `readings_raw` — every reading, 30-day retention
+- `readings_hourly` — avg/min/max per hour, 1-year retention
+- `readings_daily` — daily summaries, forever
+- `readings_monthly` — monthly summaries, forever
+
+Rollups happen automatically at hour/day/month boundaries in `app/services/data_logger.py`.
+
+### Access
+
+| Method | URL |
+|---|---|
+| Local | `http://van-pi.local` |
+| Tailscale | `http://van-pi.tailba93b9.ts.net` |
+| Public (Funnel) | `https://van-pi.tailba93b9.ts.net` (run: `sudo tailscale funnel --bg 80`) |
+
+### CI/CD
+
+Self-hosted GitHub Actions runner on the Pi. Push to `backend/**` → auto deploys. Push to `frontend/**` → builds and deploys. Workflows in `.github/workflows/`.
+
+Deploy workflow uses `git fetch && git reset --hard origin/main` (not `git pull`) because the Pi may have locally modified files from rsync during development.
 
 ---
 
 ## Tech Stack
 
 ### Frontend
-- **Framework:** Vite + React 18 + TypeScript
-- **Styling:** Tailwind CSS
-- **State:** Zustand (`src/store/van.ts`)
-- **Data:** Polling via `usePolling` hook (5s interval), Dexie.js for offline cache
-- **Charts:** Recharts (SOC trend, solar yield)
-- **Routing:** React Router v6
+- Vite + React 18 + TypeScript
+- Tailwind CSS with custom design tokens
+- Zustand (`src/store/van.ts`) — `Promise.allSettled` so partial API failures don't break the UI
+- `usePolling` hook — 5-second interval
+- Recharts — history charts (data accumulating in SQLite)
+- React Router v6
 
 ### Backend
-- **Framework:** FastAPI (Python 3.11+)
-- **Server:** uvicorn
-- **BLE:** `pq_bms_bluetooth` — unofficial Power Queen BMS library, read-only, no pairing required
-- **VE.Direct:** `vedirect` Python library — MPPT and IP22 serial data
-- **Shelly control:** `httpx` async REST calls to Shelly Gen4 local API
-- **Camera:** `rpicam-still` (CSI interior), `fswebcam` (USB exterior)
-- **Scheduling:** systemd timers for camera capture and cleanup
+- FastAPI + uvicorn on port 8000
+- Python 3.13 on Debian Trixie (arm64)
+- `victron-ble` + `bleak` — MPPT passive BLE scan
+- `pq_bms_bluetooth` (vendored) + `bleak` — BMS active BLE connection
+- `httpx` — async Shelly REST calls
+- `pydantic-settings` — config via `.env` file
+- SQLite (stdlib `sqlite3`) — time-series logging
 
 ### Infrastructure
-- **Compute:** Raspberry Pi 4B 1GB
-- **Storage:** SanDisk Endurance 32GB microSD
-- **Power:** 12V → USB-C 5V 3A buck converter, fused at 3A from fuse block
-- **Remote:** Tailscale (install: `curl -fsSL https://tailscale.com/install.sh | sh`)
-- **Network:** Starlink Mini as primary WiFi. Pi can run hotspot as fallback when Starlink is off
+- Raspberry Pi (arm64, Debian Trixie)
+- Tailscale — VPN + Funnel
+- Starlink Mini — primary WiFi, home WiFi as secondary DHCP profile
+- GitHub Actions self-hosted runner
 
 ---
 
-## Project File Map
+## File Map
 
 ```
-frontend/src/
-  api/client.ts          Typed fetch wrapper for all FastAPI endpoints
-  store/van.ts           Zustand store — fetchAll, toggleShelly, setMode
-  hooks/usePolling.ts    setInterval polling hook, 5s default
-  types/index.ts         All TypeScript interfaces matching FastAPI Pydantic models
-  components/
-    BatteryCard.tsx      SOC display, color coded, progress bar
-    ChargeSourcesCard.tsx Solar / Shore / Orion rows with active state
-    ShellyPanel.tsx      Circuit toggles with orange accent
-    ModeSelector.tsx     Storage / Camp / Trail / In Town mode buttons
-  pages/
-    Dashboard.tsx        Main view — mode, battery, charge sources, shellys, camera link
-    Cameras.tsx          Interior + exterior latest photos
-
 backend/app/
-  main.py                FastAPI app, CORS, static file mount for photos
+  config.py              pydantic-settings, reads .env
+  main.py                FastAPI app, lifespan starts BLE orchestrator + data logger
   routers/
-    battery.py           Power Queen BMS data (mock → real BLE service)
-    mppt.py              MPPT 75/15 VE.Direct data
-    shore.py             IP22 shore charger VE.Direct data
-    orion.py             Orion-Tr static config + manual toggle
-    shelly.py            Shelly Gen4 REST — get all, get one, toggle
-    camera.py            Latest photo, recent gallery, on-demand capture
-    mode.py              Mode state — get current, set mode
-    system.py            Aggregated system overview
-  photos/
-    interior/            Rolling 24hr JPEG storage
-    exterior/
+    battery.py           /battery/ — BMS data (real), history endpoints
+    mppt.py              /mppt/ — Victron data (real), history endpoints
+    shelly.py            /shelly/ — live Shelly toggle via httpx
+    system.py            /system/ — net power, runtime estimates (real math)
+    orion.py             /orion/ — static config (non-smart unit)
+    shore.py             /shore/ — always returns disconnected (no cable)
+    mode.py              /mode/ — in-memory mode (resets on restart, TODO: persist)
+    camera.py            /photos/ — not yet implemented, returns 404
+  services/
+    battery_ble.py       Power Queen persistent BLE connection
+    victron_ble.py       Victron one-shot BLE scan
+    ble_orchestrator.py  Runs both as asyncio tasks via gather()
+    data_logger.py       Writes readings to SQLite, triggers rollups
+    db.py                SQLite schema, write, rollup, prune, query functions
+    pq_battery.py        Vendored: pq_bms_bluetooth parse logic
+    pq_request.py        Vendored: pq_bms_bluetooth BLE request
+
+frontend/
+  server.mjs             Express server — serves dist/, proxies /api/*, optional auth
+  src/
+    api/client.ts        Typed fetch wrapper
+    store/van.ts         Zustand store
+    hooks/usePolling.ts  5-second polling
+    types/index.ts       TypeScript interfaces (keep in sync with Pydantic models)
+    components/
+      BatteryCard.tsx    SOC, voltage, temp — shows last known values when offline
+                         with last-seen time and retry countdown
+      ChargeSourcesCard  Solar / Shore / Orion rows
+      ShellyPanel.tsx    Per-unit toggles
+      ModeSelector.tsx   Storage / Camp / Trail / In Town
+    pages/
+      Dashboard.tsx      Main view
+      Cameras.tsx        Photo gallery (cameras not yet installed)
 ```
 
 ---
 
-## Key Conventions
+## Environment Variables
 
-**API proxy in dev:**
-All frontend API calls go to `/api/*`. Vite proxies to `http://van-pi.local:8000` (or Pi IP). No CORS issues in dev.
+`backend/.env` on the Pi (gitignored). See `backend/.env.example`.
 
-**Mock data:**
-All routers return hardcoded mock data by default. Replace with real service calls when hardware is connected. Never remove the mock — keep it behind an env flag so dev works without the Pi.
-
-**Shelly IP config:**
-`backend/app/routers/shelly.py` has a `SHELLY_UNITS` dict. Update the IPs to match your network before deploying to Pi. IPs should be assigned as DHCP reservations on Starlink Mini or GL.iNet router.
-
-**Orion-Tr is static:**
-The current Orion-Tr 12/12-18 has no VE.Direct port. `orion.py` returns a hardcoded config object with a manual on/off toggle. When upgraded to Orion XS 50A: add VE.Direct cable, add `vedirect` polling service, replace static response with live data. The `orion.py` router is already structured for this swap.
-
-**Camera paths:**
-Photos save to `backend/photos/{interior|exterior}/{camera}_{ISO8601}.jpg`. FastAPI mounts this directory at `/static/photos/`. The frontend references photos via this static URL. Rolling cleanup deletes files older than 24-30 hours via a systemd timer (not yet implemented — add `backend/scripts/cleanup.py`).
-
-**Mode system:**
-Mode is stored in memory (`_current_mode` in `mode.py`). On Pi this resets on restart — persist to a JSON file or SQLite if you want mode to survive reboots. Mode switching should also trigger systemd timer interval changes (not yet implemented).
-
-**Color system (Tailwind):**
 ```
-panel-bg      #0d0d0f   Main background
-panel-surface #16181c   Card background
-panel-border  #222428   Card borders
-accent        #e07020   Orange — matches van exterior (ditch lights, steps, shackles)
-charge-solar  #22c55e   Green
-charge-shore  #3b82f6   Blue
-charge-dc     #a855f7   Purple
-soc-good      #22c55e   >50%
-soc-mid       #f59e0b   20-50%
-soc-low       #ef4444   <20%
+VICTRON_MAC=E8:18:52:D1:81:B7
+VICTRON_KEY=<32-char hex from VictronConnect → Product info>
+BMS_MAC=C8:47:80:5D:08:6F
+VAN_PORT=80
+VAN_USER=van
+VAN_PASSWORD=<dashboard password>
+VAN_API_KEY=
 ```
 
 ---
 
-## Upgrade Path (affects this codebase)
+## Key Constants
 
-| Trigger | Code change needed |
-|---|---|
-| Orion XS 50A installed | Replace `orion.py` static mock with VE.Direct polling service |
-| 300Ah battery upgrade | No code change — BLE library auto-reads new unit if same protocol |
-| GL.iNet travel router added | Update Shelly IPs if subnet changes |
-| Cerbo GX added | Replace individual VE.Direct polling with MQTT subscription |
-| Frigate / motion detection | Separate Pi, separate service — do not add to this repo |
+| Constant | File | Value | Notes |
+|---|---|---|---|
+| `RECONNECT_IN` | battery_ble.py | 300s | BMS reconnect cooldown |
+| `STARTUP_DELAY` | battery_ble.py | 5s | Clears BlueZ InProgress on restart |
+| `READ_EVERY` | battery_ble.py | 30s | BMS read interval |
+| `VICTRON_INTERVAL` | ble_orchestrator.py | 30s | MPPT scan interval |
+| `LOG_INTERVAL` | data_logger.py | 30s | SQLite write interval |
+| `RAW_RETAIN_DAYS` | db.py | 30 | Days to keep raw readings |
+| `HOURLY_RETAIN_DAYS` | db.py | 365 | Days to keep hourly rollups |
+| `STALE_AFTER` (BMS) | battery_ble.py | 120s | Seconds before BMS cache is stale |
+| `STALE_AFTER` (MPPT) | victron_ble.py | 120s | Seconds before MPPT cache is stale |
 
 ---
 
-## Dev Notes
+## Systemd Services on Pi
 
-**Run backend locally without Pi:**
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
-All endpoints return mock data. The Pi is not required for frontend development.
-
-**Venus OS Docker (for VE.Direct dev/test on Mac):**
-Use `iuriaranda/venus-docker` (Apple Silicon fork). The official `victronenergy/venus-docker` is x86 only.
-
-**SSH to Pi:**
-```bash
-ssh todd@van-pi.local
-# or via Tailscale
-ssh todd@100.x.x.x
+van-api          FastAPI backend (uvicorn :8000)
+van-frontend     Express frontend (:80)
+actions-runner   GitHub Actions self-hosted runner
+bluetooth        BLE adapter
+tailscaled       Tailscale VPN
 ```
 
-**Deploy frontend to Pi:**
-```bash
-cd frontend
-npm run build
-# Copy dist/ to Pi, serve via nginx or FastAPI StaticFiles
-```
+---
+
+## Known Limitations / TODOs
+
+- **Mode does not persist** across Pi reboots — resets to `camp`. TODO: write to JSON file
+- **Camera system** not yet implemented — awaiting USB webcam hardware
+- **Shore charger** always returns disconnected — no VE.Direct cable purchased
+- **Orion-Tr** is non-smart, returns static config — upgrade to Orion XS 50A planned
+- **History charts** in frontend — endpoints exist, SQLite is logging, frontend chart components need wiring up
+- **CORS** is `allow_origins=["*"]` — fine for local/Tailscale, tighten if Funnel is used long-term
+- **Maxxfan and Ceiling Lights** Shellys not yet installed — show as `installed: false` in API
+
+---
+
+## Conventions
+
+**No VE.Direct.** Early planning docs mention VE.Direct cables and the `vedirect` Python library. These were never used. All Victron data comes via BLE (`victron-ble` library). Do not suggest VE.Direct-based solutions.
+
+**No nginx.** nginx was briefly used and replaced by the Express server (`server.mjs`). Do not suggest nginx.
+
+**Commit via osascript.** Git push works via osascript using the macOS keychain credential helper. The remote is HTTPS with `git config credential.helper osxkeychain`. SSH key for GitHub is not set up on the Mac.
+
+**Deploy workflow uses `git reset --hard`.** Not `git pull`. The Pi may have locally modified files from rsync sessions during development.
+
+**Prompt before committing.** Always stage files, show the diff summary, and ask before committing or pushing.
