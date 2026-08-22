@@ -1,8 +1,13 @@
 import { create } from 'zustand'
-import type { BatteryData, MpptData, ShoreData, OrionData, ShellyUnit, SystemData, ModeResponse } from '../types'
+import type {
+  BatteryData, MpptData, ShoreData, OrionData,
+  ShellyUnit, SystemData, ModeResponse,
+  RawReading, HourlyReading, DailyReading,
+} from '../types'
 import { api } from '../api/client'
 
 interface VanStore {
+  // Live data
   battery: BatteryData | null
   mppt: MpptData | null
   shore: ShoreData | null
@@ -14,7 +19,16 @@ interface VanStore {
   lastUpdated: Date | null
   error: string | null
 
+  // History data
+  socRaw: RawReading[]
+  solarRaw: RawReading[]
+  dailyHistory: DailyReading[]
+  hourlyHistory: HourlyReading[]
+  historyLoaded: boolean
+
+  // Actions
   fetchAll: () => Promise<void>
+  fetchHistory: () => Promise<void>
   toggleShelly: (id: string, on: boolean) => Promise<void>
   setMode: (mode: string) => Promise<void>
 }
@@ -30,6 +44,12 @@ export const useVanStore = create<VanStore>((set, get) => ({
   loading: false,
   lastUpdated: null,
   error: null,
+
+  socRaw: [],
+  solarRaw: [],
+  dailyHistory: [],
+  hourlyHistory: [],
+  historyLoaded: false,
 
   fetchAll: async () => {
     set({ loading: true, error: null })
@@ -55,8 +75,28 @@ export const useVanStore = create<VanStore>((set, get) => ({
         loading: false,
         lastUpdated: new Date(),
       })
-    } catch (err) {
+    } catch {
       set({ loading: false, error: 'Failed to fetch van data' })
+    }
+  },
+
+  fetchHistory: async () => {
+    try {
+      const [socRaw, solarRaw, daily, hourly] = await Promise.allSettled([
+        api.battery.history.raw(24),
+        api.mppt.history.raw(24),
+        api.mppt.history.daily(30),
+        api.battery.history.hourly(7),
+      ])
+      set({
+        socRaw:       socRaw.status   === 'fulfilled' ? socRaw.value   : get().socRaw,
+        solarRaw:     solarRaw.status === 'fulfilled' ? solarRaw.value : get().solarRaw,
+        dailyHistory: daily.status    === 'fulfilled' ? daily.value    : get().dailyHistory,
+        hourlyHistory:hourly.status   === 'fulfilled' ? hourly.value   : get().hourlyHistory,
+        historyLoaded: true,
+      })
+    } catch {
+      set({ historyLoaded: true })
     }
   },
 

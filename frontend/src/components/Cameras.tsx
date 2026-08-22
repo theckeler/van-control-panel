@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { Photo } from "../types";
 
-export function Cameras() {
+export function Cameras({ className }: { className?: string }) {
   const [interiorLatest, setInteriorLatest] = useState<Photo | null>(null);
   const [exteriorLatest, setExteriorLatest] = useState<Photo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -19,7 +19,7 @@ export function Cameras() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-panel-bg text-zinc-100 max-w-2xl mx-auto">
+    <div className={className}>
       {/* <header className="flex items-center gap-3 mb-6 pt-2">
         <a href="/" className="text-zinc-600 font-mono hover:text-zinc-400">←</a>
         <div>
@@ -33,22 +33,21 @@ export function Cameras() {
           Loading...
         </div>
       ) : (
-        <div className="space-y-4">
-          <CameraPane label="Interior" photo={interiorLatest} />
-          <CameraPane label="Exterior" photo={exteriorLatest} />
-        </div>
+        <CameraPane photo={interiorLatest} />
       )}
     </div>
   );
 }
 
-function CameraPane({ label, photo }: { label: string; photo: Photo | null }) {
+function CameraPane({ label, photo }: { label?: string; photo: Photo | null }) {
   return (
     <div className="bg-panel-surface border border-panel-border rounded-xl overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-panel-border">
-        <span className="text-xs font-mono text-zinc-500 uppercase tracking-widest">
-          {label}
-        </span>
+      <div className="flex items-center justify-between border-b border-panel-border">
+        {label && (
+          <span className="text-xs font-mono text-zinc-500 uppercase tracking-widest">
+            {label}
+          </span>
+        )}
         {photo && (
           <span className="text-xs font-mono text-zinc-600">
             {photo.timestamp}

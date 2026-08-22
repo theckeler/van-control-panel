@@ -4,6 +4,7 @@ from app.services import battery_ble, victron_ble
 from app.routers import mode as mode_router
 from app.routers import orion as orion_router
 from app.routers.shelly import SHELLY_UNITS
+from app.routers.shore import SHORE_INFERENCE_THRESHOLD
 
 router = APIRouter()
 
@@ -105,9 +106,14 @@ async def get_system():
     charge_sources: list[str] = []
     if mppt_ok and solar_watts > 2:
         charge_sources.append("solar")
+
+    # Infer shore from BMS/MPPT current delta
+    inferred_shore = max(0.0, bms_current_a - (mppt.battery_charging_current if mppt_ok else 0.0))
+    if inferred_shore >= SHORE_INFERENCE_THRESHOLD:
+        charge_sources.append("shore")
+
     if orion_router._orion_enabled:
         charge_sources.append("alternator")
-    # Shore always off for now
 
     # --- Load breakdown ---
     loads: list[LoadBreakdown] = []

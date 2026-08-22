@@ -1,6 +1,7 @@
 import type {
   BatteryData, MpptData, ShoreData, OrionData,
-  ShellyUnit, Photo, ModeResponse, SystemData
+  ShellyUnit, Photo, ModeResponse, SystemData,
+  RawReading, HourlyReading, DailyReading,
 } from '../types'
 
 const BASE = '/api'
@@ -24,11 +25,21 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
 export const api = {
   battery: {
     get: () => get<BatteryData>('/battery/'),
-    history: (hours = 24) => get<{ hours: number; data: number[] }>(`/battery/history?hours=${hours}`),
+    history: {
+      raw:     (hours = 24)  => get<RawReading[]>(`/battery/history/raw?hours=${hours}`),
+      hourly:  (days = 7)    => get<HourlyReading[]>(`/battery/history/hourly?days=${days}`),
+      daily:   (days = 30)   => get<DailyReading[]>(`/battery/history/daily?days=${days}`),
+      monthly: ()            => get<DailyReading[]>(`/battery/history/monthly`),
+    },
   },
   mppt: {
     get: () => get<MpptData>('/mppt/'),
-    history: (days = 7) => get<{ days: number; data: number[] }>(`/mppt/history?days=${days}`),
+    history: {
+      raw:     (hours = 24)  => get<RawReading[]>(`/mppt/history/raw?hours=${hours}`),
+      hourly:  (days = 7)    => get<HourlyReading[]>(`/mppt/history/hourly?days=${days}`),
+      daily:   (days = 30)   => get<DailyReading[]>(`/mppt/history/daily?days=${days}`),
+      monthly: ()            => get<DailyReading[]>(`/mppt/history/monthly`),
+    },
   },
   shore: {
     get: () => get<ShoreData>('/shore/'),

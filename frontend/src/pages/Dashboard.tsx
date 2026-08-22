@@ -1,6 +1,7 @@
 import { BatteryCard } from "../components/BatteryCard";
 import { Cameras } from "../components/Cameras";
 import { ChargeSourcesCard } from "../components/ChargeSourcesCard";
+import { HistoryCard } from "../components/HistoryCard";
 import { ModeSelector } from "../components/ModeSelector";
 import { ShellyPanel } from "../components/ShellyPanel";
 import { ThemeToggle } from "../components/ThemeToggle";
@@ -9,15 +10,20 @@ import { useVanStore } from "../store/van";
 
 export function Dashboard() {
   usePolling(5000);
+  const van = "Twitch";
   const lastUpdated = useVanStore((s) => s.lastUpdated);
   const error = useVanStore((s) => s.error);
+  const setSpacingGap = 2;
+  const componentCSS = `flex flex-col gap-${setSpacingGap} bg-panel-surface border border-panel-border rounded p-${setSpacingGap} `;
 
   return (
-    <div className="min-h-screen bg-panel-bg text-zinc-100 p-4 max-w-2xl mx-auto">
-      <header className="flex items-center justify-between mb-4 pt-2">
+    <div
+      className={`min-h-screen bg-panel-bg text-zinc-100 p-${setSpacingGap * 2} max-w-2xl mx-auto flex flex-col items-stretch gap-${setSpacingGap * 2}`}
+    >
+      <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-mono font-bold text-zinc-100 tracking-tight">
-            Van Control
+          <h1 className="text-lg font-mono font-bold text-zinc-600 tracking-tight">
+            {van || "Van Control Panel"}
           </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -37,23 +43,12 @@ export function Dashboard() {
         </div>
       </header>
 
-      <div className="mt-4">
-        <ShellyPanel />
-      </div>
-
-      <div className="mt-4">
-        <BatteryCard />
-      </div>
-
-      <div className="mt-4">
-        <ChargeSourcesCard />
-      </div>
-
-      <div className="mt-4">
-        <Cameras />
-      </div>
-
-      <ModeSelector />
+      <ShellyPanel className={componentCSS} />
+      <BatteryCard className={componentCSS} />
+      <ChargeSourcesCard className={componentCSS} />
+      <Cameras className={componentCSS} />
+      <ModeSelector className={componentCSS} />
+      <HistoryCard className={componentCSS} />
     </div>
   );
 }

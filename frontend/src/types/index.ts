@@ -1,3 +1,47 @@
+export interface RawReading {
+  id: number
+  ts: string
+  source: string
+  soc: number | null
+  voltage: number | null
+  current: number | null
+  temperature: number | null
+  solar_power: number | null
+  charge_state: string | null
+  daily_yield: number | null
+  cell_v1: number | null
+  cell_v2: number | null
+  cell_v3: number | null
+  cell_v4: number | null
+}
+
+export interface HourlyReading {
+  hour_ts: string
+  avg_soc: number | null
+  min_soc: number | null
+  max_soc: number | null
+  avg_voltage: number | null
+  avg_current: number | null
+  avg_temp: number | null
+  avg_solar: number | null
+  peak_solar: number | null
+  sample_count: number
+}
+
+export interface DailyReading {
+  day_ts: string
+  avg_soc: number | null
+  min_soc: number | null
+  max_soc: number | null
+  avg_voltage: number | null
+  avg_current: number | null
+  avg_temp: number | null
+  avg_solar: number | null
+  peak_solar: number | null
+  total_yield: number | null
+  sample_count: number
+}
+
 export interface BatteryData {
   soc: number
   voltage: number
@@ -30,6 +74,7 @@ export interface ShoreData {
   battery_voltage: number
   charge_current: number
   error_code: number
+  inferred: boolean
 }
 
 export interface OrionData {
