@@ -26,5 +26,6 @@ jobs:
       - name: Deploy to nginx web root
         run: |
           sudo rm -rf /var/www/van
-          sudo cp -r /home/todd/van-control-panel/frontend/dist /var/www/van
+          sudo mkdir -p /var/www/van
+          sudo cp -r /home/todd/van-control-panel/frontend/dist/. /var/www/van/
           echo "Frontend deployed"
