@@ -17,7 +17,12 @@ import type {
 
 // --- System constants (match the real van) ---
 const BATTERY_WH      = 100 * 12.8   // 100Ah LiFePO4
-const BASELINE_LOAD_W = 67           // always-on draw
+// Overnight idle draw, not the full ALWAYS_ON_WATTS total. At 3am the lights
+// and USB are off and it's mostly the fridge cycling plus the fan, so ~32W is
+// closer to reality than the 67W all-loads-on figure. This is what sets the
+// depth of the overnight SOC trough: 11 dark hours x 32W = ~350Wh of a
+// 1280Wh bank, so roughly a 27 point drop.
+const BASELINE_LOAD_W = 32
 const PANEL_PEAK_W    = 165          // 200W panel, realistic peak
 const SUNRISE         = 6.5
 const SUNSET          = 19.5
@@ -107,15 +112,18 @@ function buildSeries(end: Date, hoursBack: number, stepMin: number, startSoc: nu
 // --- Live simulation state -------------------------------------------------
 // Rebuilt on load; `now()` reads the tail so live values track the charts.
 
+// Start SOC chosen so the overnight trough lands in the 40s rather than the
+// low 20s — a well-sized bank isn't routinely drawn that deep.
+const START_SOC = 78
 const BOOT = new Date()
-let series = buildSeries(BOOT, 24, 5, 61)
+let series = buildSeries(BOOT, 24, 5, START_SOC)
 
 /** Current sample, recomputed against wall-clock so the demo drifts realistically. */
 function now(): Sample {
   const t = new Date()
   const elapsedMin = (t.getTime() - BOOT.getTime()) / 60_000
   if (elapsedMin > 5) {
-    series = buildSeries(t, 24, 5, 61)
+    series = buildSeries(t, 24, 5, START_SOC)
   }
   return series[series.length - 1]
 }
@@ -297,7 +305,8 @@ export const mockApi = {
         battery_current: Math.max(0, +(p.solar / p.voltage).toFixed(2)),
         charge_state: p.chargeState,
         daily_yield: +yieldToday.toFixed(0),
-        total_yield: 184_300,
+        // ~8 months of a 200W panel at a realistic capacity factor.
+        total_yield: 96_400,
         max_power_today: 172,
         error_code: 0,
         connected: true,

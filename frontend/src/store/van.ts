@@ -5,6 +5,24 @@ import type {
   RawReading, HourlyReading, DailyReading,
 } from '../types'
 import { api } from '../api/client'
+import { toast } from './toast'
+
+/**
+ * Turn a thrown value into something worth showing a user.
+ * `fetch` rejects with "Failed to fetch" when the Pi is unreachable, which
+ * is accurate but unhelpful, so it gets translated.
+ */
+function describe(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err)
+  if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+    return 'the Pi is unreachable'
+  }
+  const status = msg.match(/API error (\d+)/)?.[1]
+  if (status === '401' || status === '403') return 'session expired, reload to sign in'
+  if (status === '502' || status === '503') return 'the backend is down'
+  if (status) return `server returned ${status}`
+  return msg
+}
 
 interface VanStore {
   // Live data
@@ -103,29 +121,52 @@ export const useVanStore = create<VanStore>((set, get) => ({
   },
 
   toggleShelly: async (id: string, on: boolean) => {
-    await api.shelly.toggle(id, on)
-    set(state => ({
-      shellys: state.shellys.map(s => s.id === id ? { ...s, on } : s)
-    }))
+    const label = get().shellys.find(s => s.id === id)?.label ?? id
+    try {
+      await api.shelly.toggle(id, on)
+      set(state => ({
+        shellys: state.shellys.map(s => s.id === id ? { ...s, on } : s)
+      }))
+      toast.success(`${label} ${on ? 'on' : 'off'}`)
+    } catch (err) {
+      // No optimistic update on failure — the switch stays where it was,
+      // which matches the relay's actual state.
+      toast.error(`Couldn't switch ${label} — ${describe(err)}`)
+    }
   },
 
   setMode: async (mode: string) => {
-    const result = await api.mode.set(mode)
-    set({ mode: result })
+    try {
+      const result = await api.mode.set(mode)
+      set({ mode: result })
+      toast.success(`Mode set to ${result.config.label}`)
+    } catch (err) {
+      toast.error(`Couldn't set mode — ${describe(err)}`)
+    }
   },
 
   releaseBms: async () => {
-    await api.battery.release()
-    // Optimistically update status
-    set(state => ({
-      battery: state.battery ? { ...state.battery, released: true, connected: false, status: 'released' } : null
-    }))
+    try {
+      await api.battery.release()
+      // Optimistically update status
+      set(state => ({
+        battery: state.battery ? { ...state.battery, released: true, connected: false, status: 'released' } : null
+      }))
+      toast.info('BMS released — the Power Queen app can connect now')
+    } catch (err) {
+      toast.error(`Release failed — ${describe(err)}`)
+    }
   },
 
   connectBms: async () => {
-    await api.battery.connect()
-    set(state => ({
-      battery: state.battery ? { ...state.battery, released: false, status: 'connecting' } : null
-    }))
+    try {
+      await api.battery.connect()
+      set(state => ({
+        battery: state.battery ? { ...state.battery, released: false, status: 'connecting' } : null
+      }))
+      toast.info('Reconnecting to BMS — this can take up to 35s')
+    } catch (err) {
+      toast.error(`Reconnect failed — ${describe(err)}`)
+    }
   },
 }))

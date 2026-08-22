@@ -6,6 +6,7 @@ import { ModeSelector } from "../components/ModeSelector";
 import { ShellyPanel } from "../components/ShellyPanel";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { PowerModal } from "../components/PowerModal";
+import { Toaster } from "../components/Toaster";
 import { usePolling } from "../hooks/usePolling";
 import { useVanStore } from "../store/van";
 import { useSettingsStore } from "../store/settings";
@@ -39,6 +40,7 @@ export function Dashboard() {
       style={outerStyle}
     >
       <PowerModal open={powerOpen} onClose={() => setPowerOpen(false)} />
+      <Toaster />
 
       <header className="flex items-center justify-between">
         <h1 className="text-lg font-mono font-bold text-zinc-600 tracking-tight">
