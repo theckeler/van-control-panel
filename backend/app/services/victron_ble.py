@@ -1,6 +1,7 @@
 """
 Victron SmartSolar MPPT 75/15 — BLE service (one-shot poll mode)
-Called by ble_orchestrator, not run continuously.
+Called by ble_orchestrator. Uses call_soon_threadsafe to safely
+signal the asyncio event loop from bleak's callback thread.
 """
 import asyncio
 import logging
@@ -13,7 +14,7 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-STALE_AFTER = 120  # longer window since we poll every ~30s
+STALE_AFTER = 120
 
 
 @dataclass
@@ -28,8 +29,7 @@ class MpptReading:
 
     @property
     def is_stale(self) -> bool:
-        age = (datetime.now(timezone.utc) - self.updated_at).total_seconds()
-        return age > STALE_AFTER
+        return (datetime.now(timezone.utc) - self.updated_at).total_seconds() > STALE_AFTER
 
     @property
     def connected(self) -> bool:
@@ -44,16 +44,15 @@ def get_latest() -> MpptReading:
 
 
 class _OneShotScanner(Scanner):
-    """Fires callback once, sets an event so the poller knows to stop."""
-
-    def __init__(self, keys: dict, event: asyncio.Event):
+    def __init__(self, keys: dict, loop: asyncio.AbstractEventLoop, event: asyncio.Event):
         super().__init__(keys)
+        self._loop = loop
         self._event = event
 
     def callback(self, ble_device, data, advertisement):
         global _cache
         if self._event.is_set():
-            return  # already captured one reading
+            return
         try:
             parsed = SolarCharger(settings.victron_key).parse(data)
             raw_state = str(parsed.get_charge_state() or "Off")
@@ -72,23 +71,25 @@ class _OneShotScanner(Scanner):
                 _cache.charge_state,
                 _cache.daily_yield,
             )
-            self._event.set()
+            # Signal from bleak's thread safely
+            self._loop.call_soon_threadsafe(self._event.set)
         except Exception as exc:
             logger.warning("Failed to parse MPPT advertisement: %s", exc)
 
 
 async def poll_once(timeout: float = 10.0):
-    """Scan until one valid advertisement is received, then stop."""
+    """Scan for one Victron advertisement then stop."""
     if not settings.victron_key:
         logger.warning("VICTRON_KEY not set — skipping MPPT poll")
         return
 
+    loop = asyncio.get_running_loop()
     event = asyncio.Event()
-    scanner = _OneShotScanner({settings.victron_mac: settings.victron_key}, event)
+    scanner = _OneShotScanner({settings.victron_mac: settings.victron_key}, loop, event)
     await scanner.start()
     try:
         await asyncio.wait_for(event.wait(), timeout=timeout)
     except asyncio.TimeoutError:
-        logger.warning("MPPT: no advertisement received within %.0fs", timeout)
+        logger.warning("MPPT: no advertisement within %.0fs", timeout)
     finally:
         await scanner.stop()

@@ -1,13 +1,11 @@
 """
-BLE Orchestrator — runs Victron and BMS polls sequentially.
-One poll at a time prevents adapter contention.
+BLE Orchestrator — coordinates Victron MPPT scan and BMS connection.
 
-Cycle:
-  1. Poll Victron MPPT  (~3-5s, one-shot scan)
-  2. Pause              (2s adapter settle)
-  3. Poll Power Queen   (~5-8s, active connection)
-  4. Rest               (20s)
-  Total cycle: ~30-35s
+Victron: periodic one-shot scan (passive, quick)
+BMS: persistent connection managed by battery_ble.run() independently
+
+Both run as separate tasks to avoid blocking each other.
+Victron scans only while BMS is idle to prevent adapter contention.
 """
 import asyncio
 import logging
@@ -15,30 +13,27 @@ from app.services import victron_ble, battery_ble
 
 logger = logging.getLogger(__name__)
 
-ADAPTER_SETTLE = 2   # seconds between polls
-REST_PERIOD    = 20  # seconds after both polls before next cycle
+VICTRON_INTERVAL = 30  # seconds between MPPT scans
+
+
+async def _victron_loop():
+    """Periodic Victron one-shot poll."""
+    logger.info("Victron poll loop started")
+    while True:
+        try:
+            await victron_ble.poll_once(timeout=10)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning("Victron poll error: %s", exc)
+        await asyncio.sleep(VICTRON_INTERVAL)
 
 
 async def run():
+    """Start both BLE services as independent tasks."""
     logger.info("BLE orchestrator started")
-
-    while True:
-        # --- Victron MPPT ---
-        try:
-            logger.debug("Polling Victron MPPT...")
-            await victron_ble.poll_once(timeout=10)
-        except Exception as exc:
-            logger.warning("Victron poll error: %s", exc)
-
-        # Let the adapter fully release before connecting to BMS
-        await asyncio.sleep(ADAPTER_SETTLE)
-
-        # --- Power Queen BMS ---
-        try:
-            logger.debug("Polling Power Queen BMS...")
-            await battery_ble.poll_once()
-        except Exception as exc:
-            logger.warning("BMS poll error: %s", exc)
-
-        # Rest before next cycle
-        await asyncio.sleep(REST_PERIOD)
+    await asyncio.gather(
+        _victron_loop(),
+        battery_ble.run(),
+        return_exceptions=True,
+    )
