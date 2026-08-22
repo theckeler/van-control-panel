@@ -3,23 +3,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from app.routers import battery, mppt, shore, orion, shelly, camera, mode, system
-from app.services import victron_ble, battery_ble
+from app.services import ble_orchestrator
 import asyncio
 import os
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    tasks = [
-        asyncio.create_task(victron_ble.run_scanner()),
-        asyncio.create_task(battery_ble.poll_battery()),
-    ]
+    task = asyncio.create_task(ble_orchestrator.run())
     yield
-    for task in tasks:
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            pass
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
 
 app = FastAPI(title="Van Control Panel", version="1.0.0", lifespan=lifespan)
 
