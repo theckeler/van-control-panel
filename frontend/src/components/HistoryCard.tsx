@@ -1,3 +1,4 @@
+import React from "react";
 import clsx from "clsx";
 import { useEffect, useState } from "react";
 import {
@@ -43,7 +44,7 @@ function socColor(soc: number) {
   return "#ef4444";
 }
 
-export function HistoryCard({ className }: { className?: string }) {
+export function HistoryCard({ className, style }: { className?: string; style?: React.CSSProperties }) {
   const [tab, setTab] = useState<Tab>("soc");
   const {
     socRaw,
@@ -108,7 +109,7 @@ export function HistoryCard({ className }: { className?: string }) {
   const currentSoc = battery?.soc ?? null;
 
   return (
-    <div className={className}>
+    <div className={className} style={style}>
       <div className="flex items-center justify-between mb-4">
         <span className="text-xs font-mono text-zinc-500 uppercase tracking-widest">
           History

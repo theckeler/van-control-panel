@@ -1,33 +1,21 @@
+import React from "react";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { Photo } from "../types";
 
-export function Cameras({ className }: { className?: string }) {
+export function Cameras({ className, style }: { className?: string; style?: React.CSSProperties }) {
   const [interiorLatest, setInteriorLatest] = useState<Photo | null>(null);
-  const [exteriorLatest, setExteriorLatest] = useState<Photo | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.allSettled([
-      api.camera.latest("interior"),
-      api.camera.latest("exterior"),
-    ]).then(([int, ext]) => {
-      if (int.status === "fulfilled") setInteriorLatest(int.value);
-      if (ext.status === "fulfilled") setExteriorLatest(ext.value);
-      setLoading(false);
-    });
+    api.camera.latest("interior")
+      .then(setInteriorLatest)
+      .catch(() => null)
+      .finally(() => setLoading(false));
   }, []);
 
   return (
-    <div className={className}>
-      {/* <header className="flex items-center gap-3 mb-6 pt-2">
-        <a href="/" className="text-zinc-600 font-mono hover:text-zinc-400">←</a>
-        <div>
-          <h1 className="text-lg font-mono font-bold">Cameras</h1>
-          <p className="text-xs font-mono text-zinc-600">30 min interval · 24hr rolling retention</p>
-        </div>
-      </header> */}
-
+    <div className={className} style={style}>
       {loading ? (
         <div className="text-xs font-mono text-zinc-600 animate-pulse">
           Loading...
@@ -57,7 +45,7 @@ function CameraPane({ label, photo }: { label?: string; photo: Photo | null }) {
       {photo ? (
         <img
           src={photo.url}
-          alt={`${label} camera`}
+          alt={`${label ?? "interior"} camera`}
           className="w-full object-cover"
           style={{ maxHeight: "280px" }}
         />

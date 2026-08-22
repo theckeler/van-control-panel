@@ -1,12 +1,13 @@
+import React from "react";
 import clsx from "clsx";
 import { useVanStore } from "../store/van";
 
-export function ShellyPanel({ className }: { className?: string }) {
+export function ShellyPanel({ className, style }: { className?: string; style?: React.CSSProperties }) {
   const shellys = useVanStore((s) => s.shellys);
   const toggleShelly = useVanStore((s) => s.toggleShelly);
 
   return (
-    <div className={className}>
+    <div className={className} style={style}>
       {!shellys.length ? (
         <div className="text-xs font-mono text-zinc-600">
           Loading circuits...
