@@ -1,3 +1,4 @@
+import subprocess
 from fastapi import APIRouter
 from pydantic import BaseModel
 from app.services import battery_ble, victron_ble
@@ -157,3 +158,17 @@ async def get_system():
         bms_connected=bms_ok,
         mppt_connected=mppt_ok,
     )
+
+
+@router.post("/shutdown")
+async def shutdown_pi():
+    """Gracefully shut down the Raspberry Pi."""
+    subprocess.Popen(["sudo", "shutdown", "now"])
+    return {"status": "shutting_down", "message": "Pi is shutting down"}
+
+
+@router.post("/reboot")
+async def reboot_pi():
+    """Reboot the Raspberry Pi."""
+    subprocess.Popen(["sudo", "reboot"])
+    return {"status": "rebooting", "message": "Pi is rebooting — dashboard back in ~30s"}

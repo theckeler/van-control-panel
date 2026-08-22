@@ -87,7 +87,23 @@ export function BatteryCard({ className, style }: { className?: string; style?: 
         onCancel={() => setShowConfirm(false)}
       />
       {isOffline && !hasCache ? (
-        <div className="text-zinc-600 font-mono text-sm py-4">No data yet</div>
+        <div className="flex flex-col gap-1 py-2">
+          <span className="text-xs font-mono text-amber-500">○ offline — no data yet</span>
+          {countdown !== null && countdown > 0 && (
+            <span className="text-xs font-mono text-zinc-600">
+              connecting in {formatCountdown(countdown)}
+            </span>
+          )}
+          {isReleased && (
+            <button
+              onClick={handleConnect}
+              disabled={busy}
+              className="text-xs font-mono text-zinc-600 hover:text-green-400 transition-colors self-start mt-1"
+            >
+              connect →
+            </button>
+          )}
+        </div>
       ) : (
         <>
           <div className="flex items-end justify-between">

@@ -66,5 +66,7 @@ export const api = {
   },
   system: {
     get: () => get<SystemData>('/system/'),
+    shutdown: () => post<{ status: string; message: string }>('/system/shutdown'),
+    reboot:   () => post<{ status: string; message: string }>('/system/reboot'),
   },
 }
