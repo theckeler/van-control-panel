@@ -37,8 +37,6 @@ export function Dashboard() {
         </div>
       </header>
 
-      <ModeSelector />
-
       <div className="mt-4">
         <ShellyPanel />
       </div>
@@ -54,6 +52,8 @@ export function Dashboard() {
       <div className="mt-4">
         <Cameras />
       </div>
+
+      <ModeSelector />
     </div>
   );
 }

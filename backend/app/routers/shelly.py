@@ -19,20 +19,20 @@ SHELLY_UNITS = {
         "installed": True,
         "est_watts": 0,    # unknown load
     },
-    "maxxfan": {
-        "ip": None,
-        "label": "Maxxfan",
-        "channel": 0,
-        "installed": False,
-        "est_watts": 30,
-    },
-    "lights": {
-        "ip": None,
-        "label": "Ceiling Lights",
-        "channel": 0,
-        "installed": False,
-        "est_watts": 15,
-    },
+    # "maxxfan": {
+    #     "ip": None,
+    #     "label": "Maxxfan",
+    #     "channel": 0,
+    #     "installed": False,
+    #     "est_watts": 30,
+    # },
+    # "lights": {
+    #     "ip": None,
+    #     "label": "Ceiling Lights",
+    #     "channel": 0,
+    #     "installed": False,
+    #     "est_watts": 15,
+    # },
 }
 
 class ShellyStatus(BaseModel):
