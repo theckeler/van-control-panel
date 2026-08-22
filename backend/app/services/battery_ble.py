@@ -10,7 +10,7 @@ Protocol (FFE1 characteristic, write + notify):
 """
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from bleak import BleakClient, BleakError
 from app.config import settings
@@ -23,24 +23,42 @@ CMD_VERSION = bytes.fromhex("000004011655AA1A")
 CMD_BATTERY = bytes.fromhex("000004011355AA17")
 
 MIN_BYTES       = 90
-READ_EVERY      = 30   # seconds between reads on open connection
-RECONNECT_IN    = 300  # 5 minutes — prevents BMS lockout from rapid retries
+READ_EVERY      = 30
+RECONNECT_IN    = 300
 CONNECT_TIMEOUT = 25
-STARTUP_DELAY   = 5    # let BlueZ clear previous session on restart
+STARTUP_DELAY   = 5
 STALE_AFTER     = 120
 
 _cache: BatteryInfo | None = None
 _cache_time: datetime | None = None
+_reconnect_after: datetime | None = None   # when the next retry will fire
 
 
 def get_latest() -> BatteryInfo | None:
     return _cache
 
 
+def get_last_seen() -> datetime | None:
+    return _cache_time
+
+
+def get_retry_in() -> int | None:
+    """Seconds until the next BMS reconnect attempt, or None if connected."""
+    if is_connected() or _reconnect_after is None:
+        return None
+    remaining = (_reconnect_after - datetime.now(timezone.utc)).total_seconds()
+    return max(0, int(remaining))
+
+
 def is_connected() -> bool:
     if _cache_time is None:
         return False
     return (datetime.now(timezone.utc) - _cache_time).total_seconds() < STALE_AFTER
+
+
+def _set_reconnect_timer():
+    global _reconnect_after
+    _reconnect_after = datetime.now(timezone.utc) + timedelta(seconds=RECONNECT_IN)
 
 
 async def _read(client: BleakClient, cmd: bytes, timeout: float = 8.0) -> bytearray:
@@ -68,8 +86,7 @@ async def _read(client: BleakClient, cmd: bytes, timeout: float = 8.0) -> bytear
 
 
 def _parse_and_cache(batt_data: bytearray, ver_data: bytearray):
-    """Parse BMS response bytes and update the shared cache."""
-    global _cache, _cache_time
+    global _cache, _cache_time, _reconnect_after
 
     batt = BatteryInfo.__new__(BatteryInfo)
     batt._logger = logger
@@ -93,6 +110,7 @@ def _parse_and_cache(batt_data: bytearray, ver_data: bytearray):
 
     _cache = batt
     _cache_time = datetime.now(timezone.utc)
+    _reconnect_after = None  # clear timer on successful read
     logger.info(
         "BMS: %s%% SOC, %.3fV, %.2fA, %s",
         batt.SOC,
@@ -103,13 +121,13 @@ def _parse_and_cache(batt_data: bytearray, ver_data: bytearray):
 
 
 async def run():
-    """Maintain a persistent BLE connection, reading every 30 seconds."""
     if not settings.bms_mac:
         logger.warning("BMS_MAC not set — battery service disabled")
         return
 
     logger.info("BMS service starting — %s (startup delay %ds)", settings.bms_mac, STARTUP_DELAY)
-    await asyncio.sleep(STARTUP_DELAY)  # let BlueZ clear InProgress from previous session
+    _set_reconnect_timer()
+    await asyncio.sleep(STARTUP_DELAY)
 
     while True:
         try:
@@ -119,12 +137,9 @@ async def run():
 
                 while client.is_connected:
                     batt_data = await _read(client, CMD_BATTERY, timeout=8)
-
-                    # Short read means connection dropped mid-transfer — break cleanly
                     if len(batt_data) < MIN_BYTES:
                         logger.warning("BMS: incomplete read (%d bytes) — disconnecting", len(batt_data))
                         break
-
                     _parse_and_cache(batt_data, ver_data)
                     await asyncio.sleep(READ_EVERY)
 
@@ -135,6 +150,7 @@ async def run():
         except (BleakError, asyncio.TimeoutError, OSError) as exc:
             logger.warning("BMS: %s — retrying in %ds", exc or "connection failed", RECONNECT_IN)
         except Exception as exc:
-            logger.warning("BMS: unexpected error — %s — retrying in %ds", exc, RECONNECT_IN)
+            logger.warning("BMS: unexpected — %s — retrying in %ds", exc, RECONNECT_IN)
 
+        _set_reconnect_timer()
         await asyncio.sleep(RECONNECT_IN)

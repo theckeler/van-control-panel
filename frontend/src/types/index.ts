@@ -7,6 +7,8 @@ export interface BatteryData {
   cycle_count: number
   status: string
   connected: boolean
+  last_seen: string | null
+  retry_in: number | null
 }
 
 export interface MpptData {
