@@ -10,24 +10,28 @@ SHELLY_UNITS = {
         "label": "USB Outlets",
         "channel": 0,
         "installed": True,
+        "est_watts": 20,   # typical device charging
     },
     "garage": {
         "ip": "shelly1g4-d885acf36a28.local",
         "label": "Garage",
         "channel": 0,
         "installed": True,
+        "est_watts": 0,    # unknown load
     },
     "maxxfan": {
         "ip": None,
         "label": "Maxxfan",
         "channel": 0,
         "installed": False,
+        "est_watts": 30,
     },
     "lights": {
         "ip": None,
         "label": "Ceiling Lights",
         "channel": 0,
         "installed": False,
+        "est_watts": 15,
     },
 }
 

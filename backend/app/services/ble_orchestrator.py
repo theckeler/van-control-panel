@@ -1,11 +1,11 @@
 """
-BLE Orchestrator — coordinates Victron MPPT scan and BMS connection.
+BLE Orchestrator — runs Victron MPPT and BMS services as independent tasks.
 
-Victron: periodic one-shot scan (passive, quick)
-BMS: persistent connection managed by battery_ble.run() independently
+Victron: periodic one-shot scan (passive, ~3-5s every 30s)
+BMS: persistent connection managed by battery_ble.run()
 
-Both run as separate tasks to avoid blocking each other.
-Victron scans only while BMS is idle to prevent adapter contention.
+Uses asyncio.gather so both run concurrently. Task deaths are logged
+explicitly — gather(return_exceptions=True) would swallow them silently.
 """
 import asyncio
 import logging
@@ -13,7 +13,7 @@ from app.services import victron_ble, battery_ble
 
 logger = logging.getLogger(__name__)
 
-VICTRON_INTERVAL = 30  # seconds between MPPT scans
+VICTRON_INTERVAL = 30
 
 
 async def _victron_loop():
@@ -30,10 +30,14 @@ async def _victron_loop():
 
 
 async def run():
-    """Start both BLE services as independent tasks."""
+    """Start both BLE services. Log if either task exits unexpectedly."""
     logger.info("BLE orchestrator started")
-    await asyncio.gather(
+    results = await asyncio.gather(
         _victron_loop(),
         battery_ble.run(),
         return_exceptions=True,
     )
+    for i, result in enumerate(results):
+        if isinstance(result, Exception):
+            names = ["Victron loop", "BMS service"]
+            logger.error("BLE task '%s' exited with error: %s", names[i], result)

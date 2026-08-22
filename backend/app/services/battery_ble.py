@@ -1,9 +1,8 @@
 """
 Power Queen 12V 100Ah LiFePO4 — persistent BLE connection service.
 
-Stays connected to the BMS rather than polling with connect/disconnect
-cycles. This prevents the BMS from entering sleep state between reads.
-On disconnect, reconnects automatically after a short backoff.
+Maintains a long-lived connection to the BMS and reads every 30 seconds.
+On disconnect, waits 5 minutes before retrying to prevent BMS lockout.
 
 Protocol (FFE1 characteristic, write + notify):
   Battery info: 00 00 04 01 13 55 AA 17
@@ -23,10 +22,12 @@ FFE1_UUID   = "0000ffe1-0000-1000-8000-00805f9b34fb"
 CMD_VERSION = bytes.fromhex("000004011655AA1A")
 CMD_BATTERY = bytes.fromhex("000004011355AA17")
 
-MIN_BYTES    = 90
-READ_EVERY   = 30   # seconds between reads on open connection
-RECONNECT_IN = 15   # seconds to wait before reconnecting after drop
-STALE_AFTER  = 120
+MIN_BYTES       = 90
+READ_EVERY      = 30   # seconds between reads on open connection
+RECONNECT_IN    = 300  # 5 minutes — prevents BMS lockout from rapid retries
+CONNECT_TIMEOUT = 25
+STARTUP_DELAY   = 5    # let BlueZ clear previous session on restart
+STALE_AFTER     = 120
 
 _cache: BatteryInfo | None = None
 _cache_time: datetime | None = None
@@ -66,11 +67,9 @@ async def _read(client: BleakClient, cmd: bytes, timeout: float = 8.0) -> bytear
     return received
 
 
-async def _parse_and_cache(batt_data: bytearray, ver_data: bytearray):
+def _parse_and_cache(batt_data: bytearray, ver_data: bytearray):
+    """Parse BMS response bytes and update the shared cache."""
     global _cache, _cache_time
-    if len(batt_data) < MIN_BYTES:
-        logger.warning("BMS: response too short (%d bytes)", len(batt_data))
-        return
 
     batt = BatteryInfo.__new__(BatteryInfo)
     batt._logger = logger
@@ -109,28 +108,33 @@ async def run():
         logger.warning("BMS_MAC not set — battery service disabled")
         return
 
-    logger.info("BMS service starting — connecting to %s", settings.bms_mac)
+    logger.info("BMS service starting — %s (startup delay %ds)", settings.bms_mac, STARTUP_DELAY)
+    await asyncio.sleep(STARTUP_DELAY)  # let BlueZ clear InProgress from previous session
 
     while True:
         try:
-            async with BleakClient(settings.bms_mac, timeout=12) as client:
+            async with BleakClient(settings.bms_mac, timeout=CONNECT_TIMEOUT) as client:
                 logger.info("BMS: connected")
-
-                # Read version once on connect
                 ver_data = await _read(client, CMD_VERSION, timeout=8)
 
                 while client.is_connected:
                     batt_data = await _read(client, CMD_BATTERY, timeout=8)
-                    await _parse_and_cache(batt_data, ver_data)
+
+                    # Short read means connection dropped mid-transfer — break cleanly
+                    if len(batt_data) < MIN_BYTES:
+                        logger.warning("BMS: incomplete read (%d bytes) — disconnecting", len(batt_data))
+                        break
+
+                    _parse_and_cache(batt_data, ver_data)
                     await asyncio.sleep(READ_EVERY)
 
-                logger.warning("BMS: connection dropped")
+                logger.warning("BMS: connection dropped — retrying in %ds", RECONNECT_IN)
 
         except asyncio.CancelledError:
             raise
-        except (BleakError, asyncio.TimeoutError) as exc:
-            logger.warning("BMS: %s — reconnecting in %ds", exc, RECONNECT_IN)
+        except (BleakError, asyncio.TimeoutError, OSError) as exc:
+            logger.warning("BMS: %s — retrying in %ds", exc or "connection failed", RECONNECT_IN)
         except Exception as exc:
-            logger.warning("BMS: unexpected error — %s", exc)
+            logger.warning("BMS: unexpected error — %s — retrying in %ds", exc, RECONNECT_IN)
 
         await asyncio.sleep(RECONNECT_IN)
