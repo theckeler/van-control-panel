@@ -1,0 +1,29 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, van-pi]
+
+    steps:
+      - name: Pull latest code
+        working-directory: /home/todd/van-control-panel
+        run: git pull origin main
+
+      - name: Install Python dependencies
+        working-directory: /home/todd/van-control-panel/backend
+        run: .venv/bin/pip install -r requirements.txt --quiet
+
+      - name: Restart API service
+        run: sudo systemctl restart van-api
+
+      - name: Health check
+        run: |
+          sleep 3
+          curl -sf http://localhost:8000/health || exit 1
+          echo "Backend healthy"

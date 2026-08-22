@@ -1,0 +1,30 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, van-pi]
+
+    steps:
+      - name: Pull latest code
+        working-directory: /home/todd/van-control-panel
+        run: git pull origin main
+
+      - name: Install Node dependencies
+        working-directory: /home/todd/van-control-panel/frontend
+        run: npm ci --prefer-offline
+
+      - name: Build
+        working-directory: /home/todd/van-control-panel/frontend
+        run: npm run build
+
+      - name: Deploy to nginx web root
+        run: |
+          sudo rm -rf /var/www/van
+          sudo cp -r /home/todd/van-control-panel/frontend/dist /var/www/van
+          echo "Frontend deployed"
