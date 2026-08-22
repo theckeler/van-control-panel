@@ -4,6 +4,9 @@ Power Queen 12V 100Ah LiFePO4 — persistent BLE connection service.
 Maintains a long-lived connection to the BMS and reads every 30 seconds.
 On disconnect, waits 5 minutes before retrying to prevent BMS lockout.
 
+Release/reconnect API lets users temporarily drop the connection
+so the Power Queen app can connect, then resume automatically.
+
 Protocol (FFE1 characteristic, write + notify):
   Battery info: 00 00 04 01 13 55 AA 17
   Version:      00 00 04 01 16 55 AA 1A
@@ -31,29 +34,52 @@ STALE_AFTER     = 120
 
 _cache: BatteryInfo | None = None
 _cache_time: datetime | None = None
-_reconnect_after: datetime | None = None   # when the next retry will fire
+_reconnect_after: datetime | None = None
+_paused: bool = False
+_wake: asyncio.Event = asyncio.Event()
+_current_client: BleakClient | None = None
 
 
 def get_latest() -> BatteryInfo | None:
     return _cache
 
-
 def get_last_seen() -> datetime | None:
     return _cache_time
 
-
 def get_retry_in() -> int | None:
-    """Seconds until the next BMS reconnect attempt, or None if connected."""
-    if is_connected() or _reconnect_after is None:
+    if is_connected() or _paused or _reconnect_after is None:
         return None
     remaining = (_reconnect_after - datetime.now(timezone.utc)).total_seconds()
     return max(0, int(remaining))
-
 
 def is_connected() -> bool:
     if _cache_time is None:
         return False
     return (datetime.now(timezone.utc) - _cache_time).total_seconds() < STALE_AFTER
+
+def is_paused() -> bool:
+    return _paused
+
+
+async def release():
+    """Drop BLE connection and pause reconnects — frees BMS for Power Queen app."""
+    global _paused, _current_client
+    _paused = True
+    if _current_client and _current_client.is_connected:
+        try:
+            await _current_client.disconnect()
+            logger.info("BMS: released — Power Queen app can now connect")
+        except Exception as exc:
+            logger.warning("BMS: disconnect during release failed: %s", exc)
+
+
+async def reconnect():
+    """Resume BLE connection immediately."""
+    global _paused, _reconnect_after
+    _paused = False
+    _reconnect_after = None
+    _wake.set()
+    logger.info("BMS: reconnect requested")
 
 
 def _set_reconnect_timer():
@@ -110,7 +136,7 @@ def _parse_and_cache(batt_data: bytearray, ver_data: bytearray):
 
     _cache = batt
     _cache_time = datetime.now(timezone.utc)
-    _reconnect_after = None  # clear timer on successful read
+    _reconnect_after = None
     logger.info(
         "BMS: %s%% SOC, %.3fV, %.2fA, %s",
         batt.SOC,
@@ -121,6 +147,8 @@ def _parse_and_cache(batt_data: bytearray, ver_data: bytearray):
 
 
 async def run():
+    global _current_client
+
     if not settings.bms_mac:
         logger.warning("BMS_MAC not set — battery service disabled")
         return
@@ -130,12 +158,20 @@ async def run():
     await asyncio.sleep(STARTUP_DELAY)
 
     while True:
+        # If paused, wait until resumed
+        if _paused:
+            _wake.clear()
+            logger.info("BMS: paused — waiting for reconnect request")
+            await _wake.wait()
+            continue
+
         try:
             async with BleakClient(settings.bms_mac, timeout=CONNECT_TIMEOUT) as client:
+                _current_client = client
                 logger.info("BMS: connected")
                 ver_data = await _read(client, CMD_VERSION, timeout=8)
 
-                while client.is_connected:
+                while client.is_connected and not _paused:
                     batt_data = await _read(client, CMD_BATTERY, timeout=8)
                     if len(batt_data) < MIN_BYTES:
                         logger.warning("BMS: incomplete read (%d bytes) — disconnecting", len(batt_data))
@@ -143,14 +179,24 @@ async def run():
                     _parse_and_cache(batt_data, ver_data)
                     await asyncio.sleep(READ_EVERY)
 
-                logger.warning("BMS: connection dropped — retrying in %ds", RECONNECT_IN)
+                _current_client = None
+                if not _paused:
+                    logger.warning("BMS: connection dropped — retrying in %ds", RECONNECT_IN)
 
         except asyncio.CancelledError:
             raise
         except (BleakError, asyncio.TimeoutError, OSError) as exc:
+            _current_client = None
             logger.warning("BMS: %s — retrying in %ds", exc or "connection failed", RECONNECT_IN)
         except Exception as exc:
+            _current_client = None
             logger.warning("BMS: unexpected — %s — retrying in %ds", exc, RECONNECT_IN)
 
-        _set_reconnect_timer()
-        await asyncio.sleep(RECONNECT_IN)
+        if not _paused:
+            _set_reconnect_timer()
+            _wake.clear()
+            try:
+                await asyncio.wait_for(_wake.wait(), timeout=RECONNECT_IN)
+            except asyncio.TimeoutError:
+                pass
+            _wake.clear()

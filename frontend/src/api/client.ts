@@ -25,6 +25,8 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
 export const api = {
   battery: {
     get: () => get<BatteryData>('/battery/'),
+    release: () => post<{ status: string; message: string }>('/battery/release'),
+    connect: () => post<{ status: string; message: string }>('/battery/connect'),
     history: {
       raw:     (hours = 24)  => get<RawReading[]>(`/battery/history/raw?hours=${hours}`),
       hourly:  (days = 7)    => get<HourlyReading[]>(`/battery/history/hourly?days=${days}`),

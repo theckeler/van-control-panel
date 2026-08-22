@@ -3,6 +3,7 @@ import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 import { useVanStore } from "../store/van";
 import { useSettingsStore } from "../store/settings";
+import { ConfirmModal } from "./ConfirmModal";
 
 function formatLastSeen(isoStr: string): string {
   const diff = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
@@ -18,9 +19,13 @@ function formatCountdown(secs: number): string {
 }
 
 export function BatteryCard({ className, style }: { className?: string; style?: React.CSSProperties }) {
-  const battery  = useVanStore((s) => s.battery);
-  const spacing  = useSettingsStore((s) => s.spacing);
-  const pad      = spacing * 4; // 1→4px, 2→8px, 3→12px
+  const battery     = useVanStore((s) => s.battery);
+  const releaseBms  = useVanStore((s) => s.releaseBms);
+  const connectBms  = useVanStore((s) => s.connectBms);
+  const spacing     = useSettingsStore((s) => s.spacing);
+  const pad         = spacing * 4;
+  const [busy, setBusy] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const [countdown, setCountdown] = useState<number | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -47,8 +52,21 @@ export function BatteryCard({ className, style }: { className?: string; style?: 
 
   if (!battery) return <CardSkeleton />;
 
-  const isOffline = !battery.connected;
-  const hasCache  = battery.soc > 0 || battery.voltage > 0;
+  const isOffline  = !battery.connected;
+  const isReleased = battery.released;
+  const hasCache   = battery.soc > 0 || battery.voltage > 0;
+
+  const handleRelease = async () => {
+    setBusy(true)
+    await releaseBms()
+    setBusy(false)
+  }
+
+  const handleConnect = async () => {
+    setBusy(true)
+    await connectBms()
+    setBusy(false)
+  }
 
   const socColor =
     battery.soc > 50 ? "text-soc-good"
@@ -60,6 +78,14 @@ export function BatteryCard({ className, style }: { className?: string; style?: 
 
   return (
     <div className={clsx(className, "flex flex-col gap-3", isOffline && "opacity-60")} style={style}>
+      <ConfirmModal
+        open={showConfirm}
+        title="Release BMS connection?"
+        message="The Pi will drop its Bluetooth connection to the battery. The Power Queen app will be able to connect. Tap Connect when you're done to resume monitoring."
+        confirmLabel="Release"
+        onConfirm={() => { setShowConfirm(false); handleRelease() }}
+        onCancel={() => setShowConfirm(false)}
+      />
       {isOffline && !hasCache ? (
         <div className="text-zinc-600 font-mono text-sm py-4">No data yet</div>
       ) : (
@@ -70,18 +96,41 @@ export function BatteryCard({ className, style }: { className?: string; style?: 
               <span className="text-2xl ml-1">%</span>
             </div>
             <div className="flex flex-col items-end gap-1">
-              <span className={clsx("text-xs font-mono", isOffline ? "text-amber-500" : "text-green-500")}>
-                {isOffline ? "○ offline" : "● live"}
+              <span className={clsx("text-xs font-mono",
+                isReleased ? "text-blue-400"
+                : isOffline ? "text-amber-500"
+                : "text-green-500"
+              )}>
+                {isReleased ? "○ released" : isOffline ? "○ offline" : "● live"}
               </span>
               {isOffline && battery.last_seen && (
                 <span className="text-xs font-mono text-zinc-600">
                   last seen {formatLastSeen(battery.last_seen)}
                 </span>
               )}
-              {isOffline && countdown !== null && countdown > 0 && (
+              {isOffline && !isReleased && countdown !== null && countdown > 0 && (
                 <span className="text-xs font-mono text-zinc-600">
                   retry in {formatCountdown(countdown)}
                 </span>
+              )}
+              {/* Release / Connect buttons */}
+              {!isOffline && !isReleased && (
+                <button
+                  onClick={() => setShowConfirm(true)}
+                  disabled={busy}
+                  className="text-xs font-mono text-zinc-600 hover:text-amber-400 transition-colors disabled:opacity-40"
+                >
+                  release →
+                </button>
+              )}
+              {isReleased && (
+                <button
+                  onClick={handleConnect}
+                  disabled={busy}
+                  className="text-xs font-mono text-zinc-600 hover:text-green-400 transition-colors disabled:opacity-40"
+                >
+                  connect →
+                </button>
               )}
             </div>
           </div>

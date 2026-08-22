@@ -13,20 +13,20 @@ class BatteryData(BaseModel):
     cycle_count: int
     status: str
     connected: bool
-    last_seen: str | None       # ISO timestamp of last successful read
-    retry_in: int | None        # seconds until next reconnect attempt
+    released: bool
+    last_seen: str | None
+    retry_in: int | None
 
 @router.get("/", response_model=BatteryData)
 async def get_battery():
     """Get current battery state. Returns last known values when BLE is offline."""
     b = battery_ble.get_latest()
-    connected = battery_ble.is_connected()
-    last_seen = battery_ble.get_last_seen()
-    retry_in  = battery_ble.get_retry_in()
-
+    connected  = battery_ble.is_connected()
+    released   = battery_ble.is_paused()
+    last_seen  = battery_ble.get_last_seen()
+    retry_in   = battery_ble.get_retry_in()
     last_seen_str = last_seen.isoformat() if last_seen else None
 
-    # Return last known values even when offline — frontend decides how to display
     if b is not None:
         return BatteryData(
             soc=float(b.SOC or 0),
@@ -35,17 +35,32 @@ async def get_battery():
             temperature=float(b.cellTemperature or 0),
             cell_voltages=list(b.batteryPack.values()),
             cycle_count=int(b.dischargesCount or 0),
-            status=b.battery_status or "unknown",
+            status="released" if released else (b.battery_status or "unknown"),
             connected=connected,
+            released=released,
             last_seen=last_seen_str,
             retry_in=retry_in,
         )
 
     return BatteryData(
         soc=0.0, voltage=0.0, current=0.0, temperature=0.0,
-        cell_voltages=[], cycle_count=0, status="offline",
-        connected=False, last_seen=None, retry_in=retry_in,
+        cell_voltages=[], cycle_count=0,
+        status="released" if released else "offline",
+        connected=False, released=released,
+        last_seen=None, retry_in=retry_in,
     )
+
+@router.post("/release")
+async def release_bms():
+    """Drop BLE connection so Power Queen app can connect."""
+    await battery_ble.release()
+    return {"status": "released", "message": "BMS connection released — Power Queen app can now connect"}
+
+@router.post("/connect")
+async def connect_bms():
+    """Resume BLE connection immediately."""
+    await battery_ble.reconnect()
+    return {"status": "connecting", "message": "Reconnecting to BMS"}
 
 @router.get("/history/raw")
 async def get_battery_history_raw(hours: int = 24):

@@ -31,6 +31,8 @@ interface VanStore {
   fetchHistory: () => Promise<void>
   toggleShelly: (id: string, on: boolean) => Promise<void>
   setMode: (mode: string) => Promise<void>
+  releaseBms: () => Promise<void>
+  connectBms: () => Promise<void>
 }
 
 export const useVanStore = create<VanStore>((set, get) => ({
@@ -110,5 +112,20 @@ export const useVanStore = create<VanStore>((set, get) => ({
   setMode: async (mode: string) => {
     const result = await api.mode.set(mode)
     set({ mode: result })
+  },
+
+  releaseBms: async () => {
+    await api.battery.release()
+    // Optimistically update status
+    set(state => ({
+      battery: state.battery ? { ...state.battery, released: true, connected: false, status: 'released' } : null
+    }))
+  },
+
+  connectBms: async () => {
+    await api.battery.connect()
+    set(state => ({
+      battery: state.battery ? { ...state.battery, released: false, status: 'connecting' } : null
+    }))
   },
 }))
