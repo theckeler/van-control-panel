@@ -195,6 +195,7 @@ tailscaled       Tailscale VPN
 - **History charts** in frontend — endpoints exist, SQLite is logging, frontend chart components need wiring up
 - **CORS** is `allow_origins=["*"]` — fine for local/Tailscale, tighten if Funnel is used long-term
 - **Maxxfan and Ceiling Lights** Shellys not yet installed — show as `installed: false` in API
+- **Load estimate is fabricated when BMS current is low** — see "Known bug: phantom load" below
 - **Vercel demo build** — idea scoped, not implemented. See "Vercel Demo Mode" below.
 - **Dometic CFX5 / Garmin PowerSwitch** — not reachable from the Pi. BlueZ is incompatible with Dometic's BLE module. Requires an ESP32 bridge. See `rubber-duck-review.md`.
 
@@ -222,6 +223,38 @@ Enumerated via `bluetoothctl` `list-attributes`. Three things worth knowing:
 - **Device Information service** at `0x180A` is fully populated: Manufacturer Name, Model Number, Serial Number, Hardware/Firmware/Software Revision, System ID. Cheap win for an About panel, no reverse engineering needed.
 
 **Leave alone:** vendor service `f000ffc0-0451-4000-b000-000000000000` with `FFC1`/`FFC2`. The `0451` is Texas Instruments and this is TI's OAD (over-the-air firmware download) service. Writing here flashes BMS firmware. A malformed write could brick it beyond what a disconnect power cycle can fix.
+
+---
+
+## Known bug: phantom load
+
+**Symptom:** the dashboard reports a steady 30-67W load on a parked van with Starlink off, the fridge off, and nothing running but the Pi.
+
+**Observed Aug 2026:** `/battery/` returned `current: 0.0` at 100% SOC, 13.84V, MPPT in Float. Zero draw. The dashboard was still showing tens of watts.
+
+**Cause — two independent problems in `routers/system.py`:**
+
+1. **The fallback invents a number.** When BMS data is unavailable the code does:
+   ```python
+   load_watts = float(sum(ALWAYS_ON_WATTS.values()))   # 67W, hardcoded
+   ```
+   with
+   ```python
+   ALWAYS_ON_WATTS = { "Pi": 5, "Starlink": 22, "Fridge": 40 }
+   ```
+   Starlink and the fridge are 62 of that 67W and neither reports its actual state. Whenever they're off, which is most of the time the van is parked, the figure is pure fiction.
+
+2. **Noise amplification near zero.** The normal path is `load_watts = solar_watts - battery_power_w`. At full charge in Float, solar is a trickle and BMS current sits near zero, so measurement noise in either term is a large fraction of the result. `CURRENT_THRESHOLD = 0.3` treats sub-0.3A as standby, but the subtraction still runs.
+
+**Why it was written this way:** the fallback was added so a night-time reading with no solar wouldn't display 0W load, which looked broken. It overcorrected. See the rubber duck entry on `system.py` load estimation.
+
+**Possible fixes, none implemented:**
+
+- *Honest option:* return `None` for load when BMS current is below threshold and no solar is present, and have the UI render a dash rather than a fabricated number. Unknown is more useful than wrong.
+- *Useful option:* gate the `ALWAYS_ON_WATTS` entries on real state. Shelly units already report on/off. Starlink and the fridge do not, so they'd need either a Shelly on their circuits or the ESP32 BLE bridge.
+- *Minimum:* drop Starlink and Fridge from the always-on map so the fallback only claims the Pi's ~5W, which is the one load genuinely always present.
+
+**Do not** trust the load or runtime figures on a parked van until this is addressed. `estimated_runtime_hrs` derives from the same number and inherits the error.
 
 ---
 

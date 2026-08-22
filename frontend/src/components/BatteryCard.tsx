@@ -1,8 +1,7 @@
-import React from "react";
 import clsx from "clsx";
-import { useEffect, useRef, useState } from "react";
-import { useVanStore } from "../store/van";
+import React, { useEffect, useRef, useState } from "react";
 import { useSettingsStore } from "../store/settings";
+import { useVanStore } from "../store/van";
 import { ConfirmModal } from "./ConfirmModal";
 
 function formatLastSeen(isoStr: string): string {
@@ -18,12 +17,18 @@ function formatCountdown(secs: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export function BatteryCard({ className, style }: { className?: string; style?: React.CSSProperties }) {
-  const battery     = useVanStore((s) => s.battery);
-  const releaseBms  = useVanStore((s) => s.releaseBms);
-  const connectBms  = useVanStore((s) => s.connectBms);
-  const spacing     = useSettingsStore((s) => s.spacing);
-  const pad         = spacing * 4;
+export function BatteryCard({
+  className,
+  style,
+}: {
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  const battery = useVanStore((s) => s.battery);
+  const releaseBms = useVanStore((s) => s.releaseBms);
+  const connectBms = useVanStore((s) => s.connectBms);
+  const spacing = useSettingsStore((s) => s.spacing);
+  const pad = spacing * 4;
   const [busy, setBusy] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -47,48 +52,64 @@ export function BatteryCard({ className, style }: { className?: string; style?: 
       if (countdownRef.current) clearInterval(countdownRef.current);
       setCountdown(null);
     }
-    return () => { if (countdownRef.current) clearInterval(countdownRef.current); };
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
   }, [battery?.retry_in]);
 
   if (!battery) return <CardSkeleton />;
 
-  const isOffline  = !battery.connected;
+  const isOffline = !battery.connected;
   const isReleased = battery.released;
-  const hasCache   = battery.soc > 0 || battery.voltage > 0;
+  const hasCache = battery.soc > 0 || battery.voltage > 0;
 
   const handleRelease = async () => {
-    setBusy(true)
-    await releaseBms()
-    setBusy(false)
-  }
+    setBusy(true);
+    await releaseBms();
+    setBusy(false);
+  };
 
   const handleConnect = async () => {
-    setBusy(true)
-    await connectBms()
-    setBusy(false)
-  }
+    setBusy(true);
+    await connectBms();
+    setBusy(false);
+  };
 
   const socColor =
-    battery.soc > 50 ? "text-soc-good"
-    : battery.soc > 20 ? "text-soc-mid"
-    : "text-soc-low";
+    battery.soc > 50
+      ? "text-soc-good"
+      : battery.soc > 20
+        ? "text-soc-mid"
+        : "text-soc-low";
 
   const isCharging = battery.current > 0;
   const drawW = Math.abs(battery.current * battery.voltage).toFixed(0);
 
   return (
-    <div className={clsx(className, "flex flex-col gap-3", isOffline && "opacity-60")} style={style}>
+    <div
+      className={clsx(
+        className,
+        "flex flex-col gap-3",
+        isOffline && "opacity-60",
+      )}
+      style={style}
+    >
       <ConfirmModal
         open={showConfirm}
         title="Release BMS connection?"
         message="The Pi will drop its Bluetooth connection to the battery. The Power Queen app will be able to connect. Tap Connect when you're done to resume monitoring."
         confirmLabel="Release"
-        onConfirm={() => { setShowConfirm(false); handleRelease() }}
+        onConfirm={() => {
+          setShowConfirm(false);
+          handleRelease();
+        }}
         onCancel={() => setShowConfirm(false)}
       />
       {isOffline && !hasCache ? (
         <div className="flex flex-col gap-1 py-2">
-          <span className="text-xs font-mono text-amber-500">○ offline — no data yet</span>
+          <span className="text-xs font-mono text-amber-500">
+            ○ offline — no data yet
+          </span>
           {countdown !== null && countdown > 0 && (
             <span className="text-xs font-mono text-zinc-600">
               connecting in {formatCountdown(countdown)}
@@ -107,16 +128,26 @@ export function BatteryCard({ className, style }: { className?: string; style?: 
       ) : (
         <>
           <div className="flex items-end justify-between">
-            <div className={clsx("text-6xl font-mono font-bold tracking-tight", socColor)}>
+            <div
+              className={clsx(
+                "text-6xl font-mono font-bold tracking-tight",
+                socColor,
+              )}
+            >
               {battery.soc.toFixed(1)}
               <span className="text-2xl ml-1">%</span>
             </div>
             <div className="flex flex-col items-end gap-1">
-              <span className={clsx("text-xs font-mono",
-                isReleased ? "text-blue-400"
-                : isOffline ? "text-amber-500"
-                : "text-green-500"
-              )}>
+              <span
+                className={clsx(
+                  "text-xs font-mono",
+                  isReleased
+                    ? "text-blue-400"
+                    : isOffline
+                      ? "text-amber-500"
+                      : "text-green-500",
+                )}
+              >
                 {isReleased ? "○ released" : isOffline ? "○ offline" : "● live"}
               </span>
               {isOffline && battery.last_seen && (
@@ -124,11 +155,14 @@ export function BatteryCard({ className, style }: { className?: string; style?: 
                   last seen {formatLastSeen(battery.last_seen)}
                 </span>
               )}
-              {isOffline && !isReleased && countdown !== null && countdown > 0 && (
-                <span className="text-xs font-mono text-zinc-600">
-                  retry in {formatCountdown(countdown)}
-                </span>
-              )}
+              {isOffline &&
+                !isReleased &&
+                countdown !== null &&
+                countdown > 0 && (
+                  <span className="text-xs font-mono text-zinc-600">
+                    retry in {formatCountdown(countdown)}
+                  </span>
+                )}
               {/* Release / Connect buttons */}
               {!isOffline && !isReleased && (
                 <button
@@ -151,26 +185,27 @@ export function BatteryCard({ className, style }: { className?: string; style?: 
             </div>
           </div>
 
-          <div>
-            <div className="flex justify-between text-xs font-mono text-zinc-600 mb-1">
-              <span>0%</span>
-              <span>100%</span>
-            </div>
-            <div className="h-2 bg-panel-bg rounded-full overflow-hidden">
-              <div
-                className={clsx("h-full rounded-full transition-all duration-700", {
+          <div className="h-2 bg-panel-bg rounded-full overflow-hidden">
+            <div
+              className={clsx(
+                "h-full rounded-full transition-all duration-700",
+                {
                   "bg-soc-good": battery.soc > 50,
-                  "bg-soc-mid":  battery.soc > 20 && battery.soc <= 50,
-                  "bg-soc-low":  battery.soc <= 20,
-                })}
-                style={{ width: `${battery.soc}%` }}
-              />
-            </div>
+                  "bg-soc-mid": battery.soc > 20 && battery.soc <= 50,
+                  "bg-soc-low": battery.soc <= 20,
+                },
+              )}
+              style={{ width: `${battery.soc}%` }}
+            />
           </div>
 
           <div className="grid grid-cols-3 gap-3">
             <Stat pad={pad} value={`${battery.voltage.toFixed(2)}V`} />
-            <Stat pad={pad} value={`${drawW}W`} highlight={isCharging ? "charge" : "draw"} />
+            <Stat
+              pad={pad}
+              value={`${drawW}W`}
+              highlight={isCharging ? "charge" : "draw"}
+            />
             <Stat pad={pad} value={`${battery.temperature.toFixed(1)}°C`} />
           </div>
         </>
@@ -179,7 +214,11 @@ export function BatteryCard({ className, style }: { className?: string; style?: 
   );
 }
 
-function Stat({ value, highlight, pad }: {
+function Stat({
+  value,
+  highlight,
+  pad,
+}: {
   value: string;
   highlight?: "charge" | "draw";
   pad: number;
@@ -189,8 +228,8 @@ function Stat({ value, highlight, pad }: {
       <div
         className={clsx("text-sm font-mono font-semibold", {
           "text-charge-solar": highlight === "charge",
-          "text-soc-low":      highlight === "draw",
-          "text-zinc-200":     !highlight,
+          "text-soc-low": highlight === "draw",
+          "text-zinc-200": !highlight,
         })}
       >
         {value}

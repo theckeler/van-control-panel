@@ -142,6 +142,30 @@ If you see `uptime` showing only a few minutes right after this error, the Pi re
 
 ---
 
+## Dashboard shows a load with nothing running
+
+### Symptoms
+- Parked van, Starlink off, fridge off, only the Pi powered
+- Dashboard still reports 30-67W load
+- Runtime estimate looks pessimistic
+
+### Check whether it's real
+```bash
+ssh todd@van-pi.local
+curl -s localhost:8000/battery/ | python3 -m json.tool | grep -E "current|voltage|soc"
+```
+If `current` is at or near `0.0`, there is no actual draw and the displayed load is fabricated.
+
+### Cause
+Known bug. `ALWAYS_ON_WATTS` in `routers/system.py` hardcodes Starlink at 22W and the fridge at 40W as always-on, and the fallback path sums them regardless of whether those devices are running. Near full charge in Float the alternative calculation (`solar_watts - battery_power_w`) is also dominated by measurement noise.
+
+Full writeup in `CLAUDE.md` under "Known bug: phantom load". Not yet fixed.
+
+### What to trust instead
+The BMS `current` value is measured and reliable. Voltage and SOC are fine. Load and `estimated_runtime_hrs` are not trustworthy on a parked van.
+
+---
+
 ## van-api not responding after deploy
 
 ### Cause
