@@ -1,10 +1,14 @@
+
 # Van Control Panel
+
 
 > A self-hosted PWA monitoring, automation, and camera system for a 2023 Mercedes Sprinter VS30 AWD 144" High Roof van build.
 
 ![Stack](https://img.shields.io/badge/stack-React%20%2B%20FastAPI-orange)
 ![Platform](https://img.shields.io/badge/platform-Raspberry%20Pi%204B-red)
 ![License](https://img.shields.io/badge/license-MIT-blue)
+
+<img width="466" height="713" alt="image" src="https://github.com/user-attachments/assets/22ed2cc4-61a6-41f0-847b-089f9fb55e67" />
 
 ---
 
