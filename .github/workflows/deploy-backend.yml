@@ -11,9 +11,11 @@ jobs:
     runs-on: [self-hosted, van-pi]
 
     steps:
-      - name: Pull latest code
+      - name: Sync to latest
         working-directory: /home/todd/van-control-panel
-        run: git pull origin main
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
 
       - name: Install Python dependencies
         working-directory: /home/todd/van-control-panel/backend
@@ -24,6 +26,6 @@ jobs:
 
       - name: Health check
         run: |
-          sleep 3
+          sleep 5
           curl -sf http://localhost:8000/health || exit 1
           echo "Backend healthy"
