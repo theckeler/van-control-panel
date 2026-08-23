@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import clsx from "clsx";
 import { api } from "../api/client";
+import { useModalBehavior } from "../hooks/useModalBehavior";
 
 type Action = "reboot" | "shutdown";
 type Phase  = "pick" | "confirm" | "acting" | "offline" | "back";
@@ -85,14 +86,36 @@ export function PowerModal({ open, onClose }: PowerModalProps) {
     onClose();
   }
 
+  // Escape only where there is something sensible to return to. Mid-reboot or
+  // mid-shutdown the Pi is already going down, so dismissing would just hide
+  // the status without stopping anything.
+  const dismissible = phase === "pick" || phase === "confirm";
+  const dialogRef = useModalBehavior(open, dismissible ? handleClose : undefined);
+
   if (!open) return null;
   const act = action ?? "reboot";
 
+  const dialogLabel =
+    phase === "pick"    ? "Power options"
+  : phase === "confirm" && action ? COPY[action].confirm.title
+  : COPY[act].acting;
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={phase === "pick" ? handleClose : undefined} />
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={phase === "pick" ? handleClose : undefined}
+        aria-hidden="true"
+      />
 
-      <div className="relative bg-panel-surface border border-panel-border rounded-xl p-6 w-full max-w-sm shadow-xl">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={dialogLabel}
+        tabIndex={-1}
+        className="relative bg-panel-surface border border-panel-border rounded-xl p-6 w-full max-w-sm shadow-xl focus:outline-none"
+      >
 
         {/* PICK */}
         {phase === "pick" && (
@@ -100,16 +123,16 @@ export function PowerModal({ open, onClose }: PowerModalProps) {
             <h2 className="text-sm font-mono font-semibold text-zinc-100 mb-1">Power options</h2>
             <p  className="text-xs font-mono text-zinc-500 mb-5">Choose an action for the Raspberry Pi.</p>
             <div className="flex flex-col gap-2">
-              <button onClick={() => handleAction("reboot")}
-                className="w-full text-xs font-mono px-4 py-3 rounded-lg border border-amber-800 bg-amber-900/40 text-amber-300 hover:bg-amber-800/50 transition-colors text-left">
+              <button type="button" onClick={() => handleAction("reboot")}
+                className="w-full text-xs font-mono px-4 py-3 rounded-lg border border-amber-800 bg-amber-900/40 text-amber-300 hover:bg-amber-800/50 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface">
                 ↺  Reboot
               </button>
-              <button onClick={() => handleAction("shutdown")}
-                className="w-full text-xs font-mono px-4 py-3 rounded-lg border border-red-800 bg-red-900/40 text-red-300 hover:bg-red-800/50 transition-colors text-left">
+              <button type="button" onClick={() => handleAction("shutdown")}
+                className="w-full text-xs font-mono px-4 py-3 rounded-lg border border-red-800 bg-red-900/40 text-red-300 hover:bg-red-800/50 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface">
                 ⏻  Shut Down
               </button>
-              <button onClick={handleClose}
-                className="w-full text-xs font-mono px-4 py-3 rounded-lg border border-panel-border text-zinc-400 hover:text-zinc-200 transition-colors text-left">
+              <button type="button" onClick={handleClose}
+                className="w-full text-xs font-mono px-4 py-3 rounded-lg border border-panel-border text-zinc-400 hover:text-zinc-200 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface">
                 Cancel
               </button>
             </div>
@@ -122,11 +145,11 @@ export function PowerModal({ open, onClose }: PowerModalProps) {
             <h2 className="text-sm font-mono font-semibold text-zinc-100 mb-2">{COPY[action].confirm.title}</h2>
             <p  className="text-xs font-mono text-zinc-400 leading-relaxed mb-6">{COPY[action].confirm.body}</p>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setPhase("pick")}
-                className="text-xs font-mono px-4 py-2 rounded-lg border border-panel-border text-zinc-400 hover:text-zinc-200 transition-colors">
+              <button type="button" onClick={() => setPhase("pick")}
+                className="text-xs font-mono px-4 py-2 rounded-lg border border-panel-border text-zinc-400 hover:text-zinc-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface">
                 Back
               </button>
-              <button onClick={handleConfirm}
+              <button type="button" onClick={handleConfirm}
                 className={clsx("text-xs font-mono px-4 py-2 rounded-lg border transition-colors",
                   action === "shutdown"
                     ? "bg-red-900/60 hover:bg-red-800/60 text-red-300 border-red-800"
@@ -157,8 +180,8 @@ export function PowerModal({ open, onClose }: PowerModalProps) {
               <>
                 <span className="text-2xl">⏻</span>
                 <p className="text-xs font-mono text-zinc-400 text-center">{COPY[act].offline}</p>
-                <button onClick={handleClose}
-                  className="text-xs font-mono px-4 py-2 rounded-lg border border-panel-border text-zinc-400 hover:text-zinc-200 transition-colors">
+                <button type="button" onClick={handleClose}
+                  className="text-xs font-mono px-4 py-2 rounded-lg border border-panel-border text-zinc-400 hover:text-zinc-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface">
                   Close
                 </button>
               </>
@@ -167,8 +190,8 @@ export function PowerModal({ open, onClose }: PowerModalProps) {
               <>
                 <span className="text-2xl text-green-400">✓</span>
                 <p className="text-xs font-mono text-green-400">{COPY[act].back}</p>
-                <button onClick={handleClose}
-                  className="text-xs font-mono px-4 py-2 rounded-lg border border-panel-border text-zinc-400 hover:text-zinc-200 transition-colors">
+                <button type="button" onClick={handleClose}
+                  className="text-xs font-mono px-4 py-2 rounded-lg border border-panel-border text-zinc-400 hover:text-zinc-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface">
                   Close
                 </button>
               </>
