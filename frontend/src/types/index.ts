@@ -120,6 +120,19 @@ export interface ModeResponse {
   available: ModeName[]
 }
 
+export interface PiHealth {
+  cpu_temp_c: number | null
+  load_1: number | null
+  load_5: number | null
+  mem_total_mb: number | null
+  mem_available_mb: number | null
+  disk_total_gb: number | null
+  disk_free_gb: number | null
+  uptime_s: number | null
+  /** Undervoltage / throttling flags. 'since-boot' entries persist. */
+  throttle: string[]
+}
+
 export interface SystemData {
   net_power_w: number
   estimated_runtime_hrs: number | null

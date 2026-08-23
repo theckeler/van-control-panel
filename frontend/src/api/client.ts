@@ -1,7 +1,7 @@
 import type {
   BatteryData, MpptData, ShoreData, OrionData,
   ShellyUnit, Photo, ModeResponse, SystemData,
-  RawReading, HourlyReading, DailyReading,
+  RawReading, HourlyReading, DailyReading, PiHealth,
 } from '../types'
 import { mockApi } from './mock'
 
@@ -67,6 +67,7 @@ const realApi = {
   },
   system: {
     get: () => get<SystemData>('/system/'),
+    health: () => get<PiHealth>('/system/health-detail'),
     shutdown: () => post<{ status: string; message: string }>('/system/shutdown'),
     reboot:   () => post<{ status: string; message: string }>('/system/reboot'),
   },

@@ -396,6 +396,17 @@ export const mockApi = {
         wifi_ip: '192.168.4.96',
       })
     },
+    health: () => delay({
+      cpu_temp_c: 47.2,
+      load_1: 0.08,
+      load_5: 0.12,
+      mem_total_mb: 906,
+      mem_available_mb: 561,
+      disk_total_gb: 28.1,
+      disk_free_gb: 23.0,
+      uptime_s: 183_240,
+      throttle: [] as string[],
+    }),
     // Destructive controls are inert in demo mode.
     shutdown: () => delay({ status: 'demo', message: 'Shutdown disabled in demo mode' }),
     reboot:   () => delay({ status: 'demo', message: 'Reboot disabled in demo mode' }),

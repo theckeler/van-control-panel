@@ -1,11 +1,11 @@
 import clsx from "clsx";
 import { useVanStore } from "../store/van";
-import { StatusDot, Panel } from "./ui";
+import { Panel, StatusDot } from "./ui";
 
 export function ChargeSourcesCard({ className }: { className?: string }) {
-  const mppt  = useVanStore((s) => s.mppt);
+  const mppt = useVanStore((s) => s.mppt);
   const shore = useVanStore((s) => s.shore);
-  const orion = useVanStore((s) => s.orion);
+  // const orion = useVanStore((s) => s.orion);   // Alternator row hidden below
 
   return (
     <Panel className={className}>
@@ -14,21 +14,27 @@ export function ChargeSourcesCard({ className }: { className?: string }) {
         active={!!mppt?.panel_power && mppt.panel_power > 0}
         color="text-charge-solar"
         value={mppt ? `${mppt.panel_power.toFixed(0)}W` : "—"}
-        detail={mppt ? `${mppt.charge_state} · ${mppt.daily_yield.toFixed(0)}Wh today` : null}
+        detail={
+          mppt
+            ? `${mppt.charge_state} · ${mppt.daily_yield.toFixed(0)}Wh today`
+            : null
+        }
       />
       <SourceRow
         label="Shore"
         active={!!shore?.connected}
         color="text-charge-shore"
-        value={shore?.connected ? `${shore.charge_current.toFixed(1)}A` : "Unplugged"}
+        value={
+          shore?.connected ? `${shore.charge_current.toFixed(1)}A` : "Unplugged"
+        }
         detail={shore?.connected ? shore.charge_mode : null}
       />
-      <SourceRow
+      {/* <SourceRow
         label="Alternator"
         active={!!orion?.enabled}
         color="text-charge-dc"
         value={orion?.enabled ? `${orion.max_power}W max` : "Off"}
-      />
+      /> */}
     </Panel>
   );
 }

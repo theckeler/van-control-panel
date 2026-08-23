@@ -5,7 +5,7 @@ import { ChargeSourcesCard } from "../components/ChargeSourcesCard";
 import { HistoryCard } from "../components/HistoryCard";
 import { PowerModal } from "../components/PowerModal";
 import { ShellyPanel } from "../components/ShellyPanel";
-import { ThemeToggle } from "../components/ThemeToggle";
+import { SettingsDrawer } from "../components/SettingsDrawer";
 import { Toaster } from "../components/Toaster";
 import { WifiBadge } from "../components/WifiBadge";
 import { Button, Stack } from "../components/ui";
@@ -13,7 +13,7 @@ import { usePolling } from "../hooks/usePolling";
 import { useSettingsStore } from "../store/settings";
 import { useVanStore } from "../store/van";
 
-function PowerIcon() {
+function GearIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -24,8 +24,8 @@ function PowerIcon() {
       strokeLinejoin="round"
       className="w-4 h-4"
     >
-      <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
-      <line x1="12" y1="2" x2="12" y2="12" />
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
     </svg>
   );
 }
@@ -37,9 +37,8 @@ export function Dashboard() {
   const error = useVanStore((s) => s.error);
   const { vanName } = useSettingsStore();
   const [powerOpen, setPowerOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const buttonClass =
-    "rounded-lg p-1.5 border border-panel-border text-zinc-500 hover:border-zinc-500 hover:text-zinc-300 transition-colors";
 
   return (
     <Stack className="min-h-screen bg-panel-bg text-zinc-100 max-w-2xl mx-auto items-stretch">
@@ -69,14 +68,13 @@ export function Dashboard() {
             )}
             <WifiBadge className="block" />
           </div>
-          <ThemeToggle className={buttonClass} />
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setPowerOpen(true)}
-            aria-label="Power options"
+            onClick={() => setSettingsOpen(true)}
+            aria-label="Settings"
           >
-            <PowerIcon />
+            <GearIcon />
           </Button>
         </div>
       </header>
@@ -87,6 +85,17 @@ export function Dashboard() {
       <HistoryCard />
       {/* <Cameras /> */}
       {/* <ModeSelector /> */}
+
+      <SettingsDrawer
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onPower={() => {
+          setSettingsOpen(false);
+          setPowerOpen(true);
+        }}
+      />
+      <PowerModal open={powerOpen} onClose={() => setPowerOpen(false)} />
+      <Toaster />
     </Stack>
   );
 }
