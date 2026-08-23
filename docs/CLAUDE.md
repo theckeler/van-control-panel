@@ -195,8 +195,8 @@ tailscaled       Tailscale VPN
 - **History charts** in frontend — endpoints exist, SQLite is logging, frontend chart components need wiring up
 - **CORS** is `allow_origins=["*"]` — fine for local/Tailscale, tighten if Funnel is used long-term
 - **Maxxfan and Ceiling Lights** Shellys not yet installed — show as `installed: false` in API
-- **Load estimate is fabricated when BMS current is low** — see "Known bug: phantom load" below
-- **Vercel demo build** — idea scoped, not implemented. See "Vercel Demo Mode" below.
+- **`loads` breakdown in system.py is unconditional** — claims Starlink 22W and Fridge 40W regardless of actual state. Latent only: the frontend never reads it. See "system.py load estimation" below.
+- **Vercel demo build** — built and deployed. See "Vercel Demo Mode" below.
 - **Dometic CFX5 / Garmin PowerSwitch** — not reachable from the Pi. BlueZ is incompatible with Dometic's BLE module. Requires an ESP32 bridge. See `rubber-duck-review.md`.
 
 ---
@@ -226,35 +226,91 @@ Enumerated via `bluetoothctl` `list-attributes`. Three things worth knowing:
 
 ---
 
-## Known bug: phantom load
+## system.py load estimation — what's actually wrong
 
-**Symptom:** the dashboard reports a steady 30-67W load on a parked van with Starlink off, the fridge off, and nothing running but the Pi.
+An earlier version of this section claimed the dashboard was displaying a
+fabricated load figure. **That diagnosis was wrong and has been corrected.**
+The full trail is in `rubber-duck-review.md`. Summary of the correction, then
+the issues that are genuinely real.
 
-**Observed Aug 2026:** `/battery/` returned `current: 0.0` at 100% SOC, 13.84V, MPPT in Float. Zero draw. The dashboard was still showing tens of watts.
+### The false alarm
 
-**Cause — two independent problems in `routers/system.py`:**
+Symptom reported: dashboard showing 30-45W draw on a parked van with Starlink
+off and the fridge off.
 
-1. **The fallback invents a number.** When BMS data is unavailable the code does:
-   ```python
-   load_watts = float(sum(ALWAYS_ON_WATTS.values()))   # 67W, hardcoded
-   ```
-   with
-   ```python
-   ALWAYS_ON_WATTS = { "Pi": 5, "Starlink": 22, "Fridge": 40 }
-   ```
-   Starlink and the fridge are 62 of that 67W and neither reports its actual state. Whenever they're off, which is most of the time the van is parked, the figure is pure fiction.
+That number is real and measured. `BatteryCard.tsx` computes it directly from
+BMS telemetry:
 
-2. **Noise amplification near zero.** The normal path is `load_watts = solar_watts - battery_power_w`. At full charge in Float, solar is a trickle and BMS current sits near zero, so measurement noise in either term is a large fraction of the result. `CURRENT_THRESHOLD = 0.3` treats sub-0.3A as standby, but the subtraction still runs.
+```ts
+const drawW = Math.abs(battery.current * battery.voltage).toFixed(0);
+```
 
-**Why it was written this way:** the fallback was added so a night-time reading with no solar wouldn't display 0W load, which looked broken. It overcorrected. See the rubber duck entry on `system.py` load estimation.
+45W at 13.54V is ~3.3A out of the battery, which the BMS measures directly.
+When it was investigated the Garage Shelly circuit was on. Nothing in
+`system.py` is involved in that display at all.
 
-**Possible fixes, none implemented:**
+The original mistake was diagnosing from a moment when `current` was `0.0`,
+inferring the `ALWAYS_ON_WATTS` fallback must be firing, and not checking that
+the fallback only runs when `bms_ok` is false. The BMS was connected the whole
+time.
 
-- *Honest option:* return `None` for load when BMS current is below threshold and no solar is present, and have the UI render a dash rather than a fabricated number. Unknown is more useful than wrong.
-- *Useful option:* gate the `ALWAYS_ON_WATTS` entries on real state. Shelly units already report on/off. Starlink and the fridge do not, so they'd need either a Shelly on their circuits or the ESP32 BLE bridge.
-- *Minimum:* drop Starlink and Fridge from the always-on map so the fallback only claims the Pi's ~5W, which is the one load genuinely always present.
+### Genuinely real issue 1 — the loads breakdown is fiction
 
-**Do not** trust the load or runtime figures on a parked van until this is addressed. `estimated_runtime_hrs` derives from the same number and inherits the error.
+This loop runs unconditionally, outside any state check:
+
+```python
+for label, watts in ALWAYS_ON_WATTS.items():
+    loads.append(LoadBreakdown(label=label, watts=float(watts), source="always_on"))
+```
+
+with `ALWAYS_ON_WATTS = { "Pi": 5, "Starlink": 22, "Fridge": 40 }`. Starlink and
+the fridge are 62 of that 67W and neither reports its actual state, so the
+breakdown claims them whether or not they're powered.
+
+**Severity: latent, not live.** Nothing in the frontend reads `loads`,
+`load_watts`, `solar_watts`, or `power_state`. The backend computes and
+serialises all of it on every 5-second poll and it is discarded. Fix this
+*before* wiring up any load-breakdown panel.
+
+### Genuinely real issue 2 — the clamp hides shore charging
+
+```python
+load_watts = round(solar_watts - battery_power_w, 1)
+load_watts = max(0.0, load_watts)
+```
+
+On shore power with solar at zero and the battery taking 200W, this evaluates
+to `0 - 200 = -200`, clamped to **0W**. A van that is plugged in and actively
+running loads reports zero consumption. The clamp doesn't fix the arithmetic,
+it conceals it.
+
+### The structural problem underneath both
+
+Load is derived from one equation:
+
+```
+load = solar_in - battery_flow
+```
+
+That is only solvable when solar is the *only* charge source. Add shore or
+alternator and there are two unknowns and one measurement. Shore is inferred
+rather than measured precisely because there's no sensor on it.
+
+So `load_watts` is trustworthy when the BMS is connected and solar is the only
+input, which covers most real usage, and unreliable otherwise.
+
+### Fixes, none implemented
+
+- *Honest:* return `None` for `load_watts` when the inputs can't support an
+  answer (non-solar charge source active), and render a dash. Unknown beats wrong.
+- *Minimum:* drop Starlink and Fridge from `ALWAYS_ON_WATTS` so the breakdown
+  only claims the Pi's ~5W, the one load genuinely always present.
+- *Real:* measure instead of infer. A Victron SmartShunt reports over the same
+  BLE advertisement protocol the MPPT already uses, and would make load,
+  runtime, and shore detection all real.
+
+`estimated_runtime_hrs` is **not** affected — it derives from
+`remainAh / abs(current)`, both measured, and is sound.
 
 ---
 

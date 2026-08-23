@@ -142,27 +142,42 @@ If you see `uptime` showing only a few minutes right after this error, the Pi re
 
 ---
 
-## Dashboard shows a load with nothing running
+## Dashboard shows a load with nothing obvious running
 
-### Symptoms
-- Parked van, Starlink off, fridge off, only the Pi powered
-- Dashboard still reports 30-67W load
-- Runtime estimate looks pessimistic
+### First: it's probably real
 
-### Check whether it's real
+The watts figure on the Battery card is measured, not estimated.
+`BatteryCard.tsx` computes it as `Math.abs(battery.current * battery.voltage)`
+straight from BMS telemetry. It does not come from `system.py`.
+
+Check what's actually on before assuming a bug:
+
 ```bash
 ssh todd@van-pi.local
 curl -s localhost:8000/battery/ | python3 -m json.tool | grep -E "current|voltage|soc"
+curl -s localhost:8000/shelly/ | python3 -m json.tool | grep -E "label|on"
 ```
-If `current` is at or near `0.0`, there is no actual draw and the displayed load is fabricated.
 
-### Cause
-Known bug. `ALWAYS_ON_WATTS` in `routers/system.py` hardcodes Starlink at 22W and the fridge at 40W as always-on, and the fallback path sums them regardless of whether those devices are running. Near full charge in Float the alternative calculation (`solar_watts - battery_power_w`) is also dominated by measurement noise.
+A Shelly circuit left on is the usual answer. 45W at 13.5V is ~3.3A, well
+within range for the Garage circuit. If `current` is near `0.0` there is
+genuinely no draw and the card will show ~0W.
 
-Full writeup in `CLAUDE.md` under "Known bug: phantom load". Not yet fixed.
+*(Aug 2026: this was investigated as a suspected phantom-load bug. It wasn't.
+The Garage Shelly was on. See CLAUDE.md "system.py load estimation" for the
+full correction.)*
 
-### What to trust instead
-The BMS `current` value is measured and reliable. Voltage and SOC are fine. Load and `estimated_runtime_hrs` are not trustworthy on a parked van.
+### What is actually unreliable
+
+`system.py`'s `load_watts` and `loads` breakdown, neither of which the frontend
+currently displays:
+
+- The `loads` list always claims Starlink 22W and Fridge 40W whether or not
+  they're powered.
+- `load_watts` is clamped with `max(0.0, ...)`, so during shore charging it
+  reports 0W even while loads are running.
+
+Both documented in CLAUDE.md. Neither affects anything you can see on the
+dashboard today.
 
 ---
 
