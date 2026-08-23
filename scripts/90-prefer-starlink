@@ -42,6 +42,18 @@ ACTIVE=$(nmcli -t -f NAME,DEVICE connection show --active 2>/dev/null \
 [ "$ACTIVE" = "$PREFERRED" ] && exit 0
 [ -z "$ACTIVE" ] && exit 0
 
+# A manual switch from the dashboard writes an expiry timestamp here. Respect
+# it — otherwise deliberately choosing the fallback gets reverted on the next
+# dispatcher event, which looks like the UI ignoring you.
+OVERRIDE="/tmp/prefer-starlink.override"
+if [ -f "$OVERRIDE" ]; then
+    UNTIL=$(cat "$OVERRIDE" 2>/dev/null || echo 0)
+    if [ "$(date +%s)" -lt "$UNTIL" ] 2>/dev/null; then
+        exit 0
+    fi
+    rm -f "$OVERRIDE"
+fi
+
 # Don't thrash. If Starlink is flapping, switching on every dispatcher event
 # would knock the connection out repeatedly.
 if [ -f "$STATE" ]; then

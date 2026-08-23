@@ -37,6 +37,34 @@ async def get_pi_health():
     return PiHealth(**await health.get_health())
 
 
+class WifiProfile(BaseModel):
+    name: str
+    active: bool
+
+
+class WifiSwitchResult(BaseModel):
+    ok: bool
+    message: str
+
+
+@router.get("/wifi/profiles", response_model=list[WifiProfile])
+async def get_wifi_profiles():
+    """Known WiFi profiles and which is currently up."""
+    return [WifiProfile(**p) for p in await network.list_profiles()]
+
+
+@router.post("/wifi/switch/{name}", response_model=WifiSwitchResult)
+async def switch_wifi(name: str):
+    """
+    Bring up a WiFi profile.
+
+    The caller loses its connection to the Pi while this happens if it is
+    reaching it over the LAN. Tailscale survives.
+    """
+    ok, message = await network.switch_profile(name)
+    return WifiSwitchResult(ok=ok, message=message or ("switched" if ok else "failed"))
+
+
 @router.get("/wifi", response_model=WifiStatus)
 async def get_wifi():
     """Which network the Pi is currently on, and how good the link is."""

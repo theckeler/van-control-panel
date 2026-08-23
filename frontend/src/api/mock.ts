@@ -407,6 +407,12 @@ export const mockApi = {
       uptime_s: 183_240,
       throttle: [] as string[],
     }),
+    wifiProfiles: () => delay([
+      { name: 'starlink', active: true },
+      { name: 'netplan-wlan0-OHeck', active: false },
+    ]),
+    switchWifi: (name: string) =>
+      delay({ ok: false, message: `Switching to ${name} is disabled in demo mode` }),
     // Destructive controls are inert in demo mode.
     shutdown: () => delay({ status: 'demo', message: 'Shutdown disabled in demo mode' }),
     reboot:   () => delay({ status: 'demo', message: 'Reboot disabled in demo mode' }),

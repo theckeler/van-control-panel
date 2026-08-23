@@ -133,6 +133,11 @@ export interface PiHealth {
   throttle: string[]
 }
 
+export interface WifiProfile {
+  name: string
+  active: boolean
+}
+
 export interface SystemData {
   net_power_w: number
   estimated_runtime_hrs: number | null

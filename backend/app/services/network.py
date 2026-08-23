@@ -74,3 +74,68 @@ async def get_wifi() -> dict:
 
     _cache = (result, now)
     return result
+
+
+# /run is root-only and van-api runs as todd, so the marker lives in /tmp.
+# van-api.service does not set PrivateTmp, so the root-run dispatcher sees the
+# same file. Cleared on reboot, which is the right lifetime for an override.
+_OVERRIDE_FILE = "/tmp/prefer-starlink.override"
+_OVERRIDE_SECONDS = 1800
+
+
+async def list_profiles() -> list[dict]:
+    """Known WiFi connection profiles, and which one is active."""
+    out = await _run("nmcli", "-t", "-f", "NAME,TYPE", "connection", "show")
+    active = await _run("nmcli", "-t", "-f", "NAME,DEVICE", "connection", "show", "--active")
+
+    active_name = None
+    for line in active.splitlines():
+        name, _, dev = line.rpartition(":")
+        if dev == IFACE:
+            active_name = name
+
+    profiles = []
+    for line in out.splitlines():
+        name, _, kind = line.rpartition(":")
+        if kind == "802-11-wireless":
+            profiles.append({"name": name, "active": name == active_name})
+    return profiles
+
+
+async def switch_profile(name: str) -> tuple[bool, str]:
+    """
+    Bring up a WiFi profile by name.
+
+    Writes an override marker so the prefer-starlink dispatcher does not undo
+    a deliberate choice on its next event. Without it, manually selecting the
+    fallback would be reverted inside the dispatcher's cooldown.
+
+    The name is validated against existing profiles and passed as argv, never
+    through a shell.
+    """
+    valid = {p["name"] for p in await list_profiles()}
+    if name not in valid:
+        return False, f"Unknown WiFi profile: {name}"
+
+    try:
+        with open(_OVERRIDE_FILE, "w") as f:
+            f.write(str(int(time.time()) + _OVERRIDE_SECONDS))
+    except OSError:
+        pass  # best effort — the switch still happens
+
+    global _cache
+    _cache = None  # force a fresh read on the next status poll
+
+    # Needs sudo: polkit denies "control networking" to a non-interactive
+    # session, even for a user in netdev. Same pattern as shutdown/reboot.
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "sudo", "nmcli", "connection", "up", name,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        out, _ = await asyncio.wait_for(proc.communicate(), timeout=30.0)
+    except (OSError, asyncio.TimeoutError):
+        return False, "Timed out bringing the connection up"
+
+    return proc.returncode == 0, out.decode(errors="replace").strip()
