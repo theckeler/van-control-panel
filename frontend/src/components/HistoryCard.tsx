@@ -1,6 +1,6 @@
 import React from "react";
 import clsx from "clsx";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Area,
   AreaChart,
@@ -13,6 +13,7 @@ import {
   YAxis,
 } from "recharts";
 import { useVanStore } from "../store/van";
+import { useVisibleInterval } from "../hooks/useVisibleInterval";
 
 type Tab = "soc" | "solar";
 
@@ -54,11 +55,10 @@ export function HistoryCard({ className, style }: { className?: string; style?: 
     battery: s.battery,
   }));
 
-  useEffect(() => {
-    fetchHistory();
-    const interval = setInterval(fetchHistory, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
+  // Refetch every 5 min, paused while the tab is hidden. History is the
+  // heavy payload, so this is the one most worth not doing unwatched.
+  useVisibleInterval(fetchHistory, 5 * 60 * 1000);
+
 
   const socData = downsample(
     socRaw.filter((r) => r.soc !== null).map((r) => ({ time: formatHour(r.ts), soc: r.soc as number })),

@@ -63,9 +63,9 @@ async def connect_bms():
     return {"status": "connecting", "message": "Reconnecting to BMS"}
 
 @router.get("/history/raw")
-async def get_battery_history_raw(hours: int = 24):
-    rows = db.query_raw(hours=hours)
-    return [r for r in rows if r["source"] == "bms"]
+async def get_battery_history_raw(hours: int = 24, max_points: int = 300):
+    """BMS readings from the last N hours, downsampled server-side."""
+    return db.query_raw(hours=hours, source="bms", max_points=max_points)
 
 @router.get("/history/hourly")
 async def get_battery_history_hourly(days: int = 7):

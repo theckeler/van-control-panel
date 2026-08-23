@@ -355,13 +355,63 @@ def prune(now: datetime | None = None):
 # Query helpers                                                         #
 # ------------------------------------------------------------------ #
 
-def query_raw(hours: int = 24) -> list[dict]:
-    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+def query_raw(hours: int = 24, source: str | None = None, max_points: int = 300) -> list[dict]:
+    """
+    Raw readings from the last N hours, optionally filtered by source and
+    bucket-averaged down to at most ~max_points rows per source.
+
+    Charts render into ~900px, so shipping every 30s sample (≈2880 rows/day
+    /source) is wasted bandwidth. Bucketing server-side cuts the payload by
+    roughly 20x while preserving the shape of the curve. Row shape is
+    unchanged, so callers and the frontend RawReading type still line up.
+
+    Pass max_points=0 to disable downsampling and get every row.
+    """
+    now = datetime.now(timezone.utc)
+    cutoff = (now - timedelta(hours=hours)).isoformat()
+
+    where = "ts > ?"
+    params: list = [cutoff]
+    if source:
+        where += " AND source = ?"
+        params.append(source)
+
+    if max_points <= 0:
+        with _conn() as con:
+            rows = con.execute(
+                f"SELECT * FROM readings_raw WHERE {where} ORDER BY ts ASC",
+                params,
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    # Bucket width in minutes. Never go below the ~30s sample interval,
+    # otherwise short windows get grouped pointlessly.
+    bucket_min = max(0.5, (hours * 60) / max_points)
+
+    sql = f"""
+        SELECT
+            MIN(id)           AS id,
+            MIN(ts)           AS ts,
+            source,
+            AVG(soc)          AS soc,
+            AVG(voltage)      AS voltage,
+            AVG(current)      AS current,
+            AVG(temperature)  AS temperature,
+            AVG(solar_power)  AS solar_power,
+            charge_state,
+            MAX(daily_yield)  AS daily_yield,
+            AVG(cell_v1)      AS cell_v1,
+            AVG(cell_v2)      AS cell_v2,
+            AVG(cell_v3)      AS cell_v3,
+            AVG(cell_v4)      AS cell_v4
+        FROM readings_raw
+        WHERE {where}
+        GROUP BY source,
+                 CAST((julianday(ts) - julianday(?)) * 1440.0 / ? AS INTEGER)
+        ORDER BY ts ASC
+    """
     with _conn() as con:
-        rows = con.execute(
-            "SELECT * FROM readings_raw WHERE ts > ? ORDER BY ts ASC",
-            (cutoff,),
-        ).fetchall()
+        rows = con.execute(sql, params + [cutoff, bucket_min]).fetchall()
     return [dict(r) for r in rows]
 
 
