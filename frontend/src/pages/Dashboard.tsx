@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { isDemo } from "../api/client";
+import { Stack, Button } from "../components/ui";
 import { BatteryCard } from "../components/BatteryCard";
 import { Cameras } from "../components/Cameras";
 import { ChargeSourcesCard } from "../components/ChargeSourcesCard";
@@ -35,21 +36,14 @@ export function Dashboard() {
 
   const lastUpdated = useVanStore((s) => s.lastUpdated);
   const error = useVanStore((s) => s.error);
-  const { vanName, gap, spacing } = useSettingsStore();
+  const { vanName } = useSettingsStore();
   const [powerOpen, setPowerOpen] = useState(false);
 
-  const outerStyle = { padding: `${gap * 4}px`, gap: `${gap * 4}px` };
-  const innerStyle = { padding: `${spacing * 4}px`, gap: `${spacing * 4}px` };
-  const cardClass =
-    "flex flex-col bg-panel-surface border border-panel-border rounded";
   const buttonClass =
     "rounded-lg p-1.5 border border-panel-border text-zinc-500 hover:border-zinc-500 hover:text-zinc-300 transition-colors";
 
   return (
-    <div
-      className="min-h-screen bg-panel-bg text-zinc-100 max-w-2xl mx-auto flex flex-col items-stretch"
-      style={outerStyle}
-    >
+    <Stack className="min-h-screen bg-panel-bg text-zinc-100 max-w-2xl mx-auto items-stretch">
       <PowerModal open={powerOpen} onClose={() => setPowerOpen(false)} />
       <Toaster />
 
@@ -76,22 +70,23 @@ export function Dashboard() {
             )}
           </div>
           <ThemeToggle className={buttonClass} />
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setPowerOpen(true)}
-            className={buttonClass}
             aria-label="Power options"
           >
             <PowerIcon />
-          </button>
+          </Button>
         </div>
       </header>
 
-      <ShellyPanel className={cardClass} style={innerStyle} />
-      <BatteryCard className={cardClass} buttonClass={buttonClass} style={innerStyle} />
-      <ChargeSourcesCard className={cardClass} style={innerStyle} />
-      <HistoryCard className={cardClass} style={innerStyle} />
-      <Cameras className={cardClass} style={innerStyle} />
-      <ModeSelector className={cardClass} style={innerStyle} />
-    </div>
+      <ShellyPanel />
+      <BatteryCard />
+      <ChargeSourcesCard />
+      <HistoryCard />
+      <Cameras />
+      <ModeSelector />
+    </Stack>
   );
 }

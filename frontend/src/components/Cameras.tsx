@@ -1,9 +1,9 @@
-import React from "react";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { Photo } from "../types";
+import { Panel } from "./ui";
 
-export function Cameras({ className, style }: { className?: string; style?: React.CSSProperties }) {
+export function Cameras({ className }: { className?: string }) {
   const [interiorLatest, setInteriorLatest] = useState<Photo | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -15,7 +15,7 @@ export function Cameras({ className, style }: { className?: string; style?: Reac
   }, []);
 
   return (
-    <div className={className} style={style}>
+    <Panel className={className}>
       {loading ? (
         <div className="text-xs font-mono text-zinc-600 animate-pulse">
           Loading...
@@ -23,7 +23,7 @@ export function Cameras({ className, style }: { className?: string; style?: Reac
       ) : (
         <CameraPane photo={interiorLatest} />
       )}
-    </div>
+    </Panel>
   );
 }
 

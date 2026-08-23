@@ -1,13 +1,12 @@
-import React from "react";
 import { useVanStore } from "../store/van";
-import { Label, SelectableTile, StatusDot } from "./ui";
+import { Label, Panel, SelectableTile, StatusDot } from "./ui";
 
-export function ShellyPanel({ className, style }: { className?: string; style?: React.CSSProperties }) {
+export function ShellyPanel({ className }: { className?: string }) {
   const shellys = useVanStore((s) => s.shellys);
   const toggleShelly = useVanStore((s) => s.toggleShelly);
 
   return (
-    <div className={className} style={style}>
+    <Panel className={className}>
       {!shellys.length ? (
         <div className="text-xs font-mono text-zinc-600">
           Loading circuits...
@@ -31,6 +30,6 @@ export function ShellyPanel({ className, style }: { className?: string; style?: 
           ))}
         </div>
       )}
-    </div>
+    </Panel>
   );
 }

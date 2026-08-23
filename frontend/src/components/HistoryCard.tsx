@@ -1,4 +1,3 @@
-import React from "react";
 import clsx from "clsx";
 import { useState } from "react";
 import {
@@ -14,6 +13,7 @@ import {
 } from "recharts";
 import { useVanStore } from "../store/van";
 import { useVisibleInterval } from "../hooks/useVisibleInterval";
+import { Panel } from "./ui";
 
 type Tab = "soc" | "solar";
 
@@ -44,7 +44,7 @@ function socColor(soc: number) {
   return "#ef4444";
 }
 
-export function HistoryCard({ className, style }: { className?: string; style?: React.CSSProperties }) {
+export function HistoryCard({ className }: { className?: string }) {
   const [tab, setTab] = useState<Tab>("soc");
   const { socRaw, solarRaw, dailyHistory, fetchHistory, historyLoaded, battery } = useVanStore((s) => ({
     socRaw: s.socRaw,
@@ -83,7 +83,7 @@ export function HistoryCard({ className, style }: { className?: string; style?: 
   const chartColor = socColor(currentSoc ?? socData[socData.length - 1]?.soc ?? 99);
 
   return (
-    <div className={className} style={style}>
+    <Panel className={className}>
       <div className="flex items-center justify-between mb-4">
         <span className="text-xs font-mono text-zinc-500 uppercase tracking-widest">History</span>
         <div className="flex gap-1">
@@ -152,7 +152,7 @@ export function HistoryCard({ className, style }: { className?: string; style?: 
           </ResponsiveContainer>
         </div>
       )}
-    </div>
+    </Panel>
   );
 }
 

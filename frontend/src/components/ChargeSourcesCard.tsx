@@ -1,15 +1,14 @@
-import React from "react";
 import clsx from "clsx";
 import { useVanStore } from "../store/van";
-import { StatusDot } from "./ui";
+import { StatusDot, Panel } from "./ui";
 
-export function ChargeSourcesCard({ className, style }: { className?: string; style?: React.CSSProperties }) {
+export function ChargeSourcesCard({ className }: { className?: string }) {
   const mppt  = useVanStore((s) => s.mppt);
   const shore = useVanStore((s) => s.shore);
   const orion = useVanStore((s) => s.orion);
 
   return (
-    <div className={className} style={style}>
+    <Panel className={className}>
       <SourceRow
         label="Solar"
         active={!!mppt?.panel_power && mppt.panel_power > 0}
@@ -30,7 +29,7 @@ export function ChargeSourcesCard({ className, style }: { className?: string; st
         color="text-charge-dc"
         value={orion?.enabled ? `${orion.max_power}W max` : "Off"}
       />
-    </div>
+    </Panel>
   );
 }
 

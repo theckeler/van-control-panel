@@ -8,13 +8,13 @@ const VARIANT: Record<Variant, string> = {
   outline:
     "border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100",
   ghost:
-    "border border-panel-border text-zinc-400 hover:text-zinc-200",
+    "border border-panel-border text-zinc-500 hover:border-zinc-500 hover:text-zinc-300",
   danger:
     "border border-red-800 bg-red-950/40 text-red-300 hover:bg-red-950/70",
 };
 
 const SIZE: Record<Size, string> = {
-  icon: "p-2",
+  icon: "p-1.5",
   sm: "px-3 py-1 text-xs",
   md: "px-4 py-2 text-sm",
 };

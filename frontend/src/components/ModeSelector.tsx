@@ -1,15 +1,14 @@
-import React from "react";
 import { useVanStore } from "../store/van";
-import { SelectableTile } from "./ui";
+import { Panel, SelectableTile } from "./ui";
 
-export function ModeSelector({ className, style }: { className?: string; style?: React.CSSProperties }) {
+export function ModeSelector({ className }: { className?: string }) {
   const mode = useVanStore((s) => s.mode);
   const setMode = useVanStore((s) => s.setMode);
 
   if (!mode) return null;
 
   return (
-    <div className={className} style={style}>
+    <Panel className={className}>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Van mode">
         {mode.available.map((m) => (
           <SelectableTile
@@ -25,6 +24,6 @@ export function ModeSelector({ className, style }: { className?: string; style?:
           </SelectableTile>
         ))}
       </div>
-    </div>
+    </Panel>
   );
 }

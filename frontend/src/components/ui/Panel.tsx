@@ -1,35 +1,42 @@
 import React from "react";
 import clsx from "clsx";
-
-type Padding = "none" | "sm" | "md" | "lg";
-
-const PADDING: Record<Padding, string> = {
-  none: "",
-  sm: "p-3",
-  md: "p-5",
-  lg: "p-6",
-};
+import { useSettingsStore } from "../../store/settings";
 
 export function Panel({
-  padding = "md",
   className,
-  style,
   children,
 }: {
-  padding?: Padding;
   className?: string;
-  style?: React.CSSProperties;
   children: React.ReactNode;
 }) {
+  const spacing = useSettingsStore((s) => s.spacing);
+  const px = `${spacing * 4}px`;
+
   return (
     <div
       className={clsx(
-        "bg-panel-surface border border-panel-border rounded-xl",
-        PADDING[padding],
+        "flex flex-col bg-panel-surface border border-panel-border rounded",
         className,
       )}
-      style={style}
+      style={{ padding: px, gap: px }}
     >
+      {children}
+    </div>
+  );
+}
+
+export function Stack({
+  className,
+  children,
+}: {
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const gap = useSettingsStore((s) => s.gap);
+  const px = `${gap * 4}px`;
+
+  return (
+    <div className={clsx("flex flex-col", className)} style={{ padding: px, gap: px }}>
       {children}
     </div>
   );

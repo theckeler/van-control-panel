@@ -1,8 +1,9 @@
 import clsx from "clsx";
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSettingsStore } from "../store/settings";
 import { useVanStore } from "../store/van";
 import { ConfirmModal } from "./ConfirmModal";
+import { Button, Panel } from "./ui";
 
 function formatLastSeen(isoStr: string): string {
   const diff = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
@@ -17,15 +18,7 @@ function formatCountdown(secs: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export function BatteryCard({
-  className,
-  buttonClass,
-  style,
-}: {
-  className?: string;
-  buttonClass?: string;
-  style?: React.CSSProperties;
-}) {
+export function BatteryCard({ className }: { className?: string }) {
   const battery = useVanStore((s) => s.battery);
   const releaseBms = useVanStore((s) => s.releaseBms);
   const connectBms = useVanStore((s) => s.connectBms);
@@ -88,14 +81,7 @@ export function BatteryCard({
   const drawW = Math.abs(battery.current * battery.voltage).toFixed(0);
 
   return (
-    <div
-      className={clsx(
-        className,
-        "flex flex-col gap-3",
-        isOffline && "opacity-60",
-      )}
-      style={style}
-    >
+    <Panel className={clsx(className, isOffline && "opacity-60")}>
       <ConfirmModal
         open={showConfirm}
         title="Release BMS connection?"
@@ -118,13 +104,14 @@ export function BatteryCard({
             </span>
           )}
           {isReleased && (
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handleConnect}
               disabled={busy}
-              className={buttonClass}
             >
               connect →
-            </button>
+            </Button>
           )}
         </div>
       ) : (
@@ -141,20 +128,23 @@ export function BatteryCard({
             </div>
             <div className="flex flex-col items-end gap-1">
               {!isOffline && !isReleased && (
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={() => setShowConfirm(true)}
                   disabled={busy}
-                  className={buttonClass}
+                  aria-label="Release BMS connection"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     height="24px"
                     viewBox="0 -960 960 960"
                     width="24px"
+                    aria-hidden="true"
                   >
                     <path d="m344-160-76-128-144-32 14-148-98-112 98-112-14-148 144-32 76-128 136 58 136-58 76 128 144 32-14 148 98 112-98 112 14 148-144 32-76 128-136-58-136 58Zm34-102 102-44 104 44 56-96 110-26-10-112 74-84-74-86 10-112-110-24-58-96-102 44-104-44-56 96-110 24 10 112-74 86 74 84-10 114 110 24 58 96Zm102-318Zm28.5 188.5Q520-303 520-320t-11.5-28.5Q497-360 480-360t-28.5 11.5Q440-337 440-320t11.5 28.5Q463-280 480-280t28.5-11.5ZM440-440h80v-240h-80v240Z" />
                   </svg>
-                </button>
+                </Button>
               )}
 
               <span
@@ -222,7 +212,7 @@ export function BatteryCard({
           </div>
         </>
       )}
-    </div>
+    </Panel>
   );
 }
 
