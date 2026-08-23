@@ -224,6 +224,40 @@ already lives on the Mac at `backend/.env`.
 
 ---
 
+## Auth
+
+Two independent layers.
+
+**Express (`server.mjs`, port 80)** gates the dashboard with `VAN_PASSWORD`.
+A signed cookie carries its own expiry — HMAC-SHA256 over the timestamp,
+constant-time compare, no server state. It was previously `express-session`
+with the default MemoryStore, which meant every `van-frontend` restart wiped
+all sessions; CI/CD restarts on each frontend push, so a deploy logged you out
+regardless of the cookie's stated lifetime. Now 365 days and survives
+redeploys. Changing `VAN_SESSION_SECRET` invalidates all cookies.
+
+**van-api (uvicorn, port 8000)** binds `0.0.0.0`, so it is reachable by anyone
+on the same WiFi. `VAN_API_KEY` in `backend/.env` gates it:
+
+- loopback is trusted — that is the Express proxy, already password-checked
+- `/health` is open for the CI/CD liveness check and the reboot poller
+- everything else needs an `X-API-Key` header
+- an unset key fails open, matching `VAN_PASSWORD`, so a bad deploy cannot
+  lock you out of the van
+
+Rejections log the source IP: `sudo journalctl -u van-api | grep rejected`.
+
+The key lives in `backend/.env` on the Pi and the Mac, and in
+`frontend/.env.local` for the dev proxy, which reaches the Pi over Tailscale
+rather than loopback and would otherwise get 401. All gitignored, and `.env`
+is not in git so deploys never overwrite it.
+
+Known and accepted: anyone with SSH to the Pi can call the API freely. SSH
+access already implies full control, so this closes the browser-on-the-network
+threat, not the shell threat.
+
+---
+
 ## Networking
 
 The van has two WiFi networks available at home, and everything prefers
