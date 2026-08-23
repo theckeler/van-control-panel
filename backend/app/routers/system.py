@@ -110,7 +110,10 @@ class SystemData(BaseModel):
     # Power flow
     net_power_w: float          # + charging battery, - discharging
     solar_watts: float          # MPPT panel input
-    load_watts: float           # Total estimated consumption
+    # None when the inputs cannot support an answer — i.e. a non-solar charge
+    # source is active, making load = solar_in - battery_flow underdetermined.
+    load_watts: float | None    # Total consumption; None when unknowable
+    load_is_estimate: bool = False   # True when falling back to ALWAYS_ON_WATTS
     power_state: str            # "charging" | "discharging" | "standby"
 
     # Battery
@@ -156,13 +159,36 @@ async def get_system():
 
     # Net power: positive = net charging, negative = net discharging
     battery_power_w = round(bms_voltage_v * bms_current_a, 1)
-    # Load = solar in minus what's going to/from battery
-    # Falls back to always-on estimate when BMS is offline
-    if bms_ok:
-        load_watts = round(solar_watts - battery_power_w, 1)
-        load_watts = max(0.0, load_watts)
-    else:
+
+    # Load is derived from one equation:
+    #     load = solar_in - battery_flow
+    # That is only solvable when solar is the *only* charge source. With shore
+    # or alternator contributing there are two unknowns and one measurement,
+    # and shore is inferred rather than measured because there is no sensor.
+    #
+    # Previously this clamped with max(0.0, ...), which meant a van on shore
+    # power with the battery taking 200W reported 0W load — actively wrong in
+    # the optimistic direction, and it concealed the arithmetic rather than
+    # fixing it. Now it returns None when the inputs cannot support an answer.
+    load_watts: float | None
+    load_is_estimate = False
+
+    non_solar_charging = (
+        orion_router._orion_enabled
+        or max(0.0, bms_current_a - (mppt.battery_charging_current if mppt_ok else 0.0))
+        >= SHORE_INFERENCE_THRESHOLD
+    )
+
+    if not bms_ok:
+        # No current measurement at all. Fall back to the always-on estimate,
+        # flagged so callers can render it differently.
         load_watts = float(sum(ALWAYS_ON_WATTS.values()))
+        load_is_estimate = True
+    elif non_solar_charging:
+        load_watts = None
+    else:
+        computed = round(solar_watts - battery_power_w, 1)
+        load_watts = computed if computed >= 0 else None
 
     # Power state with dead band
     if battery_power_w > NET_POWER_THRESHOLD:
@@ -205,11 +231,16 @@ async def get_system():
     # --- Load breakdown ---
     loads: list[LoadBreakdown] = []
 
-    # Always-on baseline
-    for label, watts in ALWAYS_ON_WATTS.items():
-        loads.append(LoadBreakdown(label=label, watts=float(watts), source="always_on"))
+    # Only the Pi is genuinely always on. Starlink and the fridge used to be
+    # listed here unconditionally at 22W and 40W, which meant the breakdown
+    # claimed 62W of hardware that is switched off most of the time the van is
+    # parked. Neither reports its state, so they cannot be included honestly
+    # until there is a Shelly on their circuit or the ESP32 BLE bridge exists.
+    loads.append(LoadBreakdown(label="Pi", watts=float(ALWAYS_ON_WATTS["Pi"]), source="always_on"))
 
-    # Shelly-controlled loads — estimated, no live HTTP calls here
+    # Shelly-controlled loads — only the ones actually switched on. Live state
+    # is not fetched here (that would add an HTTP round trip to every /system/
+    # poll), so this uses the last known value from the shelly router's cache.
     for unit_id, unit in SHELLY_UNITS.items():
         if not unit["installed"] or unit["est_watts"] == 0:
             continue
@@ -240,6 +271,7 @@ async def get_system():
         net_power_w=battery_power_w,
         solar_watts=round(solar_watts, 1),
         load_watts=load_watts,
+        load_is_estimate=load_is_estimate,
         power_state=power_state,
         soc=float(bms.SOC) if bms and bms_ok else None,
         voltage=bms_voltage_v if bms and bms_ok else None,
