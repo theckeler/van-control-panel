@@ -77,9 +77,11 @@ Deploy workflow uses `git fetch && git reset --hard origin/main` (not `git pull`
 - Vite + React 18 + TypeScript
 - Tailwind CSS with custom design tokens
 - Zustand (`src/store/van.ts`) — `Promise.allSettled` so partial API failures don't break the UI
-- `usePolling` hook — 5-second interval
-- Recharts — history charts (data accumulating in SQLite)
+- `usePolling` hook — 5-second interval, pauses while the tab is hidden
+- Recharts — SOC and solar history charts
 - React Router v6
+- clsx for conditional classes. No component library: MUI and friends were considered
+  and rejected as ~90kB gzipped of Material Design fighting a monospace terminal aesthetic
 
 ### Backend
 - FastAPI + uvicorn on port 8000
@@ -124,19 +126,33 @@ backend/app/
 
 frontend/
   server.mjs             Express server — serves dist/, proxies /api/*, optional auth
+  vercel.json            Pins VITE_DEMO=true + SPA rewrite for the Vercel demo deploy
   src/
-    api/client.ts        Typed fetch wrapper
-    store/van.ts         Zustand store
-    hooks/usePolling.ts  5-second polling
+    api/client.ts        Typed fetch wrapper. Exports isDemo and swaps api between
+                         realApi and mockApi on VITE_DEMO
+    api/mock.ts          Demo-mode mock of the full api surface. Physically modelled:
+                         solar bell curve drives SOC integration, seeded PRNG keeps
+                         multi-day charts stable across reloads
+    store/van.ts         Zustand store. fetchAll uses Promise.allSettled; mutations
+                         catch and toast, and skip the optimistic update on failure
+    store/settings.ts    Persisted gap / spacing / vanName. Panel and Stack read this
+    store/toast.ts       Toast queue, dedupes by message
+    hooks/useVisibleInterval.ts
+                         setInterval that pauses while the tab is hidden
+    hooks/usePolling.ts  Thin wrapper — fetchAll on useVisibleInterval, 5s
     types/index.ts       TypeScript interfaces (keep in sync with Pydantic models)
+    components/ui/       Primitives: Panel, Stack, Label, StatusDot, SelectableTile,
+                         Button. Panel/Stack own spacing from the settings store
     components/
       BatteryCard.tsx    SOC, voltage, temp — shows last known values when offline
                          with last-seen time and retry countdown
       ChargeSourcesCard  Solar / Shore / Orion rows
       ShellyPanel.tsx    Per-unit toggles
       ModeSelector.tsx   Storage / Camp / Trail / In Town
+      HistoryCard.tsx    Recharts SOC 24h + Solar 30d
+      Toaster.tsx        Renders the toast queue
     pages/
-      Dashboard.tsx      Main view
+      Dashboard.tsx      Main view. Cards take no props — Panel handles spacing
       Cameras.tsx        Photo gallery (cameras not yet installed)
 ```
 
@@ -171,6 +187,7 @@ VAN_API_KEY=
 | `HOURLY_RETAIN_DAYS` | db.py | 365 | Days to keep hourly rollups |
 | `STALE_AFTER` (BMS) | battery_ble.py | 120s | Seconds before BMS cache is stale |
 | `STALE_AFTER` (MPPT) | victron_ble.py | 120s | Seconds before MPPT cache is stale |
+| `max_points` | db.py `query_raw` | 300 | Bucket-averages raw history server-side. Was shipping ~2,880 rows per source per request; charts render ~900px wide. Pass 0 for every row |
 
 ---
 
@@ -192,12 +209,15 @@ tailscaled       Tailscale VPN
 - **Camera system** not yet implemented — awaiting USB webcam hardware
 - **Shore charger** always returns disconnected — no VE.Direct cable purchased
 - **Orion-Tr** is non-smart, returns static config — upgrade to Orion XS 50A planned
-- **History charts** in frontend — endpoints exist, SQLite is logging, frontend chart components need wiring up
+- **History charts** — `HistoryCard` is wired up and rendering. SOC 24h and Solar 30d tabs both work. Daily solar only populates after a midnight rollup, so a fresh install shows the raw-derived fallback.
 - **CORS** is `allow_origins=["*"]` — fine for local/Tailscale, tighten if Funnel is used long-term
 - **Maxxfan and Ceiling Lights** Shellys not yet installed — show as `installed: false` in API
 - **`loads` breakdown in system.py is unconditional** — claims Starlink 22W and Fridge 40W regardless of actual state. Latent only: the frontend never reads it. See "system.py load estimation" below.
 - **Vercel demo build** — built and deployed. See "Vercel Demo Mode" below.
 - **Dometic CFX5 / Garmin PowerSwitch** — not reachable from the Pi. BlueZ is incompatible with Dometic's BLE module. Requires an ESP32 bridge. See `rubber-duck-review.md`.
+- **Seven API calls per poll cycle** — `fetchAll` hits battery, mppt, shore, orion, shelly, system and mode/current separately every 5s. A single `/snapshot` endpoint would collapse this. Next up.
+- **Shelly response times are erratic** — observed 6.3s and 1.8s on calls that are usually ~50ms. Probably mDNS `.local` resolution to the two units. Not yet investigated.
+- **Modals lack focus management** — `ConfirmModal` and `PowerModal` don't trap focus or handle Escape.
 
 ---
 
@@ -314,13 +334,58 @@ input, which covers most real usage, and unreliable otherwise.
 
 ---
 
-## Vercel Demo Mode (scoped, not built)
+## Design System
+
+Tokens live in `tailwind.config.ts` and `index.css`. Colours are semantic
+(`charge.solar`, `soc.low`, `panel.surface`) and driven by CSS variables, so
+light/dark is a `data-theme` swap on `:root`. No raw hex in components.
+
+Primitives are in `src/components/ui/`:
+
+| Primitive | Purpose |
+|---|---|
+| `Panel` | Card surface. Reads `spacing` from the settings store and applies it as inline padding/gap |
+| `Stack` | Outer container. Same, but reads `gap` |
+| `Label` | Uppercase mono section label |
+| `StatusDot` | 2x2 indicator, `accent` or `success` tone. `aria-hidden` |
+| `SelectableTile` | Shelly toggles and mode buttons. Carries `aria-pressed` |
+| `Button` | `outline` / `ghost` / `danger`, sizes `icon` / `sm` / `md` |
+
+**Spacing is user-configurable at runtime.** `gap` and `spacing` live in the
+persisted settings store. `Panel` and `Stack` read them directly, which is why
+cards take no `style` prop — an earlier version threaded `innerStyle` through
+every card from Dashboard, and a first pass at `Panel` used hardcoded Tailwind
+padding classes that inline styles would have silently overridden.
+
+**Focus states live in the primitives.** Before these existed, no interactive
+element in the app had `focus-visible` styling at all. Anything new that takes
+a click should go through `Button` or `SelectableTile` rather than a bare
+`<button>`, or it inherits that gap again.
+
+**Deliberately not a component library.** No Storybook, no versioning, no docs
+site. One app, one developer. Add a primitive when the same markup appears a
+third time, not before.
+
+---
+
+## Vercel Demo Mode
 
 Goal: deploy the dashboard to Vercel as a portfolio piece with convincing fake data, so it can be linked from a résumé without exposing the Pi or requiring Tailscale.
 
-**Why it's easy:** every component reads through the `api` object in `src/api/client.ts`. Nothing else in the app calls `fetch` directly. That single seam is the whole integration point.
+**Status: built and deployed.** `frontend/vercel.json` pins `VITE_DEMO=true` in
+the build command so the deploy always gets mock data regardless of dashboard
+env config, and adds the SPA fallback rewrite that Express normally handles on
+the Pi. The Pi build never sets the flag, so `mockApi` is tree-shaken out of
+that bundle entirely (verified: the mock's strings are absent from the Pi build
+and present in the demo build).
 
-**Approach:** add `src/api/mock.ts` exporting an object with the identical shape, then at the bottom of `client.ts`:
+**Outstanding:** the Vercel project has SSO protection enabled for all URLs
+except custom domains, so the link prompts for a Vercel login. Disable it in
+project settings, or attach a custom domain, before sharing.
+
+**Why it was easy:** every component reads through the `api` object in `src/api/client.ts`. Nothing else in the app calls `fetch` directly. That single seam is the whole integration point.
+
+**Approach:** `src/api/mock.ts` exports an object with the identical shape, and at the bottom of `client.ts`:
 
 ```ts
 export const api = import.meta.env.VITE_DEMO === 'true' ? mockApi : realApi
@@ -354,3 +419,11 @@ Set `VITE_DEMO=true` in Vercel's environment variables. The Pi build never sets 
 **Deploy workflow uses `git reset --hard`.** Not `git pull`. The Pi may have locally modified files from rsync sessions during development.
 
 **Prompt before committing.** Always stage files, show the diff summary, and ask before committing or pushing.
+
+**Push deploys to the Pi.** The self-hosted runner picks up every push to
+`main`. There is no staging environment — a push to `backend/**` restarts
+`van-api` on the live van. Verify backend changes locally first.
+
+**Check whether duplication is real before extracting it.** Grepping for
+repeated class strings found six copies of the card surface, but five of them
+were one `cardClass` constant passed as a prop. Read the call sites.
