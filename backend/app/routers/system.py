@@ -1,7 +1,7 @@
 import subprocess
 from fastapi import APIRouter
 from pydantic import BaseModel
-from app.services import battery_ble, victron_ble, network, health
+from app.services import battery_ble, victron_ble, network, health, db
 from app.routers import mode as mode_router
 from app.routers import orion as orion_router
 from app.routers.shelly import SHELLY_UNITS
@@ -62,7 +62,26 @@ async def switch_wifi(name: str):
     reaching it over the LAN. Tailscale survives.
     """
     ok, message = await network.switch_profile(name)
+    db.log_event("wifi", name, "ok" if ok else "failed", message[:200] if message else None)
     return WifiSwitchResult(ok=ok, message=message or ("switched" if ok else "failed"))
+
+
+class Event(BaseModel):
+    id: int
+    ts: str
+    kind: str
+    target: str | None = None
+    value: str | None = None
+    detail: str | None = None
+
+
+@router.get("/events", response_model=list[Event])
+async def get_events(hours: int = 168, kind: str | None = None, limit: int = 500):
+    """
+    Recent state changes — toggles, mode changes, BMS release, WiFi switches,
+    shutdown and reboot. Newest first, default window one week.
+    """
+    return [Event(**e) for e in db.query_events(hours=hours, kind=kind, limit=limit)]
 
 
 @router.get("/wifi", response_model=WifiStatus)
@@ -239,6 +258,9 @@ async def get_system():
 @router.post("/shutdown")
 async def shutdown_pi():
     """Gracefully shut down the Raspberry Pi."""
+    # Logged before the command — the process is about to be killed, and an
+    # unexplained outage is exactly what this table is for.
+    db.log_event("system", value="shutdown")
     subprocess.Popen(["sudo", "shutdown", "now"])
     return {"status": "shutting_down", "message": "Pi is shutting down"}
 
@@ -246,5 +268,6 @@ async def shutdown_pi():
 @router.post("/reboot")
 async def reboot_pi():
     """Reboot the Raspberry Pi."""
+    db.log_event("system", value="reboot")
     subprocess.Popen(["sudo", "reboot"])
     return {"status": "rebooting", "message": "Pi is rebooting — dashboard back in ~30s"}

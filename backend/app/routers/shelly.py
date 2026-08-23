@@ -5,6 +5,8 @@ import socket
 import time
 import httpx
 
+from app.services import db
+
 router = APIRouter()
 
 # mDNS resolution of a .local name costs ~105ms (137ms by name vs 32ms by IP,
@@ -170,6 +172,7 @@ async def toggle_shelly(unit_id: str, body: ShellyToggle):
             await client.get(
                 f"http://{ip}/rpc/Switch.Set?id={unit['channel']}&on={on_str}"
             )
+        db.log_event("shelly", unit_id, "on" if body.on else "off")
         return {"unit_id": unit_id, "on": body.on}
     except Exception as e:
         _evict(host)

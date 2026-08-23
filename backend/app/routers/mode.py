@@ -5,6 +5,8 @@ import json
 import os
 import tempfile
 
+from app.services import db
+
 router = APIRouter()
 
 # Sits next to van_power.db in the backend directory. Gitignored.
@@ -104,6 +106,7 @@ async def set_mode(mode_name: str):
         raise HTTPException(status_code=400, detail=f"Unknown mode: {mode_name}. Valid: {list(MODES.keys())}")
     _current_mode = mode_name
     _save_mode(mode_name)
+    db.log_event("mode", value=mode_name)
     # TODO: apply mode — update systemd timer intervals, Shelly schedules
     return ModeResponse(
         current=_current_mode,

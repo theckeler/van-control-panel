@@ -92,8 +92,18 @@ CREATE TABLE IF NOT EXISTS readings_monthly (
     sample_count  INTEGER
 );
 
+CREATE TABLE IF NOT EXISTS events (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts      TEXT NOT NULL,          -- ISO8601 UTC
+    kind    TEXT NOT NULL,          -- 'shelly' | 'mode' | 'bms' | 'wifi' | 'system'
+    target  TEXT,                   -- unit id, profile name, etc.
+    value   TEXT,                   -- new state: 'on', 'camp', 'released'...
+    detail  TEXT                    -- optional free text
+);
+
 CREATE INDEX IF NOT EXISTS idx_raw_ts     ON readings_raw(ts);
 CREATE INDEX IF NOT EXISTS idx_raw_source ON readings_raw(source);
+CREATE INDEX IF NOT EXISTS idx_events_ts  ON events(ts);
 """
 
 
@@ -441,3 +451,51 @@ def query_monthly() -> list[dict]:
             "SELECT * FROM readings_monthly ORDER BY month_ts ASC"
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+# ------------------------------------------------------------------ #
+# Events                                                               #
+# ------------------------------------------------------------------ #
+
+def log_event(kind: str, target: str | None = None,
+              value: str | None = None, detail: str | None = None) -> None:
+    """
+    Record a state change.
+
+    Not an access log — logging reads would be noise at 5,000 requests an
+    hour, and uvicorn already journals those. The point is that readings are
+    written every 30s with no record of *why* anything changed, so a toggle
+    cannot be correlated against the resulting draw. With both, the guessed
+    ALWAYS_ON_WATTS figures can be replaced by measurements.
+
+    Never raises: a failed write must not break the action that triggered it.
+    """
+    try:
+        with _conn() as con:
+            con.execute(
+                "INSERT INTO events (ts, kind, target, value, detail) VALUES (?, ?, ?, ?, ?)",
+                (datetime.now(timezone.utc).isoformat(), kind, target, value, detail),
+            )
+    except Exception:
+        logger.exception("failed to log event %s/%s", kind, target)
+
+
+def query_events(hours: int = 168, kind: str | None = None,
+                 limit: int = 500) -> list[dict]:
+    """
+    Recent events, newest first. Default window is a week.
+
+    No pruning: a handful of events a day is well under a megabyte a year,
+    unlike readings_raw which is pruned at 30 days.
+    """
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+    sql = "SELECT * FROM events WHERE ts > ?"
+    params: list = [cutoff]
+    if kind:
+        sql += " AND kind = ?"
+        params.append(kind)
+    sql += " ORDER BY ts DESC LIMIT ?"
+    params.append(limit)
+
+    with _conn() as con:
+        return [dict(r) for r in con.execute(sql, params).fetchall()]

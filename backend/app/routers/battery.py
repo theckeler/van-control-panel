@@ -54,12 +54,14 @@ async def get_battery():
 async def release_bms():
     """Drop BLE connection so Power Queen app can connect."""
     await battery_ble.release()
+    db.log_event("bms", value="released")
     return {"status": "released", "message": "BMS connection released — Power Queen app can now connect"}
 
 @router.post("/connect")
 async def connect_bms():
     """Resume BLE connection immediately."""
     await battery_ble.reconnect()
+    db.log_event("bms", value="reconnecting")
     return {"status": "connecting", "message": "Reconnecting to BMS"}
 
 @router.get("/history/raw")
