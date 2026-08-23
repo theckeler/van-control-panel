@@ -1,9 +1,9 @@
 // Van Control Panel — Node server
 // Serves the built React SPA, proxies /api to uvicorn.
-// Auth: session cookie (30 days) — enter password once per device.
+// Auth: signed cookie (1 year) — enter password once per device.
 
 import express from "express";
-import session from "express-session";
+import crypto from "crypto";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
@@ -13,27 +13,61 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT           = process.env.VAN_PORT           || 3000;
 const PASSWORD       = process.env.VAN_PASSWORD        || "";
 const SESSION_SECRET = process.env.VAN_SESSION_SECRET  || "van-control-default-secret-change-me";
-const SESSION_DAYS   = 30;
+const SESSION_DAYS   = 365;
+const COOKIE_NAME    = "van_auth";
+const MAX_AGE_MS     = SESSION_DAYS * 24 * 60 * 60 * 1000;
 
 const app = express();
 
-// --- Session middleware ---
-app.use(session({
-  secret: SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    maxAge: SESSION_DAYS * 24 * 60 * 60 * 1000,
+/**
+ * Stateless auth.
+ *
+ * Previously express-session with the default MemoryStore, so every
+ * van-frontend restart wiped all sessions. CI/CD restarts the service on
+ * every frontend push, which made the cookie's stated lifetime irrelevant —
+ * a deploy logged you out, whatever maxAge said.
+ *
+ * A signed cookie carries its own expiry and needs no server state, so it
+ * survives restarts and redeploys. HMAC-SHA256 over the expiry, compared in
+ * constant time.
+ */
+function sign(expiry) {
+  return crypto.createHmac("sha256", SESSION_SECRET).update(String(expiry)).digest("hex");
+}
+
+function issueCookie(res) {
+  const expiry = Date.now() + MAX_AGE_MS;
+  res.cookie(COOKIE_NAME, `${expiry}.${sign(expiry)}`, {
+    maxAge: MAX_AGE_MS,
     httpOnly: true,
     sameSite: "lax",
-  },
-}));
+  });
+}
+
+function verifyCookie(raw) {
+  if (typeof raw !== "string") return false;
+  const [expiry, mac] = raw.split(".");
+  if (!expiry || !mac || Number(expiry) < Date.now()) return false;
+  const expected = sign(expiry);
+  if (mac.length !== expected.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(mac), Buffer.from(expected));
+}
+
+// Minimal cookie read — not worth a dependency for one value.
+app.use((req, _res, next) => {
+  const found = (req.headers.cookie || "")
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith(`${COOKIE_NAME}=`));
+  req.vanAuth = found ? decodeURIComponent(found.slice(COOKIE_NAME.length + 1)) : null;
+  next();
+});
 
 app.use(express.urlencoded({ extended: false }));
 
 // --- Auth guard (only active when VAN_PASSWORD is set) ---
 function isAuthenticated(req) {
-  return !PASSWORD || req.session?.authenticated === true;
+  return !PASSWORD || verifyCookie(req.vanAuth);
 }
 
 const LOGIN_PAGE = (error = "") => `<!DOCTYPE html>
@@ -72,7 +106,8 @@ const LOGIN_PAGE = (error = "") => `<!DOCTYPE html>
       border-radius: 0.5rem;
       color: #e4e4e7;
       font-family: inherit;
-      font-size: 0.85rem;
+      /* 16px minimum — iOS Safari zooms the page on focus below this */
+      font-size: 16px;
       padding: 0.6rem 0.75rem;
       margin-bottom: 1rem;
       outline: none;
@@ -112,7 +147,7 @@ app.get("/login", (_req, res) => res.send(LOGIN_PAGE()));
 
 app.post("/login", (req, res) => {
   if (req.body.password === PASSWORD) {
-    req.session.authenticated = true;
+    issueCookie(res);
     res.redirect("/");
   } else {
     res.send(LOGIN_PAGE("Incorrect password."));
@@ -120,7 +155,8 @@ app.post("/login", (req, res) => {
 });
 
 app.get("/logout", (req, res) => {
-  req.session.destroy(() => res.redirect("/login"));
+  res.clearCookie(COOKIE_NAME);
+  res.redirect("/login");
 });
 
 // Auth wall — applied before proxy and static files
@@ -146,6 +182,6 @@ app.get("*", (_req, res) => {
 });
 
 app.listen(PORT, () => {
-  const authMode = PASSWORD ? "session cookie (30 days)" : "disabled";
+  const authMode = PASSWORD ? `signed cookie (${SESSION_DAYS} days)` : "disabled";
   console.log(`Van dashboard on http://0.0.0.0:${PORT} — auth: ${authMode}`);
 });
