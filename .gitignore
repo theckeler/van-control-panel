@@ -32,8 +32,13 @@ backend/photos/exterior/*.jpg
 .DS_Store
 Thumbs.db
 
-# Editor
-.vscode/
+# Editor — ignore personal/machine-specific files, keep the shared ones.
+# tasks.json and extensions.json are project tooling worth surviving a
+# machine rebuild; launch.json and sftp configs are not.
+.vscode/*
+!.vscode/tasks.json
+!.vscode/settings.json
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo

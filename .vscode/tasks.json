@@ -1,0 +1,114 @@
+{
+  "version": "2.0.0",
+  "options": {
+    "env": {
+      // This shell exports NODE_ENV=production and npm is configured with
+      // omit=dev, so a plain `npm install` silently skips devDependencies —
+      // which is how typescript went missing once. Force it here.
+      "NODE_ENV": "development"
+    }
+  },
+  "presentation": {
+    "echo": true,
+    "reveal": "always",
+    "panel": "dedicated",
+    "clear": false
+  },
+  "tasks": [
+    {
+      "label": "Dev: full stack (local backend)",
+      "detail": "Vite + a local uvicorn, with the proxy pointed at localhost",
+      "dependsOrder": "parallel",
+      "dependsOn": ["_frontend: dev (local API)", "_backend: dev"],
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev: frontend against the Pi",
+      "detail": "Vite only — proxies to van-api on the Pi over Tailscale",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": { "cwd": "${workspaceFolder}/frontend" },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev: frontend with demo data",
+      "detail": "Vite with VITE_DEMO=true — mock API, no Pi needed",
+      "type": "shell",
+      "command": "VITE_DEMO=true npm run dev",
+      "options": { "cwd": "${workspaceFolder}/frontend" },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+
+    {
+      "label": "_frontend: dev (local API)",
+      "hide": true,
+      "type": "shell",
+      "command": "VAN_API_TARGET=http://localhost:8000 npm run dev",
+      "options": { "cwd": "${workspaceFolder}/frontend" },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "_backend: dev",
+      "hide": true,
+      "type": "shell",
+      "command": ".venv/bin/uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+
+    {
+      "label": "Build: frontend",
+      "type": "shell",
+      "command": "npm run build",
+      "options": { "cwd": "${workspaceFolder}/frontend" },
+      "group": "build",
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "Typecheck: frontend",
+      "type": "shell",
+      "command": "npx tsc --noEmit",
+      "options": { "cwd": "${workspaceFolder}/frontend" },
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "Install: frontend deps (incl. dev)",
+      "detail": "Use this rather than plain npm install — see NODE_ENV note above",
+      "type": "shell",
+      "command": "npm install --include=dev",
+      "options": { "cwd": "${workspaceFolder}/frontend" },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "Pi: status",
+      "type": "shell",
+      "command": "ssh todd@100.87.126.98 'systemctl is-active van-api van-frontend; curl -s localhost:8000/system/wifi; echo; curl -s localhost:8000/shelly/'",
+      "problemMatcher": []
+    },
+    {
+      "label": "Pi: tail van-api log",
+      "type": "shell",
+      "command": "ssh -t todd@100.87.126.98 'sudo journalctl -u van-api -f'",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Pi: recent events",
+      "type": "shell",
+      "command": "ssh todd@100.87.126.98 'curl -s localhost:8000/system/events?hours=48 | python3 -m json.tool'",
+      "problemMatcher": []
+    },
+    {
+      "label": "Pi: shell",
+      "type": "shell",
+      "command": "ssh -t todd@100.87.126.98",
+      "problemMatcher": []
+    }
+  ]
+}

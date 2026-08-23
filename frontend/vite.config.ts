@@ -6,21 +6,31 @@ export default defineConfig(({ mode }) => {
   // stays server-side in this config and never reaches the client bundle.
   const env = loadEnv(mode, process.cwd(), '')
 
+  // Defaults to the Pi over Tailscale — works regardless of which network it
+  // is on, since it prefers Starlink (192.168.4.x) and falls back to OHeck
+  // (192.168.1.x) so its LAN address is not stable.
+  //
+  // Set VAN_API_TARGET=http://localhost:8000 to develop against a backend
+  // running on this machine instead. The VS Code "Dev: full stack (local)"
+  // task does that for you.
+  const target = env.VAN_API_TARGET || 'http://100.87.126.98:8000'
+  const isLocal = target.includes('localhost') || target.includes('127.0.0.1')
+
   return {
     plugins: [react()],
     server: {
       proxy: {
         '/api': {
-          // Tailscale IP — works regardless of which network the Pi is on.
-          // The Pi prefers Starlink (192.168.4.x) and falls back to OHeck
-          // (192.168.1.x), so its LAN address is not stable. Use Tailscale.
-          target: 'http://100.87.126.98:8000',
+          target,
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api/, ''),
           // van-api trusts loopback (the Express proxy, already password
-          // gated) and requires this header from anywhere else. Set
-          // VAN_API_KEY in frontend/.env.local to match backend/.env.
-          headers: env.VAN_API_KEY ? { 'X-API-Key': env.VAN_API_KEY } : undefined,
+          // gated) and requires this header from anywhere else. A local
+          // backend is reached over loopback, so no key needed there.
+          headers:
+            !isLocal && env.VAN_API_KEY
+              ? { 'X-API-Key': env.VAN_API_KEY }
+              : undefined,
         },
       },
     },
