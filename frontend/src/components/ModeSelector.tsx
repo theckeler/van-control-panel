@@ -1,7 +1,6 @@
 import React from "react";
-import clsx from "clsx";
 import { useVanStore } from "../store/van";
-
+import { SelectableTile } from "./ui";
 
 export function ModeSelector({ className, style }: { className?: string; style?: React.CSSProperties }) {
   const mode = useVanStore((s) => s.mode);
@@ -11,22 +10,19 @@ export function ModeSelector({ className, style }: { className?: string; style?:
 
   return (
     <div className={className} style={style}>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Van mode">
         {mode.available.map((m) => (
-          <button
+          <SelectableTile
             key={m}
+            size="sm"
+            selected={m === mode.current}
             onClick={() => setMode(m)}
-            className={clsx(
-              "rounded p-3 text-center transition-all duration-200 border",
-              m === mode.current
-                ? "bg-accent/15 border-accent text-accent"
-                : "bg-panel-bg border-panel-border text-zinc-500 hover:border-zinc-500 hover:text-zinc-300",
-            )}
+            className="text-center"
           >
             <div className="text-xs font-mono capitalize">
               {m.replace("_", " ")}
             </div>
-          </button>
+          </SelectableTile>
         ))}
       </div>
     </div>

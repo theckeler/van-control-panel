@@ -1,6 +1,7 @@
 import React from "react";
 import clsx from "clsx";
 import { useVanStore } from "../store/van";
+import { StatusDot } from "./ui";
 
 export function ChargeSourcesCard({ className, style }: { className?: string; style?: React.CSSProperties }) {
   const mppt  = useVanStore((s) => s.mppt);
@@ -56,12 +57,7 @@ function SourceRow({
       )}
     >
       <div className="flex items-center gap-3">
-        <span
-          className={clsx(
-            "w-2 h-2 rounded-full flex-shrink-0",
-            active ? "bg-green-500" : "bg-zinc-700",
-          )}
-        />
+        <StatusDot on={!!active} tone="success" />
         <div
           className={clsx(
             "text-sm font-mono font-semibold",
