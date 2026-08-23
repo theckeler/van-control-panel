@@ -238,33 +238,69 @@ Add the fallback to the empty slot *first*, then swap, so there is never a
 moment with only one untested network configured. There is no out-of-band way
 to reach a Shelly that fails to join anything except a physical reset.
 
-### Gotcha: both routers use 192.168.1.0/24
+### Subnets
 
-Starlink and OHeck hand out overlapping addresses, so the same IP can exist on
-both networks as different devices. During the migration `192.168.1.60` was a
-Shelly on OHeck *and* an unrelated device on Starlink simultaneously. An IP
-alone does not identify a device here.
+| Network | Range | Router |
+|---|---|---|
+| Starlink | `192.168.4.0/24` | `192.168.4.1` |
+| OHeck | `192.168.1.0/24` | `192.168.1.1` |
 
-Symptoms of a split: the dashboard loads but circuits show as unreachable,
-`avahi-browse -art | grep -i shelly` returns nothing from the Pi, and pings to
-`*.local` fail with "Name or service not known" while the same names resolve
-fine from a Mac on the other network.
+Starlink was renumbered off `192.168.1.0/24` in Aug 2026 because both routers
+were handing out the same range, which made an IP meaningless as an identifier.
+During a split, `192.168.1.60` was simultaneously a Shelly on OHeck and an
+unrelated device on Starlink. Now the range alone tells you which network a
+device is on.
 
-To find devices on the Pi's current network without nmap:
+The Starlink app offers a fixed list of subnets, not free entry. `192.168.4.1/24`
+was picked from that list.
+
+Nothing needed reconfiguring after the renumber: everything is DHCP, and
+`shelly.py` addresses units by `.local` hostname rather than IP.
+
+### Gotcha: NetworkManager does not roam back
+
+Priority is only evaluated when NetworkManager picks a network — at boot, or
+after a disconnect. It will **not** leave a working connection when a
+higher-priority network reappears.
+
+So a Starlink outage drops the Pi to OHeck, and the Pi stays there after
+Starlink returns. The Shellys *do* return on their own, so the two end up
+split, with the dashboard loading fine but circuits unreachable.
+
+Manual fix:
 
 ```bash
-for i in $(seq 1 254); do (ping -c 1 -W 1 192.168.1.$i >/dev/null 2>&1 &) ; done
-sleep 5; ip neigh | grep -v FAILED
+sudo nmcli connection up starlink
 ```
 
-Renumbering Starlink to a different range would make these failures obvious
-instead of ambiguous. Not done.
+A dispatcher script could automate this. Not written. Note the problem only
+arises at home where both networks exist — in the field there is no OHeck to
+get stuck on.
+
+### Diagnosing a split
+
+```bash
+ip -4 addr show wlan0 | grep inet     # 192.168.4.x = Starlink, 192.168.1.x = OHeck
+iwconfig wlan0 | grep ESSID
+avahi-browse -art | grep -i "_shelly._tcp" | sort -u
+```
+
+Symptoms: dashboard loads but circuits show unreachable, `avahi-browse` returns
+no Shellys, `*.local` pings fail with "Name or service not known" from the Pi
+while resolving fine from a Mac on the other network.
+
+Sweep the current subnet without nmap (which is not installed):
+
+```bash
+for i in $(seq 1 254); do (ping -c 1 -W 1 192.168.4.$i >/dev/null 2>&1 &) ; done
+sleep 5; ip neigh | grep -v FAILED
+```
 
 ### Development access
 
 `vite.config.ts` proxies `/api` to the Tailscale address `100.87.126.98:8000`
-rather than a LAN address, because the Pi's LAN IP changes with the network and
-both networks overlap. Tailscale works regardless.
+rather than a LAN address, because the Pi's LAN IP changes with the network it
+joins. Tailscale works regardless of which one that is.
 
 `ssh todd@van-pi.local` only works when the Mac and Pi are on the same network,
 since mDNS does not cross. `ssh todd@100.87.126.98` always works.
@@ -274,15 +310,18 @@ stable, and a stale entry silently breaks SSH.
 
 ### Power management
 
-`Power Management:on` returns after every reconnect and adds latency. The
-persistent fix is per-connection in NetworkManager:
+`Power Management:on` returns after every reconnect and adds latency. Fixed
+persistently per-connection in NetworkManager:
 
 ```bash
-sudo nmcli connection modify starlink 802-11-wireless-powersave 2
-sudo nmcli connection modify netplan-wlan0-OHeck 802-11-wireless-powersave 2
+sudo nmcli connection modify starlink 802-11-wireless.powersave 2
+sudo nmcli connection modify netplan-wlan0-OHeck 802-11-wireless.powersave 2
 ```
 
-Not yet applied.
+Note the syntax is `<setting>.<property>` — `802-11-wireless.powersave`, with a
+dot, not a hyphen. `2` is the enum for disable (`3` is enable, `0` is default).
+
+Applied and verified: `iwconfig wlan0` reports `Power Management:off`.
 
 ---
 
