@@ -203,6 +203,89 @@ tailscaled       Tailscale VPN
 
 ---
 
+## Networking
+
+The van has two WiFi networks available at home, and everything prefers
+Starlink with the home network as fallback.
+
+| Network | SSID | Notes |
+|---|---|---|
+| Starlink | `Sir Salettelot` | Preferred. Dual band, associate on ch 40 (5GHz) |
+| Home | `OHeck` | Fallback. Prefer its 5GHz band |
+
+**Pi priority** is set in NetworkManager and survives reboots:
+
+```bash
+nmcli -f NAME,AUTOCONNECT-PRIORITY connection show
+# starlink            100
+# netplan-wlan0-OHeck  50
+```
+
+Note the OHeck profile is named `netplan-wlan0-OHeck` because netplan created
+it. The `nmcli` priority has been verified to survive a reboot, so it does not
+need to move into the netplan YAML.
+
+**Shelly priority** uses the Gen4 two-slot scheme, `sta` tried first then
+`sta1`. Both units have `sta` = Starlink, `sta1` = OHeck. Set via:
+
+```bash
+curl -s "http://<ip>/rpc/WiFi.SetConfig" -H 'Content-Type: application/json' \
+  -d '{"config":{"sta":{"ssid":"Sir Salettelot","pass":"...","enable":true},
+                 "sta1":{"ssid":"OHeck","pass":"...","enable":true}}}'
+```
+
+Add the fallback to the empty slot *first*, then swap, so there is never a
+moment with only one untested network configured. There is no out-of-band way
+to reach a Shelly that fails to join anything except a physical reset.
+
+### Gotcha: both routers use 192.168.1.0/24
+
+Starlink and OHeck hand out overlapping addresses, so the same IP can exist on
+both networks as different devices. During the migration `192.168.1.60` was a
+Shelly on OHeck *and* an unrelated device on Starlink simultaneously. An IP
+alone does not identify a device here.
+
+Symptoms of a split: the dashboard loads but circuits show as unreachable,
+`avahi-browse -art | grep -i shelly` returns nothing from the Pi, and pings to
+`*.local` fail with "Name or service not known" while the same names resolve
+fine from a Mac on the other network.
+
+To find devices on the Pi's current network without nmap:
+
+```bash
+for i in $(seq 1 254); do (ping -c 1 -W 1 192.168.1.$i >/dev/null 2>&1 &) ; done
+sleep 5; ip neigh | grep -v FAILED
+```
+
+Renumbering Starlink to a different range would make these failures obvious
+instead of ambiguous. Not done.
+
+### Development access
+
+`vite.config.ts` proxies `/api` to the Tailscale address `100.87.126.98:8000`
+rather than a LAN address, because the Pi's LAN IP changes with the network and
+both networks overlap. Tailscale works regardless.
+
+`ssh todd@van-pi.local` only works when the Mac and Pi are on the same network,
+since mDNS does not cross. `ssh todd@100.87.126.98` always works.
+
+Do not pin `van-pi.local` in the Mac's `/etc/hosts` — the Pi's LAN IP is not
+stable, and a stale entry silently breaks SSH.
+
+### Power management
+
+`Power Management:on` returns after every reconnect and adds latency. The
+persistent fix is per-connection in NetworkManager:
+
+```bash
+sudo nmcli connection modify starlink 802-11-wireless-powersave 2
+sudo nmcli connection modify netplan-wlan0-OHeck 802-11-wireless-powersave 2
+```
+
+Not yet applied.
+
+---
+
 ## Known Limitations / TODOs
 
 - **Mode does not persist** across Pi reboots — resets to `camp`. TODO: write to JSON file
