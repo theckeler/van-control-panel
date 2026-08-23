@@ -348,7 +348,7 @@ Applied and verified: `iwconfig wlan0` reports `Power Management:off`.
 
 ## Known Limitations / TODOs
 
-- **Mode does not persist** across Pi reboots — resets to `camp`. TODO: write to JSON file
+- **Applying a mode does nothing yet** — the selection persists across restarts, but camera intervals and Shelly schedules are not driven by it.
 - **Camera system** not yet implemented — awaiting USB webcam hardware
 - **Shore charger** always returns disconnected — no VE.Direct cable purchased
 - **Orion-Tr** is non-smart, returns static config — upgrade to Orion XS 50A planned
@@ -358,8 +358,18 @@ Applied and verified: `iwconfig wlan0` reports `Power Management:off`.
 - **`loads` breakdown in system.py is unconditional** — claims Starlink 22W and Fridge 40W regardless of actual state. Latent only: the frontend never reads it. See "system.py load estimation" below.
 - **Vercel demo build** — built and deployed. See "Vercel Demo Mode" below.
 - **Dometic CFX5 / Garmin PowerSwitch** — not reachable from the Pi. BlueZ is incompatible with Dometic's BLE module. Requires an ESP32 bridge. See `rubber-duck-review.md`.
-- **Seven API calls per poll cycle** — `fetchAll` hits battery, mppt, shore, orion, shelly, system and mode/current separately every 5s. A single `/snapshot` endpoint would collapse this. Next up.
-- **Shelly response times are erratic** — observed 6.3s and 1.8s on calls that are usually ~50ms. Probably mDNS `.local` resolution to the two units. Not yet investigated.
+- **Seven API calls per poll cycle** — `fetchAll` hits battery, mppt, shore, orion, shelly, system and mode/current separately every 5s. A `/snapshot` endpoint was considered and **rejected after measuring**: six of the seven return in ~3ms, so collapsing them saves ~18ms of round trips, while a single blocking call would make the one slow endpoint (shelly) stall the whole dashboard. `Promise.allSettled` currently isolates it. Revisit only if the fast endpoints stop being fast.
+- **Mode persistence** — done. Persisted to `backend/mode.json`, written atomically. Note this saves the *selection* only; actually applying a mode (camera intervals, Shelly schedules) is still unimplemented.
+- **Shelly latency is ~200ms and variable, and that is the floor.** Both units
+  are on Starlink's 2.4GHz radio (BSSID `72:52:a8:29:1d:7c`, channel varies —
+  the router picks automatically). Signal is strong (-46 and -57 dBm), so this
+  is band congestion, not range. Shelly Gen4 is 2.4GHz only, so they cannot be
+  moved to the 5GHz radio the Pi uses. Consecutive identical requests have
+  measured 156ms to 795ms.
+
+  Already fixed and not worth revisiting: the 6.1s figure was two 3s timeouts
+  from a network split; units were fetched sequentially rather than
+  concurrently; and each call paid ~105ms of mDNS resolution, now cached.
 - **Modals lack focus management** — `ConfirmModal` and `PowerModal` don't trap focus or handle Escape.
 
 ---
