@@ -1,7 +1,7 @@
 import subprocess
 from fastapi import APIRouter
 from pydantic import BaseModel
-from app.services import battery_ble, victron_ble, network
+from app.services import battery_ble, victron_ble, network, health
 from app.routers import mode as mode_router
 from app.routers import orion as orion_router
 from app.routers.shelly import SHELLY_UNITS
@@ -17,6 +17,24 @@ class WifiStatus(BaseModel):
     bitrate_mbps: float | None = None
     tx_retries: int | None = None
     ip: str | None = None
+
+
+class PiHealth(BaseModel):
+    cpu_temp_c: float | None = None
+    load_1: float | None = None
+    load_5: float | None = None
+    mem_total_mb: int | None = None
+    mem_available_mb: int | None = None
+    disk_total_gb: float | None = None
+    disk_free_gb: float | None = None
+    uptime_s: int | None = None
+    throttle: list[str] = []
+
+
+@router.get("/health-detail", response_model=PiHealth)
+async def get_pi_health():
+    """Pi vitals — temperature, load, memory, disk, uptime, throttle flags."""
+    return PiHealth(**await health.get_health())
 
 
 @router.get("/wifi", response_model=WifiStatus)
