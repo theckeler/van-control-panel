@@ -136,8 +136,8 @@ function jitter(v: number, pct = 0.015): number {
 // --- Mutable demo state ----------------------------------------------------
 
 let shellys: ShellyUnit[] = [
-  { id: 'usb',    label: 'USB Outlets', on: true,  ip: '192.168.1.42' },
-  { id: 'garage', label: 'Garage',      on: false, ip: '192.168.1.43' },
+  { id: 'usb',    label: 'USB Outlets', on: true,  ip: '192.168.4.129', installed: true, reachable: true },
+  { id: 'garage', label: 'Garage',      on: false, ip: '192.168.4.60',  installed: true, reachable: true },
 ]
 
 let currentMode: ModeName = 'camp'

@@ -13,21 +13,30 @@ export function ShellyPanel({ className }: { className?: string }) {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3">
-          {shellys.map((unit) => (
-            <SelectableTile
-              key={unit.id}
-              selected={unit.on}
-              onClick={() => toggleShelly(unit.id, !unit.on)}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <Label className="text-inherit">{unit.label}</Label>
-                <StatusDot on={unit.on} />
-              </div>
-              <div className="text-lg font-mono font-semibold">
-                {unit.on ? "ON" : "OFF"}
-              </div>
-            </SelectableTile>
-          ))}
+          {shellys.map((unit) => {
+            const offline = unit.reachable === false;
+            return (
+              <SelectableTile
+                key={unit.id}
+                selected={unit.on}
+                disabled={offline}
+                onClick={() => toggleShelly(unit.id, !unit.on)}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-inherit">{unit.label}</Label>
+                  <StatusDot on={unit.on && !offline} />
+                </div>
+                <div className="text-lg font-mono font-semibold">
+                  {offline ? "—" : unit.on ? "ON" : "OFF"}
+                </div>
+                {offline && (
+                  <div className="text-[10px] font-mono text-zinc-600 mt-1">
+                    unreachable
+                  </div>
+                )}
+              </SelectableTile>
+            );
+          })}
         </div>
       )}
     </Panel>

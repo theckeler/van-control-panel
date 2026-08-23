@@ -93,6 +93,9 @@ export interface ShellyUnit {
   label: string
   on: boolean
   ip: string
+  installed?: boolean
+  /** false when the Pi couldn't reach the switch — distinct from off */
+  reachable?: boolean
 }
 
 export interface Photo {
