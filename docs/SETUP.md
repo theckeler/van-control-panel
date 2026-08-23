@@ -134,20 +134,51 @@ npm run build
 
 ## 6. Secrets
 
-`backend/.env` — copy from the Mac, or recreate from `.env.example`:
+`backend/.env` — copy from the Mac, or recreate:
 
 ```
 VICTRON_MAC=E8:18:52:D1:81:B7
 VICTRON_KEY=<32-char hex, VictronConnect → SmartSolar → Product info>
-VAN_API_KEY=<any random string>
+VAN_API_KEY=<generate, see below>
 ```
 
-`frontend/.env` — the session secret is generated fresh, it does not need to
-match the old one. Regenerating only invalidates existing browser sessions:
+**`VAN_API_KEY` is not optional in practice.** uvicorn binds `0.0.0.0:8000`,
+so an empty key leaves the API open to anyone on the same WiFi — including
+`/system/shutdown`. It fails open deliberately so a bad deploy cannot lock you
+out, which means an empty value silently gives you no protection.
 
 ```bash
+python3 - <<'EOF'
+import secrets, pathlib, re
+key = secrets.token_hex(32)
+p = pathlib.Path.home() / "van-control-panel/backend/.env"
+s = p.read_text()
+s = re.sub(r'^VAN_API_KEY=.*$', f'VAN_API_KEY={key}', s, flags=re.M) \
+    if 'VAN_API_KEY' in s else s + f'\nVAN_API_KEY={key}\n'
+p.write_text(s)
+print(key)
+EOF
+```
+
+Put the same value in `frontend/.env.local` **on the Mac** — the Vite dev proxy
+reaches the Pi over Tailscale rather than loopback, so it needs the header or
+every request 401s:
+
+```
+VAN_API_KEY=<same value>
+```
+
+`frontend/.env` on the Pi — the dashboard password and the cookie signing key.
+The secret can be regenerated freely; it only invalidates existing browser
+sessions.
+
+```bash
+echo "VAN_PASSWORD=<your dashboard password>" >> ~/van-control-panel/frontend/.env
 echo "VAN_SESSION_SECRET=$(openssl rand -hex 32)" >> ~/van-control-panel/frontend/.env
 ```
+
+Auth uses a stateless signed cookie, not `express-session`, so sessions survive
+service restarts and redeploys. See `CLAUDE.md` → Auth.
 
 ## 7. Restore the database (optional)
 

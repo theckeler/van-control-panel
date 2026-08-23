@@ -110,10 +110,11 @@ backend/app/
     battery.py           /battery/ — BMS data (real), history endpoints
     mppt.py              /mppt/ — Victron data (real), history endpoints
     shelly.py            /shelly/ — live Shelly toggle via httpx
-    system.py            /system/ — net power, runtime estimates (real math)
+    system.py            /system/ — net power, runtime, Pi health, WiFi status
+                         and switching
     orion.py             /orion/ — static config (non-smart unit)
     shore.py             /shore/ — always returns disconnected (no cable)
-    mode.py              /mode/ — in-memory mode (resets on restart, TODO: persist)
+    mode.py              /mode/ — persisted to backend/mode.json, atomic write
     camera.py            /photos/ — not yet implemented, returns 404
   services/
     battery_ble.py       Power Queen persistent BLE connection
@@ -121,11 +122,17 @@ backend/app/
     ble_orchestrator.py  Runs both as asyncio tasks via gather()
     data_logger.py       Writes readings to SQLite, triggers rollups
     db.py                SQLite schema, write, rollup, prune, query functions
+                         query_raw bucket-averages server-side (max_points=300)
+    network.py           WiFi status by parsing iwconfig, profile list, and
+                         switching. Cached 15s. iwgetid is not installed, so
+                         SSID comes from the ESSID field
+    health.py            Pi vitals — temp, load, memory, disk, uptime, and
+                         throttle flags via vcgencmd. Cached 10s
     pq_battery.py        Vendored: pq_bms_bluetooth parse logic
     pq_request.py        Vendored: pq_bms_bluetooth BLE request
 
 frontend/
-  server.mjs             Express server — serves dist/, proxies /api/*, optional auth
+  server.mjs             Express — serves dist/, proxies /api/*, signed-cookie auth
   vercel.json            Pins VITE_DEMO=true + SPA rewrite for the Vercel demo deploy
   src/
     api/client.ts        Typed fetch wrapper. Exports isDemo and swaps api between
@@ -140,6 +147,9 @@ frontend/
     hooks/useVisibleInterval.ts
                          setInterval that pauses while the tab is hidden
     hooks/usePolling.ts  Thin wrapper — fetchAll on useVisibleInterval, 5s
+    hooks/useModalBehavior.ts
+                         Focus trap, Escape, focus restoration, scroll lock.
+                         Used by both modals and the settings drawer
     types/index.ts       TypeScript interfaces (keep in sync with Pydantic models)
     components/ui/       Primitives: Panel, Stack, Label, StatusDot, SelectableTile,
                          Button. Panel/Stack own spacing from the settings store
@@ -147,9 +157,12 @@ frontend/
       BatteryCard.tsx    SOC, voltage, temp — shows last known values when offline
                          with last-seen time and retry countdown
       ChargeSourcesCard  Solar / Shore / Orion rows
-      ShellyPanel.tsx    Per-unit toggles
+      ShellyPanel.tsx    Per-unit toggles. Shows "unreachable" distinctly from off
       ModeSelector.tsx   Storage / Camp / Trail / In Town
       HistoryCard.tsx    Recharts SOC 24h + Solar 30d
+      SettingsDrawer.tsx Gear icon → Pi health, network detail and switcher,
+                         BMS release, power options, theme
+      WifiBadge.tsx      Header SSID + band. Amber below -70dBm, red if unassociated
       Toaster.tsx        Renders the toast queue
     pages/
       Dashboard.tsx      Main view. Cards take no props — Panel handles spacing
@@ -160,16 +173,35 @@ frontend/
 
 ## Environment Variables
 
-`backend/.env` on the Pi (gitignored). See `backend/.env.example`.
+Two files, both gitignored, both on the Pi. Neither is in git, so deploys never
+overwrite them.
+
+`backend/.env` — read by pydantic-settings via `app/config.py`:
 
 ```
 VICTRON_MAC=E8:18:52:D1:81:B7
 VICTRON_KEY=<32-char hex from VictronConnect → Product info>
 BMS_MAC=C8:47:80:5D:08:6F
+VAN_API_KEY=<32-byte hex — REQUIRED, see Auth>
+```
+
+An empty `VAN_API_KEY` fails open, leaving port 8000 reachable by anyone on the
+WiFi. Generate one rather than leaving it blank.
+
+`frontend/.env` — read by systemd via `EnvironmentFile`, consumed by
+`server.mjs`:
+
+```
 VAN_PORT=80
-VAN_USER=van
 VAN_PASSWORD=<dashboard password>
-VAN_API_KEY=
+VAN_SESSION_SECRET=<32-byte hex — changing it logs everyone out>
+```
+
+`frontend/.env.local` on the **Mac** — the dev proxy reaches the Pi over
+Tailscale rather than loopback, so it must send the API key:
+
+```
+VAN_API_KEY=<same value as the Pi's backend/.env>
 ```
 
 ---
