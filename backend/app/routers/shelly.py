@@ -1,9 +1,43 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 import asyncio
+import socket
+import time
 import httpx
 
 router = APIRouter()
+
+# mDNS resolution of a .local name costs ~105ms (137ms by name vs 32ms by IP,
+# measured on the Pi). At a 5s poll that is a lot of repeated work for an
+# answer that rarely changes.
+#
+# But it does change: the Shellys moved between 192.168.1.129/.60 and
+# 192.168.4.26/.175 three times in one day during the Starlink migration, so
+# a permanent cache would break every time. Short TTL, and any request failure
+# evicts the entry so the next call re-resolves.
+_dns_cache: dict[str, tuple[str, float]] = {}
+DNS_TTL = 300.0
+
+
+async def _resolve(hostname: str) -> str | None:
+    """Resolve a .local name to an IP, cached for DNS_TTL seconds."""
+    now = time.monotonic()
+    hit = _dns_cache.get(hostname)
+    if hit and now - hit[1] < DNS_TTL:
+        return hit[0]
+    try:
+        loop = asyncio.get_running_loop()
+        info = await loop.getaddrinfo(hostname, None, family=socket.AF_INET)
+        ip = info[0][4][0]
+        _dns_cache[hostname] = (ip, now)
+        return ip
+    except (socket.gaierror, OSError, IndexError):
+        _dns_cache.pop(hostname, None)
+        return None
+
+
+def _evict(hostname: str) -> None:
+    _dns_cache.pop(hostname, None)
 
 SHELLY_UNITS = {
     "usb": {
@@ -59,13 +93,22 @@ async def get_shelly_state(unit_id: str) -> tuple[bool, bool]:
     unit = SHELLY_UNITS.get(unit_id)
     if not unit or not unit["installed"]:
         return False, False
+
+    host = unit["ip"]
+    ip = await _resolve(host)
+    if ip is None:
+        return False, False
+
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
             r = await client.get(
-                f"http://{unit['ip']}/rpc/Switch.GetStatus?id={unit['channel']}"
+                f"http://{ip}/rpc/Switch.GetStatus?id={unit['channel']}"
             )
             return r.json().get("output", False), True
     except Exception:
+        # Could be a genuine outage, or the unit moved networks and the
+        # cached IP is stale. Evict either way so the next poll re-resolves.
+        _evict(host)
         return False, False
 
 def _status(unit_id: str, unit: dict, on: bool, reachable: bool) -> ShellyStatus:
@@ -112,12 +155,22 @@ async def toggle_shelly(unit_id: str, body: ShellyToggle):
         raise HTTPException(status_code=404, detail=f"Unknown unit: {unit_id}")
     if not unit["installed"]:
         raise HTTPException(status_code=503, detail=f"{unit['label']} is not yet installed")
+
+    host = unit["ip"]
+    ip = await _resolve(host)
+    if ip is None:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Could not find {unit['label']} on the network",
+        )
+
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
             on_str = "true" if body.on else "false"
             await client.get(
-                f"http://{unit['ip']}/rpc/Switch.Set?id={unit['channel']}&on={on_str}"
+                f"http://{ip}/rpc/Switch.Set?id={unit['channel']}&on={on_str}"
             )
         return {"unit_id": unit_id, "on": body.on}
     except Exception as e:
+        _evict(host)
         raise HTTPException(status_code=503, detail=f"Could not reach {unit['label']}: {e}")
