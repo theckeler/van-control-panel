@@ -286,17 +286,33 @@ higher-priority network reappears.
 
 So a Starlink outage drops the Pi to OHeck, and the Pi stays there after
 Starlink returns. The Shellys *do* return on their own, so the two end up
-split, with the dashboard loading fine but circuits unreachable.
+split, with the dashboard loading fine but circuits showing unreachable.
 
-Manual fix:
+**Fixed** by `scripts/90-prefer-starlink`, a NetworkManager dispatcher script.
+Install with:
+
+```bash
+sudo install -o root -g root -m 755 scripts/90-prefer-starlink \
+     /etc/NetworkManager/dispatcher.d/90-prefer-starlink
+```
+
+Must be root-owned and not group/world writable or NM ignores it silently.
+
+It fires on `up`, `connectivity-change` and `dhcp4-change`, switches only when
+the preferred SSID is actually in range, and holds a 120s cooldown in
+`/run/prefer-starlink.last` so a flapping Starlink cannot cause thrashing.
+
+Check it:
+
+```bash
+sudo journalctl -t prefer-starlink -n 20 --no-pager
+```
+
+Manual override if needed:
 
 ```bash
 sudo nmcli connection up starlink
 ```
-
-A dispatcher script could automate this. Not written. Note the problem only
-arises at home where both networks exist — in the field there is no OHeck to
-get stuck on.
 
 ### Diagnosing a split
 
@@ -370,7 +386,9 @@ Applied and verified: `iwconfig wlan0` reports `Power Management:off`.
   Already fixed and not worth revisiting: the 6.1s figure was two 3s timeouts
   from a network split; units were fetched sequentially rather than
   concurrently; and each call paid ~105ms of mDNS resolution, now cached.
-- **Modals lack focus management** — `ConfirmModal` and `PowerModal` don't trap focus or handle Escape.
+- **Maxxfan will not get a Shelly** — tested and rejected. It defaults open on power loss and closes on power-up, which is exactly wrong for a switched circuit. Its remote is IR, so there is no network path either.
+- **Govee H6199 rock lights** — candidate for on/off and basic colour over BLE. Protocol varies by firmware generation; older units accept unencrypted writes, newer added encryption. Needs a probe before it can be scoped.
+- **EcoFlow (`EF-R10314`)** — confirmed as Todd's, seen in BLE scans at -20 to -44 dBm. Official developer API exists over HTTP and MQTT, needs an API key. Community BLE work also exists.
 
 ---
 
