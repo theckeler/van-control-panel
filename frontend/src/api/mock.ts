@@ -136,8 +136,8 @@ function jitter(v: number, pct = 0.015): number {
 // --- Mutable demo state ----------------------------------------------------
 
 let shellys: ShellyUnit[] = [
-  { id: 'usb',    label: 'USB Outlets', on: true,  ip: '192.168.4.129', installed: true, reachable: true },
-  { id: 'garage', label: 'Garage',      on: false, ip: '192.168.4.60',  installed: true, reachable: true },
+  { id: 'usb',    label: 'USB Outlets', on: true,  ip: 'shelly-usb.local',    installed: true, reachable: true },
+  { id: 'garage', label: 'Garage',      on: false, ip: 'shelly-garage.local', installed: true, reachable: true },
 ]
 
 let currentMode: ModeName = 'camp'
@@ -390,10 +390,10 @@ export const mockApi = {
         estimated_runtime_hrs: runtime,
         charge_sources_active: sources,
         mode: currentMode,
-        ssid: 'Sir Salettelot',
+        ssid: 'VanNet',
         band: '5GHz',
         wifi_signal_dbm: -54,
-        wifi_ip: '192.168.4.96',
+        wifi_ip: '10.0.0.42',
       })
     },
     health: () => delay({
@@ -408,8 +408,8 @@ export const mockApi = {
       throttle: [] as string[],
     }),
     wifiProfiles: () => delay([
-      { name: 'starlink', active: true },
-      { name: 'netplan-wlan0-OHeck', active: false },
+      { name: 'vannet', active: true },
+      { name: 'backup-wifi', active: false },
     ]),
     switchWifi: (name: string) =>
       delay({ ok: false, message: `Switching to ${name} is disabled in demo mode` }),
