@@ -125,11 +125,20 @@ Frontend:
 
 ```bash
 cd ../frontend
-npm install
+npm install --include=dev
 npm run build
 ```
 
-`npm run build` matters — `dist/` is gitignored, and `server.mjs` throws
+`--include=dev` matters. If `NODE_ENV=production` is set in the shell, or npm
+has `omit=dev` configured, a plain `npm install` **silently skips
+devDependencies** — including `typescript`, which then fails the build with
+`sh: tsc: command not found` while `package.json` still lists it. Check with:
+
+```bash
+echo "NODE_ENV=$NODE_ENV"; npm config get omit
+```
+
+`npm run build` matters too — `dist/` is gitignored, and `server.mjs` throws
 `ENOENT ... dist/index.html` without it.
 
 ## 6. Secrets

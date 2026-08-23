@@ -2,6 +2,13 @@
 
 Context file for Claude Code. Gives full project context so sessions don't require re-explaining the architecture.
 
+**Jump to:** [Quick Start](#quick-start) · [Recovery](#recovery) · [Auth](#auth) ·
+[Networking](#networking) · [Known Limitations / TODOs](#known-limitations--todos)
+
+Rebuilding the Pi from scratch: **[SETUP.md](SETUP.md)**.
+Past reasoning errors and corrections: **[rubber-duck-review.md](rubber-duck-review.md)**.
+Symptom-first fixes: **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)**.
+
 ---
 
 ## What This Project Is
@@ -220,6 +227,99 @@ VAN_API_KEY=<same value as the Pi's backend/.env>
 | `STALE_AFTER` (BMS) | battery_ble.py | 120s | Seconds before BMS cache is stale |
 | `STALE_AFTER` (MPPT) | victron_ble.py | 120s | Seconds before MPPT cache is stale |
 | `max_points` | db.py `query_raw` | 300 | Bucket-averages raw history server-side. Was shipping ~2,880 rows per source per request; charts render ~900px wide. Pass 0 for every row |
+
+---
+
+## Quick Start
+
+Open the repo in VS Code and press **Cmd+Shift+B**, or Cmd+Shift+P → "Run Task".
+
+| Task | What it does |
+|---|---|
+| **Dev: full stack (local backend)** | Vite + local uvicorn in parallel. Default build task |
+| **Dev: frontend against the Pi** | Vite only, proxies to van-api over Tailscale. Real data |
+| **Dev: frontend with demo data** | `VITE_DEMO=true`, mock API. No Pi, no Bluetooth needed |
+| **Build / Typecheck: frontend** | `npm run build` / `tsc --noEmit` |
+| **Install: frontend deps (incl. dev)** | Use this, not plain `npm install` — see below |
+| **Pi: status** | Service state, WiFi, Shelly reachability |
+| **Pi: tail van-api log** | Live journal |
+| **Pi: recent events** | Last 48h of state changes from the event log |
+| **Pi: shell** | SSH over Tailscale |
+
+A **local backend** starts fine but the BLE services find nothing — the BMS and
+Victron are not in Bluetooth range of the Mac — so the battery and solar cards
+show offline. Good for frontend work; use "against the Pi" for real data.
+
+### Trap: NODE_ENV=production
+
+The shell exports `NODE_ENV=production` and npm is configured with `omit=dev`,
+so a plain `npm install` **silently skips devDependencies**. This is how
+`typescript` went missing mid-session, producing `sh: tsc: command not found`
+from a build that had worked minutes earlier.
+
+```bash
+npm install --include=dev    # always this
+```
+
+The VS Code tasks set `NODE_ENV=development` so they are unaffected.
+
+### Manual equivalents
+
+```bash
+# frontend against the Pi
+cd frontend && npm run dev
+
+# frontend against a local backend
+cd frontend && VAN_API_TARGET=http://localhost:8000 npm run dev
+
+# backend
+cd backend && .venv/bin/uvicorn app.main:app --reload --port 8000
+```
+
+---
+
+## Recovery
+
+Ordered by how much has gone wrong.
+
+**Service died** — `sudo systemctl restart van-api` (or `van-frontend`).
+Check with `systemctl status van-api --no-pager`.
+
+**Dashboard shows ENOENT dist/index.html** — the build is missing.
+`cd ~/van-control-panel/frontend && npm run build && sudo systemctl restart van-frontend`.
+
+**Circuits unreachable, dashboard otherwise fine** — a network split. Check
+the WiFi badge or `nmcli -f NAME,DEVICE connection show --active`, then
+`sudo nmcli connection up starlink`. See Networking below.
+
+**Locked out of the dashboard** — regenerate the session secret in
+`frontend/.env` and restart `van-frontend`. Only invalidates browser sessions.
+
+**Locked out of the API** — blank `VAN_API_KEY` in `backend/.env` fails open
+by design. Restart `van-api` after editing.
+
+**Deploy did not happen** — the runner does not always fire. Check
+`cd ~/van-control-panel && git log --oneline -1` against origin, then
+`git fetch origin main && git reset --hard origin/main` and restart the
+relevant service. Observed silently skipping a commit that matched its path
+filter, so verify rather than assume.
+
+**Database corrupt or lost** — restore the newest snapshot from
+`~/van-backups/` on the Mac. See SETUP.md §7.
+
+**SD card dead, or a fresh Pi** — SETUP.md, start to finish. About an hour.
+
+### What exists only on the Pi
+
+| Thing | Recoverable? |
+|---|---|
+| `van_power.db` | Daily snapshot to the Mac via `van-backup.timer` |
+| `backend/.env` | Copy on the Mac at `backend/.env` |
+| `frontend/.env` | No — but the session secret is regenerable and the password is yours |
+| `mode.json` | No — defaults to `camp`, one click to fix |
+| NetworkManager profiles | Documented in SETUP.md §3 |
+| systemd units | In SETUP.md §8, verbatim |
+| Actions runner registration | Needs a fresh token, SETUP.md §10 |
 
 ---
 
