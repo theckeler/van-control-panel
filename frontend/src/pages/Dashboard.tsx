@@ -87,7 +87,7 @@ export function Dashboard() {
       </header>
 
       <ShellyPanel className={cardClass} style={innerStyle} />
-      <BatteryCard className={cardClass} style={innerStyle} />
+      <BatteryCard className={cardClass} buttonClass={buttonClass} style={innerStyle} />
       <ChargeSourcesCard className={cardClass} style={innerStyle} />
       <HistoryCard className={cardClass} style={innerStyle} />
       <Cameras className={cardClass} style={innerStyle} />

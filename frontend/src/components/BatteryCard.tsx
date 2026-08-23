@@ -19,9 +19,11 @@ function formatCountdown(secs: number): string {
 
 export function BatteryCard({
   className,
+  buttonClass,
   style,
 }: {
   className?: string;
+  buttonClass?: string;
   style?: React.CSSProperties;
 }) {
   const battery = useVanStore((s) => s.battery);
@@ -119,7 +121,7 @@ export function BatteryCard({
             <button
               onClick={handleConnect}
               disabled={busy}
-              className="text-xs font-mono text-zinc-600 hover:text-green-400 transition-colors self-start mt-1"
+              className={buttonClass}
             >
               connect →
             </button>
@@ -138,6 +140,23 @@ export function BatteryCard({
               <span className="text-2xl ml-1">%</span>
             </div>
             <div className="flex flex-col items-end gap-1">
+              {!isOffline && !isReleased && (
+                <button
+                  onClick={() => setShowConfirm(true)}
+                  disabled={busy}
+                  className={buttonClass}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    height="24px"
+                    viewBox="0 -960 960 960"
+                    width="24px"
+                  >
+                    <path d="m344-60-76-128-144-32 14-148-98-112 98-112-14-148 144-32 76-128 136 58 136-58 76 128 144 32-14 148 98 112-98 112 14 148-144 32-76 128-136-58-136 58Zm34-102 102-44 104 44 56-96 110-26-10-112 74-84-74-86 10-112-110-24-58-96-102 44-104-44-56 96-110 24 10 112-74 86 74 84-10 114 110 24 58 96Zm102-318Zm28.5 188.5Q520-303 520-320t-11.5-28.5Q497-360 480-360t-28.5 11.5Q440-337 440-320t11.5 28.5Q463-280 480-280t28.5-11.5ZM440-440h80v-240h-80v240Z" />
+                  </svg>
+                </button>
+              )}
+
               <span
                 className={clsx(
                   "text-xs font-mono",
@@ -150,11 +169,13 @@ export function BatteryCard({
               >
                 {isReleased ? "○ released" : isOffline ? "○ offline" : "● live"}
               </span>
+
               {isOffline && battery.last_seen && (
                 <span className="text-xs font-mono text-zinc-600">
                   last seen {formatLastSeen(battery.last_seen)}
                 </span>
               )}
+
               {isOffline &&
                 !isReleased &&
                 countdown !== null &&
@@ -163,16 +184,7 @@ export function BatteryCard({
                     retry in {formatCountdown(countdown)}
                   </span>
                 )}
-              {/* Release / Connect buttons */}
-              {!isOffline && !isReleased && (
-                <button
-                  onClick={() => setShowConfirm(true)}
-                  disabled={busy}
-                  className="text-xs font-mono text-zinc-600 hover:text-amber-400 transition-colors disabled:opacity-40"
-                >
-                  release →
-                </button>
-              )}
+
               {isReleased && (
                 <button
                   onClick={handleConnect}
