@@ -1,13 +1,28 @@
 import subprocess
 from fastapi import APIRouter
 from pydantic import BaseModel
-from app.services import battery_ble, victron_ble
+from app.services import battery_ble, victron_ble, network
 from app.routers import mode as mode_router
 from app.routers import orion as orion_router
 from app.routers.shelly import SHELLY_UNITS
 from app.routers.shore import SHORE_INFERENCE_THRESHOLD
 
 router = APIRouter()
+
+
+class WifiStatus(BaseModel):
+    ssid: str | None = None
+    band: str | None = None
+    signal_dbm: int | None = None
+    bitrate_mbps: float | None = None
+    tx_retries: int | None = None
+    ip: str | None = None
+
+
+@router.get("/wifi", response_model=WifiStatus)
+async def get_wifi():
+    """Which network the Pi is currently on, and how good the link is."""
+    return WifiStatus(**await network.get_wifi())
 
 # Always-on baseline loads (Pi + Starlink + Fridge average)
 ALWAYS_ON_WATTS = {
@@ -53,6 +68,12 @@ class SystemData(BaseModel):
     daily_yield_wh: float
     bms_connected: bool
     mppt_connected: bool
+
+    # Wi-Fi status
+    ssid: str | None = None
+    band: str | None = None
+    wifi_signal_dbm: int | None = None
+    wifi_ip: str | None = None
 
 
 @router.get("/", response_model=SystemData)
@@ -141,7 +162,16 @@ async def get_system():
             source="measured",
         ))
 
+    # Wi-Fi — which network the Pi is on, and how good the link is.
+    # Cheap: network.get_wifi() caches for 15s, so polling /system/ every
+    # 5s does not spawn a subprocess every time.
+    wifi = await network.get_wifi()
+
     return SystemData(
+        ssid=wifi["ssid"],
+        band=wifi["band"],
+        wifi_signal_dbm=wifi["signal_dbm"],
+        wifi_ip=wifi["ip"],
         net_power_w=battery_power_w,
         solar_watts=round(solar_watts, 1),
         load_watts=load_watts,

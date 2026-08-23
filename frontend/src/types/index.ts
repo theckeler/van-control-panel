@@ -125,4 +125,9 @@ export interface SystemData {
   estimated_runtime_hrs: number | null
   charge_sources_active: string[]
   mode: ModeName
+  /** Which WiFi network the Pi is on. Null when unassociated. */
+  ssid: string | null
+  band: string | null
+  wifi_signal_dbm: number | null
+  wifi_ip: string | null
 }

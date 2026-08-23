@@ -390,6 +390,10 @@ export const mockApi = {
         estimated_runtime_hrs: runtime,
         charge_sources_active: sources,
         mode: currentMode,
+        ssid: 'Sir Salettelot',
+        band: '5GHz',
+        wifi_signal_dbm: -54,
+        wifi_ip: '192.168.4.96',
       })
     },
     // Destructive controls are inert in demo mode.

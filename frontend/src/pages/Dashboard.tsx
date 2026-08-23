@@ -1,15 +1,14 @@
 import { useState } from "react";
 import { isDemo } from "../api/client";
-import { Stack, Button } from "../components/ui";
 import { BatteryCard } from "../components/BatteryCard";
-import { Cameras } from "../components/Cameras";
 import { ChargeSourcesCard } from "../components/ChargeSourcesCard";
 import { HistoryCard } from "../components/HistoryCard";
-import { ModeSelector } from "../components/ModeSelector";
 import { PowerModal } from "../components/PowerModal";
 import { ShellyPanel } from "../components/ShellyPanel";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { Toaster } from "../components/Toaster";
+import { WifiBadge } from "../components/WifiBadge";
+import { Button, Stack } from "../components/ui";
 import { usePolling } from "../hooks/usePolling";
 import { useSettingsStore } from "../store/settings";
 import { useVanStore } from "../store/van";
@@ -68,6 +67,7 @@ export function Dashboard() {
                 {lastUpdated.toLocaleTimeString()}
               </div>
             )}
+            <WifiBadge className="block" />
           </div>
           <ThemeToggle className={buttonClass} />
           <Button
@@ -85,8 +85,8 @@ export function Dashboard() {
       <BatteryCard />
       <ChargeSourcesCard />
       <HistoryCard />
-      <Cameras />
-      <ModeSelector />
+      {/* <Cameras /> */}
+      {/* <ModeSelector /> */}
     </Stack>
   );
 }
