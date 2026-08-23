@@ -196,10 +196,31 @@ VAN_API_KEY=
 ```
 van-api          FastAPI backend (uvicorn :8000)
 van-frontend     Express frontend (:80)
+van-backup       Daily van_power.db snapshot to the Mac (oneshot + timer)
 actions-runner   GitHub Actions self-hosted runner
 bluetooth        BLE adapter
 tailscaled       Tailscale VPN
 ```
+
+Rebuilding the Pi from a blank SD card: see `SETUP.md`.
+
+### Backups
+
+`~/van-backup.sh` takes a consistent snapshot via `sqlite3 .backup` (not `cp` —
+the logger writes every 30s and a plain copy can catch a torn write), gzips it,
+and scps it to `~/van-backups/` on the Mac over Tailscale. Roughly 147KB
+compressed at present.
+
+Driven by `van-backup.timer`, daily, `Persistent=true` so a missed run happens
+on next boot. Failed sends (Mac asleep) are held in `~/van-backups-pending/`,
+pruned to the last 3.
+
+Note the live DB is a rolling window — raw prunes at 30 days, hourly at a year
+— so retained backups hold detail the Pi itself has discarded. Worth not
+deleting old ones aggressively.
+
+The `.env` values are the other thing worth not losing, and a current copy
+already lives on the Mac at `backend/.env`.
 
 ---
 
