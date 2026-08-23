@@ -1,0 +1,64 @@
+#!/bin/bash
+# NetworkManager dispatcher: return to Starlink when it reappears.
+#
+# NM only evaluates autoconnect-priority when it picks a network — at boot or
+# after a disconnect. It will not leave a working connection because a
+# higher-priority one came back. So a Starlink outage drops the Pi to OHeck
+# and it stays there, while the Shellys return on their own. The result is a
+# split that shows up as "circuits unreachable" rather than anything
+# network-shaped.
+#
+# Install:
+#   sudo install -o root -g root -m 755 90-prefer-starlink \
+#        /etc/NetworkManager/dispatcher.d/90-prefer-starlink
+#
+# Must be root-owned and not group/world writable or NM silently ignores it.
+
+IFACE="$1"
+ACTION="$2"
+
+PREFERRED="starlink"
+PREFERRED_SSID="Sir Salettelot"
+STATE="/run/prefer-starlink.last"
+COOLDOWN=120
+
+case "$ACTION" in
+    up|dhcp4-change)
+        [ "$IFACE" = "wlan0" ] || exit 0
+        ;;
+    connectivity-change)
+        # NM may pass an empty interface for this event.
+        [ -z "$IFACE" ] || [ "$IFACE" = "wlan0" ] || exit 0
+        ;;
+    *)
+        exit 0
+        ;;
+esac
+
+ACTIVE=$(nmcli -t -f NAME,DEVICE connection show --active 2>/dev/null \
+         | awk -F: '$2=="wlan0"{print $1}')
+
+# Already where we want to be, or nothing is up yet.
+[ "$ACTIVE" = "$PREFERRED" ] && exit 0
+[ -z "$ACTIVE" ] && exit 0
+
+# Don't thrash. If Starlink is flapping, switching on every dispatcher event
+# would knock the connection out repeatedly.
+if [ -f "$STATE" ]; then
+    LAST=$(cat "$STATE" 2>/dev/null || echo 0)
+    NOW=$(date +%s)
+    [ $((NOW - LAST)) -lt "$COOLDOWN" ] && exit 0
+fi
+
+# Only switch if the preferred network is actually in range — otherwise we
+# would drop a working connection for one that may not be there.
+nmcli -t -f SSID device wifi list --rescan auto 2>/dev/null \
+    | grep -Fxq "$PREFERRED_SSID" || exit 0
+
+date +%s > "$STATE"
+logger -t prefer-starlink "Starlink visible while on '$ACTIVE' — switching"
+nmcli connection up "$PREFERRED" >/dev/null 2>&1 \
+    && logger -t prefer-starlink "switched to $PREFERRED" \
+    || logger -t prefer-starlink "switch to $PREFERRED failed"
+
+exit 0
