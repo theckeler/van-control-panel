@@ -113,6 +113,8 @@ async def switch_profile(name: str) -> tuple[bool, str]:
     The name is validated against existing profiles and passed as argv, never
     through a shell.
     """
+    global _cache
+
     valid = {p["name"] for p in await list_profiles()}
     if name not in valid:
         return False, f"Unknown WiFi profile: {name}"
@@ -122,9 +124,6 @@ async def switch_profile(name: str) -> tuple[bool, str]:
             f.write(str(int(time.time()) + _OVERRIDE_SECONDS))
     except OSError:
         pass  # best effort — the switch still happens
-
-    global _cache
-    _cache = None  # force a fresh read on the next status poll
 
     # Needs sudo: polkit denies "control networking" to a non-interactive
     # session, even for a user in netdev. Same pattern as shutdown/reboot.
@@ -136,6 +135,10 @@ async def switch_profile(name: str) -> tuple[bool, str]:
         )
         out, _ = await asyncio.wait_for(proc.communicate(), timeout=30.0)
     except (OSError, asyncio.TimeoutError):
+        _cache = None
         return False, "Timed out bringing the connection up"
 
+    # Clear after the switch, not before — a /system/ poll landing mid-switch
+    # would otherwise re-cache the old association for another 15s.
+    _cache = None
     return proc.returncode == 0, out.decode(errors="replace").strip()

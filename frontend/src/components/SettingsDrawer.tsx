@@ -59,6 +59,7 @@ export function SettingsDrawer({
   const releaseBms = useVanStore((s) => s.releaseBms);
   const connectBms = useVanStore((s) => s.connectBms);
   const system = useVanStore((s) => s.system);
+  const fetchAll = useVanStore((s) => s.fetchAll);
 
   async function doSwitch(name: string) {
     setSwitching(name);
@@ -73,23 +74,35 @@ export function SettingsDrawer({
       toast.info("Switch sent — the Pi is changing networks");
     } finally {
       setSwitching(null);
-      api.system.wifiProfiles().then(setProfiles, () => {});
+      // Refresh both: the profile list for the active marker, and the store's
+      // system data for the SSID/band/IP rows. Without the fetchAll the panel
+      // shows stale values until the next 5s poll, or until reopened.
+      refreshNetwork();
+      fetchAll();
     }
+  }
+
+  /** Profiles are only fetched while the drawer is open. */
+  function refreshNetwork() {
+    api.system.wifiProfiles().then(setProfiles, () => setProfiles([]));
   }
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    const load = () =>
+
+    const load = () => {
       api.system.health().then(
         (h) => !cancelled && setHealth(h),
         () => !cancelled && setHealth(null),
       );
+      api.system.wifiProfiles().then(
+        (p) => !cancelled && setProfiles(p),
+        () => !cancelled && setProfiles([]),
+      );
+    };
+
     load();
-    api.system.wifiProfiles().then(
-      (p) => !cancelled && setProfiles(p),
-      () => !cancelled && setProfiles([]),
-    );
     const t = setInterval(load, 10_000);
     return () => {
       cancelled = true;
