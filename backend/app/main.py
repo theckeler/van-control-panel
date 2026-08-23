@@ -1,11 +1,17 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from app.routers import battery, mppt, shore, orion, shelly, camera, mode, system
 from app.services import ble_orchestrator, data_logger, db
+from app.config import settings
 import asyncio
+import hmac
+import logging
 import os
+
+log = logging.getLogger("van-api")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -23,6 +29,44 @@ async def lifespan(app: FastAPI):
             pass
 
 app = FastAPI(title="Van Control Panel", version="1.0.0", lifespan=lifespan)
+
+LOCAL_HOSTS = {"127.0.0.1", "::1", "localhost"}
+OPEN_PATHS = {"/health"}
+
+
+@app.middleware("http")
+async def require_api_key(request: Request, call_next):
+    """
+    Gate remote access to the API.
+
+    uvicorn binds 0.0.0.0:8000, so before this anyone on the same WiFi could
+    hit /system/shutdown or toggle a circuit directly, bypassing the Express
+    password entirely.
+
+    Loopback is trusted: that is the Express proxy, which has already checked
+    the session cookie. Anything else needs X-API-Key. /health stays open for
+    the CI/CD liveness check and the reboot poller.
+
+    Fails open when van_api_key is unset, matching how VAN_PASSWORD behaves on
+    the Express side — a missing key should not brick access to the van.
+    """
+    if not settings.van_api_key:
+        return await call_next(request)
+
+    if request.url.path in OPEN_PATHS:
+        return await call_next(request)
+
+    client = request.client.host if request.client else ""
+    if client in LOCAL_HOSTS:
+        return await call_next(request)
+
+    supplied = request.headers.get("x-api-key", "")
+    if hmac.compare_digest(supplied, settings.van_api_key):
+        return await call_next(request)
+
+    log.warning("rejected %s %s from %s", request.method, request.url.path, client)
+    return JSONResponse({"detail": "unauthorized"}, status_code=401)
+
 
 app.add_middleware(
     CORSMiddleware,
