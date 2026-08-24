@@ -587,7 +587,9 @@ Applied and verified: `iwconfig wlan0` reports `Power Management:off`.
   Already fixed and not worth revisiting: the 6.1s figure was two 3s timeouts
   from a network split; units were fetched sequentially rather than
   concurrently; and each call paid ~105ms of mDNS resolution, now cached.
-- **Event log for state changes** (medium priority, ~45 min). Not a general access log — logging reads is noise, and uvicorn already journals them. The point is that SOC/voltage/current are logged every 30s but nothing records *why* they changed. An `events` table (ts, kind, target, value) written from the four existing mutation paths (Shelly toggle, mode change, BMS release/connect, WiFi switch) plus shutdown/reboot would let a toggle be correlated against the current draw a minute later — turning the guessed `ALWAYS_ON_WATTS` figures into measurements. Shutdown/reboot events would also have answered whether the Aug 22 mystery reboot was self-inflicted. Volume is trivial: a handful of events a day, under a megabyte a year, no pruning needed.
+- **Event log** — done. `events` table written from every mutation path, read at `/system/events`. Correlating it against hourly readings is what would replace the guessed `ALWAYS_ON_WATTS` figures with measurements; that analysis is not written yet.
+- **Siri / Apple Home for the Shellys** (tabled). Shelly Gen4 supports Matter natively — `Shelly.GetStatus` reports `matter: {num_fabrics: 0, commissionable: false}`, so the capability is there but nothing is commissioned. Commissioning them into the Home app is phone-side setup, no code, and would keep working even with the Pi down. Fallback if that fights: an Apple Shortcut that POSTs to `/shelly/{id}/toggle` with the API key — works for any endpoint, not just relays, but needs the phone to reach the Pi (Tailscale, currently offline on the iPhone).
+- **AI insight panel** (tabled, cost). One button summarising power state by correlating the event log against hourly readings — "SOC fell 22% overnight, and you switched the garage circuit on at 19:40". Would have to be a backend endpoint so the key stays off the client. Roughly $0.001/call with Haiku, cached 15 min. Tabled because it would be the first cloud dependency in an otherwise fully local system, and it would be dead exactly when parked without Starlink.
 - **Maxxfan will not get a Shelly** — tested and rejected. It defaults open on power loss and closes on power-up, which is exactly wrong for a switched circuit. Its remote is IR, so there is no network path either.
 - **Govee H6199 rock lights** — candidate for on/off and basic colour over BLE. Protocol varies by firmware generation; older units accept unencrypted writes, newer added encryption. Needs a probe before it can be scoped.
 - **EcoFlow (`EF-R10314`)** — confirmed as Todd's, seen in BLE scans at -20 to -44 dBm. Official developer API exists over HTTP and MQTT, needs an API key. Community BLE work also exists.
@@ -603,7 +605,7 @@ Devices seen on `hci0`, including ones not integrated.
 | Power Queen BMS | `C8:47:80:5D:08:6F` | `P-12100BNNA70-B00793` | Integrated |
 | Victron SmartSolar | `E8:18:52:D1:81:B7` | `SmartSolar HQ2218GMEKM` | Integrated |
 | Dometic CFX5 35 | `88:13:BF:8D:87:F6` | `MC1_8d87f4` | Blocked — BlueZ incompatible |
-| Garmin PowerSwitch | `F0:53:20:C3:99:B4` | `PowerSwitch-99B4` | Blocked — bonding refused |
+| Garmin PowerSwitch | `F0:53:20:C3:99:B4` | `PowerSwitch-99B4` | Blocked — 4 attempts, always `le-connection-abort-by-local`, including with van-api stopped |
 
 The Dometic is a rare advertiser. Expect to wait through several scan cycles before it appears.
 
