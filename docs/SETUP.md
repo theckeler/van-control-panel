@@ -290,36 +290,8 @@ ssh -o StrictHostKeyChecking=accept-new toddheckeler@100.100.169.71 "echo connec
 Then the script:
 
 ```bash
-cat > ~/van-backup.sh <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-DB="$HOME/van-control-panel/backend/van_power.db"
-DEST_HOST="toddheckeler@100.100.169.71"
-DEST_DIR="van-backups"
-KEEP_LOCAL=3
-
-STAMP=$(date +%F)
-TMP="/tmp/van_power-$STAMP.db"
-
-# .backup rather than cp — the logger writes every 30s, so copying the
-# file directly can capture a torn write.
-sqlite3 "$DB" ".backup '$TMP'"
-gzip -f "$TMP"
-
-if scp -o ConnectTimeout=15 -o BatchMode=yes "$TMP.gz" "$DEST_HOST:$DEST_DIR/"; then
-    echo "backup sent: $(basename "$TMP.gz")"
-    rm -f "$TMP.gz"
-else
-    mkdir -p "$HOME/van-backups-pending"
-    mv "$TMP.gz" "$HOME/van-backups-pending/"
-    ls -1t "$HOME/van-backups-pending"/*.gz 2>/dev/null | tail -n +$((KEEP_LOCAL+1)) | xargs -r rm -f
-    echo "send failed, held locally"
-    exit 1
-fi
-EOF
-
-chmod +x ~/van-backup.sh
+# The script is versioned in the repo — don't paste a copy, it will drift.
+install -m 755 ~/van-control-panel/scripts/van-backup.sh ~/van-backup.sh
 ~/van-backup.sh
 ```
 
@@ -357,6 +329,14 @@ sudo systemctl enable --now van-backup.timer
 `Persistent=true` runs a missed job on next boot rather than skipping the day.
 Runs fail when the Mac is asleep; the snapshot is held on the Pi and the next
 successful run catches up. Only worth investigating after several days.
+
+Retention runs on the Mac after each successful send: everything from the last
+45 days is kept, then thinned to the 1st of each month. Steady state is ~50
+files, ~8MB.
+
+You can also pull a snapshot on demand from the dashboard — settings drawer →
+Backup → Download database. That path does not need the Mac at all, which
+makes it the quicker option mid-rebuild.
 
 ## 10. GitHub Actions runner (optional)
 

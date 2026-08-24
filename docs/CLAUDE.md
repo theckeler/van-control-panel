@@ -313,8 +313,8 @@ filter, so verify rather than assume.
 
 | Thing | Recoverable? |
 |---|---|
-| `van_power.db` | Daily snapshot to the Mac via `van-backup.timer` |
-| `backend/.env` | Copy on the Mac at `backend/.env` |
+| `van_power.db` | Nightly snapshot to the Mac, plus on-demand download from the settings drawer |
+| `backend/.env` | Copy on the Mac at `backend/.env`. Put the values in a password manager too |
 | `frontend/.env` | No — but the session secret is regenerable and the password is yours |
 | `mode.json` | No — defaults to `camp`, one click to fix |
 | NetworkManager profiles | Documented in SETUP.md §3 |
@@ -338,21 +338,56 @@ Rebuilding the Pi from a blank SD card: see `SETUP.md`.
 
 ### Backups
 
-`~/van-backup.sh` takes a consistent snapshot via `sqlite3 .backup` (not `cp` —
-the logger writes every 30s and a plain copy can catch a torn write), gzips it,
-and scps it to `~/van-backups/` on the Mac over Tailscale. Roughly 147KB
-compressed at present.
+Three layers.
 
+**Nightly to the Mac.** `~/van-backup.sh` on the Pi (versioned at
+`scripts/van-backup.sh`) takes a consistent snapshot via `sqlite3 .backup` —
+not `cp`, since the logger writes every 30s and a plain copy can catch a torn
+write — gzips it, and scps to `~/van-backups/` on the Mac over Tailscale.
 Driven by `van-backup.timer`, daily, `Persistent=true` so a missed run happens
-on next boot. Failed sends (Mac asleep) are held in `~/van-backups-pending/`,
-pruned to the last 3.
+on next boot.
 
-Note the live DB is a rolling window — raw prunes at 30 days, hourly at a year
-— so retained backups hold detail the Pi itself has discarded. Worth not
-deleting old ones aggressively.
+Failed sends (Mac asleep) are held in `~/van-backups-pending/`, pruned to the
+last 3. Retention on the Mac keeps every snapshot from the last 45 days, then
+thins to the 1st of each month. Steady state ~50 files, ~8MB.
 
-The `.env` values are the other thing worth not losing, and a current copy
-already lives on the Mac at `backend/.env`.
+Thinning rather than deleting matters: the live DB prunes raw readings at 30
+days, so older snapshots hold detail the Pi itself has discarded.
+
+**On demand from the dashboard.** Settings drawer → Backup → Download
+database. `GET /system/backup` returns a gzipped snapshot; the drawer fetches
+it as a blob so the request carries the session cookie and failures surface as
+a toast. Useful when the Mac is asleep or you are away from it.
+
+`GET /system/backup/status` reports DB size, row counts, when the timer last
+fired, and how many snapshots are stuck on the Pi. `never run`, or a steady
+non-zero pending count, means the nightly job is not landing.
+
+**Database only, deliberately.** No `.env`, no NetworkManager profiles, no
+session secret. van-api is reachable with an API key, and an endpoint handing
+out WiFi credentials and the Victron key is a different risk class from one
+handing out battery history.
+
+Verified restorable: a downloaded snapshot passes `PRAGMA integrity_check`,
+contains all six tables, and unpacks to the full reading history.
+
+### Still outstanding: offsite
+
+Everything lives on one Mac. A dead machine or a house fire takes both copies.
+At ~8MB steady state any free tier covers it. Options, none chosen:
+
+- **iCloud Drive** — least new machinery, but not currently enabled on the Mac
+- **Backblaze B2 / Cloudflare R2** — 10GB free, via `rclone`, and could push
+  straight from the Pi, removing the Mac-must-be-awake dependency
+- **Not Vercel** — a deployment platform, not storage
+
+### `.env` values
+
+Not backed up, and deliberately not worth building for. Put them in a password
+manager secure note. `VICTRON_KEY` is the only awkward one and it is readable
+from VictronConnect → SmartSolar → Product info. `VAN_API_KEY` and
+`VAN_SESSION_SECRET` regenerate in seconds, `VAN_PASSWORD` is yours, and the
+MAC addresses are in these docs.
 
 ---
 
