@@ -1,166 +1,156 @@
-
 # Van Control Panel
 
-
-> A self-hosted PWA monitoring, automation, and camera system for a 2023 Mercedes Sprinter VS30 AWD 144" High Roof van build.
+> A self-hosted monitoring and control dashboard for a 2023 Mercedes Sprinter VS30 AWD 144" High Roof conversion.
 
 ![Stack](https://img.shields.io/badge/stack-React%20%2B%20FastAPI-orange)
 ![Platform](https://img.shields.io/badge/platform-Raspberry%20Pi%204B-red)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-<!-- <img width="466" height="713" alt="image" src="https://github.com/user-attachments/assets/22ed2cc4-61a6-41f0-847b-089f9fb55e67" /> -->
-<img width="901" height="817" alt="image" src="https://github.com/user-attachments/assets/e9d4e822-4deb-49b4-a966-6fd2bac862a5" />
+<img width="901" height="817" alt="Van Control Panel dashboard" src="https://github.com/user-attachments/assets/e9d4e822-4deb-49b4-a966-6fd2bac862a5" />
 
 ---
 
 ## What This Is
 
-A fully self-hosted van control panel that runs on a Raspberry Pi 4B mounted inside the van's electrical cabinet. It monitors the 12V electrical system in real time, controls smart relays for automated lighting and fan scheduling, captures interval photos from interior and exterior cameras, and supports context-aware operating modes (Storage, Camp, Trail, In Town).
+A dashboard running on a Raspberry Pi 4B in the van's electrical cabinet. It reads
+the 12V LiFePO4 system over Bluetooth, controls smart relays over WiFi, logs
+everything to SQLite, and is reachable from a phone anywhere via Tailscale.
 
-Everything runs locally — no cloud subscriptions, no third-party dependencies. Tailscale provides secure remote access when Starlink has internet. The Shelly BLU RC Button 4 provides Bluetooth physical control when there's no network at all.
-
----
-
-## Live Demo
-
-> _Local only — accessible at `http://van-pi.local:8000` on the van's WiFi network, or via Tailscale remotely._
+Everything runs locally. No cloud services, no vendor accounts, no subscriptions.
+The only outbound dependency is Tailscale for remote access.
 
 ---
 
-## Features
+## Demo
 
-- **Battery monitoring** — Power Queen LiFePO4 BMS via Bluetooth (SOC, voltage, current, temperature, cell balance)
-- **Solar monitoring** — Victron SmartSolar MPPT 75/15 via VE.Direct (watts, charge state, daily yield)
-- **Shore power status** — Victron Blue Smart IP22 via VE.Direct (charge mode, current, connected indicator)
-- **DC-DC charger** — Victron Orion-Tr 12/12-18 (static config; live data when upgraded to Orion XS 50A)
-- **Smart relay control** — Four Shelly 1 Gen4 units (Maxxfan, lights, USB outlets, spare) via REST API
-- **Operating modes** — Storage, Camp, Trail, In Town with per-mode camera intervals and automation
-- **Interval cameras** — Interior (Pi Camera Module 3 Wide, CSI) + Exterior (USB webcam), 30 min rolling capture
-- **Remote access** — Tailscale encrypted tunnel when Starlink has WAN
-- **Offline control** — Shelly BLU RC Button 4 via Bluetooth, no internet required
-- **Apple Home / Siri** — Shelly Gen4 Matter support for voice control
+A deployed version with physically modelled fake data runs on Vercel. Solar
+follows a bell curve, SOC integrates against a baseline load, and the history
+charts come from the same simulation as the live values, so they agree with each
+other rather than being random noise.
+
+Run it locally:
+
+```bash
+cd frontend && VITE_DEMO=true npm run dev
+```
+
+---
+
+## What actually works
+
+| Feature | Detail |
+|---|---|
+| **Battery** — Power Queen 100Ah LiFePO4 BMS | SOC, voltage, current, temperature, per-cell voltages over BLE |
+| **Solar** — Victron SmartSolar MPPT 75/15 | Panel watts, charge state, daily yield from BLE advertisements |
+| **Smart relays** — 2× Shelly 1 Gen4 | USB outlets and garage circuit, local HTTP, no cloud |
+| **History** — SQLite, four tiers | Raw → hourly → daily → monthly, automatic rollup and pruning |
+| **Operating modes** | Storage / Camp / Trail / In Town, persisted across restarts |
+| **Pi health** | CPU temp, load, memory, disk, uptime, undervoltage flags |
+| **Networking** | Dual WiFi with automatic failover, switchable from the dashboard |
+| **Event log** | Every state change recorded — toggles, mode changes, reboots |
+| **Backups** | Nightly snapshot over Tailscale, plus on-demand download |
+| **Remote access** | Tailscale — works from any network |
+
+## Not built yet
+
+Stated explicitly, because a README claiming hardware that isn't there is worse
+than one admitting the gaps.
+
+| Feature | Why not |
+|---|---|
+| **Cameras** | Router and UI scaffolded, hardware not yet installed |
+| **Shore power** | Inferred from the BMS/MPPT current delta — no charger telemetry |
+| **DC-DC charger** | Orion-Tr 12/12-18 is non-smart. Static config only |
+| **Dometic CFX5 fridge** | BlueZ is incompatible with Dometic's BLE module. Needs an ESP32 bridge |
+| **Garmin PowerSwitch** | Won't bond with anything but its own app |
+| **Maxxfan relay** | Tested and rejected — it defaults open on power loss |
+| **Applying modes** | The selection persists, but nothing is driven by it yet |
 
 ---
 
 ## Tech Stack
 
-### Frontend
-| Technology | Purpose |
-|---|---|
-| Vite + React 18 + TypeScript | PWA framework |
-| Tailwind CSS | Utility-first styling |
-| Zustand | Lightweight state management |
-| Recharts | SOC trend and solar yield charts |
-| Dexie.js | IndexedDB offline cache |
-| React Router v6 | Client-side routing |
+**Frontend** — Vite, React 18, TypeScript, Tailwind, Zustand, Recharts, React Router.
+Served in production by a small Express server that also proxies the API and
+handles auth.
 
-### Backend
-| Technology | Purpose |
-|---|---|
-| FastAPI (Python) | REST API server, runs on Pi 4B |
-| uvicorn | ASGI server |
-| pq_bms_bluetooth | Power Queen BMS BLE library (unofficial) |
-| vedirect | Victron VE.Direct serial parser |
-| httpx | Async Shelly REST API client |
-| systemd timers | Camera capture and cleanup scheduling |
+**Backend** — FastAPI on uvicorn. `bleak` for BLE, `victron-ble` for the MPPT,
+a vendored fork of `pq_bms_bluetooth` for the BMS, `httpx` for the Shellys,
+SQLite for storage.
 
-### Infrastructure
-| Component | Role |
-|---|---|
-| Raspberry Pi 4B 1GB | Local server — BLE, VE.Direct, camera, FastAPI |
-| Starlink Mini | WAN internet + local WiFi hotspot |
-| Tailscale | Secure remote tunnel |
-| Shelly 1 Gen4 x4 | Smart relay automation |
-| Pi Camera Module 3 Wide | Interior interval photos (CSI) |
-| Logitech C270 | Exterior interval photos (USB) |
+**Infrastructure** — Raspberry Pi 4B, Starlink Mini with a home network as
+fallback, Tailscale, and a self-hosted GitHub Actions runner that deploys on push.
 
----
+### Notable implementation details
 
-## Project Structure
-
-```
-van-control-panel/
-├── README.md
-├── frontend/                  # Vite + React PWA
-│   ├── src/
-│   │   ├── api/client.ts      # Typed FastAPI client
-│   │   ├── components/        # BatteryCard, ChargeSourcesCard, ShellyPanel, ModeSelector
-│   │   ├── hooks/             # usePolling (5s interval)
-│   │   ├── pages/             # Dashboard, Cameras
-│   │   ├── store/van.ts       # Zustand store
-│   │   └── types/index.ts     # TypeScript interfaces
-│   ├── tailwind.config.ts
-│   ├── vite.config.ts
-│   └── package.json
-├── backend/                   # FastAPI server
-│   ├── app/
-│   │   ├── main.py            # App entry, CORS, static files
-│   │   └── routers/           # battery, mppt, shore, orion, shelly, camera, mode, system
-│   ├── photos/
-│   │   ├── interior/          # Rolling 24hr photo storage
-│   │   └── exterior/
-│   └── requirements.txt
-└── docs/
-    ├── ARCHITECTURE.md        # Full system architecture
-    ├── CLAUDE.md              # Claude Code context and conventions
-    ├── API.md                 # FastAPI endpoint reference
-    ├── HARDWARE.md            # Pi setup, wiring, component list
-    ├── MODES.md               # Operating mode reference
-    └── PORTFOLIO.md           # Project background for portfolio use
-```
+- **Victron data comes from BLE advertisements**, not a VE.Direct cable — the MPPT
+  broadcasts encrypted manufacturer data that decrypts with a key from the app.
+- **The BMS needs a persistent connection.** Rapid reconnects trigger a firmware
+  lockout that requires physically pulling the 50A disconnect, so there is a
+  5-minute cooldown guard.
+- **History is downsampled server-side.** Raw endpoints bucket-average to ~300
+  points rather than shipping 2,880 rows a chart can't display.
+- **Polling pauses when the tab is hidden**, which cut idle request volume by
+  roughly 85%.
 
 ---
 
 ## Quick Start
 
-### Backend (on Pi or Mac for dev)
+Open in VS Code and press **Cmd+Shift+B**, or:
+
 ```bash
-cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+# frontend — proxies to the Pi over Tailscale
+cd frontend && npm install --include=dev && npm run dev
+
+# backend
+cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/uvicorn app.main:app --reload --port 8000
 ```
 
-### Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-```
+`--include=dev` matters if `NODE_ENV=production` is set in your shell — npm will
+otherwise silently skip devDependencies, including TypeScript.
 
-The frontend dev server proxies `/api/*` to `http://van-pi.local:8000` — swap to your Pi's IP in `vite.config.ts` if needed. Mock data is returned from all endpoints so the UI works without hardware.
+Rebuilding the Pi from a blank SD card: **[docs/SETUP.md](docs/SETUP.md)**.
 
 ---
 
 ## Operating Modes
 
-| Mode | Camera | Shellys | Use Case |
-|---|---|---|---|
-| `storage` | 4-6 hr interval | All off | Long term parking, battery preservation |
-| `camp` | 30 min, both | Scheduled | Default active mode |
-| `trail` | 15 min, both | Manual | Parked and unattended, out biking/hiking |
-| `in_town` | 30 min, both | Manual | Full connectivity |
+| Mode | Camera interval | Intent |
+|---|---|---|
+| `storage` | 6 hr | Long-term parking, battery preservation |
+| `camp` | 30 min | Default active mode |
+| `trail` | 15 min | Parked and unattended |
+| `in_town` | 30 min | Full connectivity |
+
+The selection persists across reboots. Driving behaviour from it is not
+implemented.
 
 ---
 
-## Remote Access
+## Access
 
-| Scenario | Access Method |
+| Scenario | Method |
 |---|---|
-| In van, Starlink on | `http://van-pi.local:8000` |
-| Away, Starlink on | Tailscale IP |
-| In van, Starlink off | Pi local hotspot → same local IP |
-| No network at all | Shelly BLU RC Button 4 via Bluetooth |
+| Same network as the Pi | `http://van-pi.local` |
+| Anywhere else | Tailscale address |
+
+Two auth layers: a signed cookie on the Express frontend, and an API key on the
+FastAPI backend for anything not arriving over loopback.
 
 ---
 
-## Related Docs
+## Docs
 
+- [Setup](docs/SETUP.md) — rebuild from a blank SD card
+- [Troubleshooting](docs/TROUBLESHOOTING.md) — symptom-first fixes
 - [Architecture](docs/ARCHITECTURE.md)
 - [API Reference](docs/API.md)
-- [Hardware Setup](docs/HARDWARE.md)
+- [Hardware](docs/HARDWARE.md)
 - [Operating Modes](docs/MODES.md)
-- [Claude Code Context](docs/CLAUDE.md)
-- [Portfolio](docs/PORTFOLIO.md)
+- [Claude Code Context](docs/CLAUDE.md) — conventions, gotchas, full system notes
+- [Rubber Duck Review](docs/rubber-duck-review.md) — bugs found, and the reasoning errors behind them
 
 ---
 
