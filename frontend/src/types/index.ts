@@ -133,6 +133,13 @@ export interface PiHealth {
   throttle: string[]
 }
 
+export interface BackupStatus {
+  db_size_bytes: number | null
+  last_scheduled_run: string | null
+  pending_failed: number
+  row_counts: Record<string, number>
+}
+
 export interface WifiProfile {
   name: string
   active: boolean

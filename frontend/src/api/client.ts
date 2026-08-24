@@ -1,7 +1,7 @@
 import type {
   BatteryData, MpptData, ShoreData, OrionData,
   ShellyUnit, Photo, ModeResponse, SystemData,
-  RawReading, HourlyReading, DailyReading, PiHealth, WifiProfile,
+  RawReading, HourlyReading, DailyReading, PiHealth, WifiProfile, BackupStatus,
 } from '../types'
 import { mockApi } from './mock'
 
@@ -69,6 +69,8 @@ const realApi = {
     get: () => get<SystemData>('/system/'),
     health: () => get<PiHealth>('/system/health-detail'),
     wifiProfiles: () => get<WifiProfile[]>('/system/wifi/profiles'),
+    backupStatus: () => get<BackupStatus>('/system/backup/status'),
+    backupUrl: () => `${BASE}/system/backup`,
     switchWifi: (name: string) =>
       post<{ ok: boolean; message: string }>(`/system/wifi/switch/${encodeURIComponent(name)}`),
     shutdown: () => post<{ status: string; message: string }>('/system/shutdown'),

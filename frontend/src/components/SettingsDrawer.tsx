@@ -6,7 +6,7 @@ import { useVanStore } from "../store/van";
 import { Button, Label } from "./ui";
 import { ThemeToggle } from "./ThemeToggle";
 import { toast } from "../store/toast";
-import type { PiHealth, WifiProfile } from "../types";
+import type { PiHealth, WifiProfile, BackupStatus } from "../types";
 
 function fmtUptime(s: number) {
   const d = Math.floor(s / 86400);
@@ -54,6 +54,38 @@ export function SettingsDrawer({
   const [health, setHealth] = useState<PiHealth | null>(null);
   const [profiles, setProfiles] = useState<WifiProfile[]>([]);
   const [switching, setSwitching] = useState<string | null>(null);
+  const [backup, setBackup] = useState<BackupStatus | null>(null);
+  const [downloading, setDownloading] = useState(false);
+
+  /**
+   * Fetch as a blob rather than using a plain <a download>, so the request
+   * carries the session cookie through the Express proxy and failures surface
+   * as a toast instead of a browser error page.
+   */
+  async function doDownload() {
+    setDownloading(true);
+    try {
+      const res = await fetch(api.system.backupUrl(), { credentials: "same-origin" });
+      if (!res.ok) throw new Error(`server returned ${res.status}`);
+      const blob = await res.blob();
+      const name =
+        res.headers.get("content-disposition")?.match(/filename="?([^";]+)"?/)?.[1] ??
+        "van_power.db.gz";
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Downloaded ${name}`);
+    } catch (err) {
+      toast.error(
+        `Backup failed — ${err instanceof Error ? err.message : String(err)}`,
+      );
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   const battery = useVanStore((s) => s.battery);
   const releaseBms = useVanStore((s) => s.releaseBms);
@@ -99,6 +131,10 @@ export function SettingsDrawer({
       api.system.wifiProfiles().then(
         (p) => !cancelled && setProfiles(p),
         () => !cancelled && setProfiles([]),
+      );
+      api.system.backupStatus().then(
+        (b) => !cancelled && setBackup(b),
+        () => !cancelled && setBackup(null),
       );
     };
 
@@ -219,6 +255,46 @@ export function SettingsDrawer({
               </p>
             </div>
           )}
+        </section>
+
+        <section>
+          <Label as="h3" className="block mb-2">Backup</Label>
+          <Row
+            label="Database"
+            value={backup?.db_size_bytes ? `${(backup.db_size_bytes / 1024 / 1024).toFixed(1)} MB` : "—"}
+          />
+          <Row
+            label="Readings"
+            value={backup?.row_counts?.readings_raw?.toLocaleString() ?? "—"}
+          />
+          <Row
+            label="Nightly job"
+            value={
+              backup?.last_scheduled_run
+                ? new Date(backup.last_scheduled_run).toLocaleString()
+                : "never run"
+            }
+            tone={backup?.last_scheduled_run ? undefined : "warn"}
+          />
+          {!!backup?.pending_failed && (
+            <Row
+              label="Unsent"
+              value={`${backup.pending_failed} held on the Pi`}
+              tone="warn"
+            />
+          )}
+
+          <button
+            type="button"
+            disabled={downloading}
+            onClick={doDownload}
+            className="mt-3 w-full text-xs font-mono px-4 py-3 rounded-lg border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+          >
+            {downloading ? "Preparing…" : "Download database"}
+            <span className="block text-[10px] text-zinc-600 mt-0.5">
+              Gzipped snapshot. Readings only, no credentials
+            </span>
+          </button>
         </section>
 
         <section className="flex flex-col gap-2 mt-auto">

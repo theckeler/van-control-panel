@@ -1,7 +1,9 @@
 import subprocess
 from fastapi import APIRouter
+from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 from pydantic import BaseModel
-from app.services import battery_ble, victron_ble, network, health, db
+from app.services import battery_ble, victron_ble, network, health, db, backup
 from app.routers import mode as mode_router
 from app.routers import orion as orion_router
 from app.routers.shelly import SHELLY_UNITS
@@ -82,6 +84,35 @@ async def get_events(hours: int = 168, kind: str | None = None, limit: int = 500
     shutdown and reboot. Newest first, default window one week.
     """
     return [Event(**e) for e in db.query_events(hours=hours, kind=kind, limit=limit)]
+
+
+class BackupStatus(BaseModel):
+    db_size_bytes: int | None = None
+    last_scheduled_run: str | None = None   # ISO, from the systemd timer
+    pending_failed: int = 0                 # snapshots stuck on the Pi
+    row_counts: dict[str, int] = {}
+
+
+@router.get("/backup/status", response_model=BackupStatus)
+async def backup_status():
+    """What a download would contain, and how the nightly job is faring."""
+    return BackupStatus(**await backup.status())
+
+
+@router.get("/backup")
+async def download_backup():
+    """
+    Gzipped snapshot of van_power.db.
+
+    Database only — no secrets. See services/backup.py for why.
+    """
+    path, filename = await backup.make_snapshot()
+    return FileResponse(
+        path,
+        media_type="application/gzip",
+        filename=filename,
+        background=BackgroundTask(backup.cleanup, path),
+    )
 
 
 @router.get("/wifi", response_model=WifiStatus)

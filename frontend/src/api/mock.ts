@@ -407,6 +407,13 @@ export const mockApi = {
       uptime_s: 183_240,
       throttle: [] as string[],
     }),
+    backupStatus: () => delay({
+      db_size_bytes: 1_204_224,
+      last_scheduled_run: new Date(Date.now() - 9 * 3600_000).toISOString(),
+      pending_failed: 0,
+      row_counts: { readings_raw: 84_240, readings_hourly: 1_440, readings_daily: 60, events: 214 },
+    }),
+    backupUrl: () => '',
     wifiProfiles: () => delay([
       { name: 'vannet', active: true },
       { name: 'backup-wifi', active: false },
