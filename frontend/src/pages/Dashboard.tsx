@@ -4,8 +4,8 @@ import { BatteryCard } from "../components/BatteryCard";
 import { ChargeSourcesCard } from "../components/ChargeSourcesCard";
 import { HistoryCard } from "../components/HistoryCard";
 import { PowerModal } from "../components/PowerModal";
-import { ShellyPanel } from "../components/ShellyPanel";
 import { SettingsDrawer } from "../components/SettingsDrawer";
+import { ShellyPanel } from "../components/ShellyPanel";
 import { Toaster } from "../components/Toaster";
 import { WifiBadge } from "../components/WifiBadge";
 import { Button, Stack } from "../components/ui";
@@ -39,7 +39,6 @@ export function Dashboard() {
   const [powerOpen, setPowerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-
   return (
     <Stack className="min-h-screen bg-panel-bg text-zinc-100 max-w-2xl mx-auto items-stretch">
       <PowerModal open={powerOpen} onClose={() => setPowerOpen(false)} />
@@ -47,7 +46,7 @@ export function Dashboard() {
 
       <header className="flex items-center justify-between">
         <h1 className="text-lg font-mono font-bold text-zinc-600 tracking-tight">
-          {vanName}
+          {(isDemo && "Demo Van") || vanName}
           {isDemo && (
             <span className="ml-2 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-widest text-amber-500 border border-amber-500/40 rounded align-middle">
               demo

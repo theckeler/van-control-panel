@@ -15,7 +15,7 @@ export const useSettingsStore = create<SettingsStore>()(
     (set) => ({
       gap: 4,
       spacing: 2,
-      vanName: "Van Control",
+      vanName: "Twitch",
       setGap: (gap) => set({ gap }),
       setSpacing: (spacing) => set({ spacing }),
       setVanName: (vanName) => set({ vanName }),
