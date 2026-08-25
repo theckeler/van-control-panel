@@ -32,6 +32,16 @@ export default defineConfig(({ mode }) => {
               ? { 'X-API-Key': env.VAN_API_KEY }
               : undefined,
         },
+        // Camera captures are served by uvicorn directly at /static/photos,
+        // not under /api — same target, no path rewrite needed.
+        '/static': {
+          target,
+          changeOrigin: true,
+          headers:
+            !isLocal && env.VAN_API_KEY
+              ? { 'X-API-Key': env.VAN_API_KEY }
+              : undefined,
+        },
       },
     },
   }

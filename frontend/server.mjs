@@ -173,6 +173,12 @@ app.use("/api", createProxyMiddleware({
   pathRewrite: { "^/api": "" },
 }));
 
+// --- Camera photos → uvicorn :8000 (served directly by FastAPI's StaticFiles) ---
+app.use("/static", createProxyMiddleware({
+  target: "http://localhost:8000",
+  changeOrigin: true,
+}));
+
 // --- Serve built frontend ---
 app.use(express.static(join(__dirname, "dist")));
 
