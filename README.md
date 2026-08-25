@@ -38,33 +38,33 @@ cd frontend && VITE_DEMO=true npm run dev
 
 ## What actually works
 
-| Feature | Detail |
-|---|---|
-| **Battery** — Power Queen 100Ah LiFePO4 BMS | SOC, voltage, current, temperature, per-cell voltages over BLE |
-| **Solar** — Victron SmartSolar MPPT 75/15 | Panel watts, charge state, daily yield from BLE advertisements |
-| **Smart relays** — 2× Shelly 1 Gen4 | USB outlets and garage circuit, local HTTP, no cloud |
-| **History** — SQLite, four tiers | Raw → hourly → daily → monthly, automatic rollup and pruning |
-| **Operating modes** | Storage / Camp / Trail / In Town, persisted across restarts |
-| **Pi health** | CPU temp, load, memory, disk, uptime, undervoltage flags |
-| **Networking** | Dual WiFi with automatic failover, switchable from the dashboard |
-| **Event log** | Every state change recorded — toggles, mode changes, reboots |
-| **Backups** | Nightly snapshot over Tailscale, plus on-demand download |
-| **Remote access** | Tailscale — works from any network |
+| Feature                                     | Detail                                                           |
+| ------------------------------------------- | ---------------------------------------------------------------- |
+| **Battery** — Power Queen 100Ah LiFePO4 BMS | SOC, voltage, current, temperature, per-cell voltages over BLE   |
+| **Solar** — Victron SmartSolar MPPT 75/15   | Panel watts, charge state, daily yield from BLE advertisements   |
+| **Smart relays** — 2× Shelly 1 Gen4         | USB outlets and garage circuit, local HTTP, no cloud             |
+| **History** — SQLite, four tiers            | Raw → hourly → daily → monthly, automatic rollup and pruning     |
+| **Operating modes**                         | Storage / Camp / Trail / In Town, persisted across restarts      |
+| **Pi health**                               | CPU temp, load, memory, disk, uptime, undervoltage flags         |
+| **Networking**                              | Dual WiFi with automatic failover, switchable from the dashboard |
+| **Event log**                               | Every state change recorded — toggles, mode changes, reboots     |
+| **Backups**                                 | Nightly snapshot over Tailscale, plus on-demand download         |
+| **Remote access**                           | Tailscale — works from any network                               |
 
 ## Not built yet
 
 Stated explicitly, because a README claiming hardware that isn't there is worse
 than one admitting the gaps.
 
-| Feature | Why not |
-|---|---|
-| **Cameras** | Router and UI scaffolded, hardware not yet installed |
-| **Shore power** | Inferred from the BMS/MPPT current delta — no charger telemetry |
-| **DC-DC charger** | Orion-Tr 12/12-18 is non-smart. Static config only |
+| Feature                 | Why not                                                                |
+| ----------------------- | ---------------------------------------------------------------------- |
+| **Cameras**             | Router and UI scaffolded, hardware not yet installed                   |
+| **Shore power**         | Inferred from the BMS/MPPT current delta — no charger telemetry        |
+| **DC-DC charger**       | Orion-Tr 12/12-18 is non-smart. Static config only                     |
 | **Dometic CFX5 fridge** | BlueZ is incompatible with Dometic's BLE module. Needs an ESP32 bridge |
-| **Garmin PowerSwitch** | Won't bond with anything but its own app |
-| **Maxxfan relay** | Tested and rejected — it defaults open on power loss |
-| **Applying modes** | The selection persists, but nothing is driven by it yet |
+| **Garmin PowerSwitch**  | Won't bond with anything but its own app                               |
+| **Maxxfan relay**       | Tested and rejected — it defaults open on power loss                   |
+| **Applying modes**      | The selection persists, but nothing is driven by it yet                |
 
 ---
 
@@ -117,12 +117,12 @@ Rebuilding the Pi from a blank SD card: **[docs/SETUP.md](docs/SETUP.md)**.
 
 ## Operating Modes
 
-| Mode | Camera interval | Intent |
-|---|---|---|
-| `storage` | 6 hr | Long-term parking, battery preservation |
-| `camp` | 30 min | Default active mode |
-| `trail` | 15 min | Parked and unattended |
-| `in_town` | 30 min | Full connectivity |
+| Mode      | Camera interval | Intent                                  |
+| --------- | --------------- | --------------------------------------- |
+| `storage` | 6 hr            | Long-term parking, battery preservation |
+| `camp`    | 30 min          | Default active mode                     |
+| `trail`   | 15 min          | Parked and unattended                   |
+| `in_town` | 30 min          | Full connectivity                       |
 
 The selection persists across reboots. Driving behaviour from it is not
 implemented.
@@ -131,10 +131,10 @@ implemented.
 
 ## Access
 
-| Scenario | Method |
-|---|---|
+| Scenario               | Method                |
+| ---------------------- | --------------------- |
 | Same network as the Pi | `http://van-pi.local` |
-| Anywhere else | Tailscale address |
+| Anywhere else          | Tailscale address     |
 
 Two auth layers: a signed cookie on the Express frontend, and an API key on the
 FastAPI backend for anything not arriving over loopback.
@@ -149,6 +149,7 @@ FastAPI backend for anything not arriving over loopback.
 - [API Reference](docs/API.md)
 - [Hardware](docs/HARDWARE.md)
 - [Operating Modes](docs/MODES.md)
+- [Future Features](docs/FUTURE-FEATURES.md) — prioritized roadmap
 - [Claude Code Context](docs/CLAUDE.md) — conventions, gotchas, full system notes
 - [Rubber Duck Review](docs/rubber-duck-review.md) — bugs found, and the reasoning errors behind them
 
