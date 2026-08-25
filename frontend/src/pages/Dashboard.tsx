@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { isDemo } from "../api/client";
 import { BatteryCard } from "../components/BatteryCard";
+import { Cameras } from "../components/Cameras";
 import { ChargeSourcesCard } from "../components/ChargeSourcesCard";
 import { HistoryCard } from "../components/HistoryCard";
 import { PowerModal } from "../components/PowerModal";
@@ -82,7 +83,7 @@ export function Dashboard() {
       <BatteryCard />
       <ChargeSourcesCard />
       <HistoryCard />
-      {/* <Cameras /> */}
+      <Cameras />
       {/* <ModeSelector /> */}
 
       <SettingsDrawer
