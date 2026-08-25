@@ -127,7 +127,7 @@ export function BatteryCard({ className }: { className?: string }) {
               <span className="text-2xl ml-1">%</span>
             </div>
             <div className="flex flex-col items-end gap-1">
-              {!isOffline && !isReleased && (
+              {/* {!isOffline && !isReleased && (
                 <Button
                   variant="ghost"
                   size="icon"
@@ -145,7 +145,7 @@ export function BatteryCard({ className }: { className?: string }) {
                     <path d="m344-160-76-128-144-32 14-148-98-112 98-112-14-148 144-32 76-128 136 58 136-58 76 128 144 32-14 148 98 112-98 112 14 148-144 32-76 128-136-58-136 58Zm34-102 102-44 104 44 56-96 110-26-10-112 74-84-74-86 10-112-110-24-58-96-102 44-104-44-56 96-110 24 10 112-74 86 74 84-10 114 110 24 58 96Zm102-318Zm28.5 188.5Q520-303 520-320t-11.5-28.5Q497-360 480-360t-28.5 11.5Q440-337 440-320t11.5 28.5Q463-280 480-280t28.5-11.5ZM440-440h80v-240h-80v240Z" />
                   </svg>
                 </Button>
-              )}
+              )} */}
 
               <span
                 className={clsx(
@@ -228,7 +228,7 @@ function Stat({
   return (
     <div className="bg-panel-bg rounded" style={{ padding: `${pad}px` }}>
       <div
-        className={clsx("text-sm font-mono font-semibold", {
+        className={clsx("text-center text-sm font-mono font-semibold", {
           "text-charge-solar": highlight === "charge",
           "text-soc-low": highlight === "draw",
           "text-zinc-200": !highlight,
