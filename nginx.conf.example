@@ -1,46 +1,17 @@
-# nginx as a reverse proxy in front of Express — NOT a replacement for it.
-#
-# van-frontend (server.mjs) already does everything this file would otherwise
-# duplicate: serves the SPA, proxies /api to uvicorn, and enforces
-# VAN_PASSWORD via a signed cookie. This config puts nginx in front of that
-# Express server rather than pointing at uvicorn directly.
-#
-# Do NOT proxy_pass straight to 127.0.0.1:8000 (uvicorn) anywhere in this
-# file. An earlier version of this example did exactly that for /api/, which
-# bypassed Express's cookie check entirely — anyone reaching nginx could hit
-# /system/shutdown, toggle relays, or switch WiFi with no password prompt.
-# The only thing standing between the internet and those endpoints would then
-# have been VAN_API_KEY, which fails open (by design — see CLAUDE.md → Auth)
-# when unset. Route everything through Express instead.
-#
-# Reasons you might actually want this in front of Express: TLS termination,
-# rate limiting, or serving /static/photos/ directly without going through
-# Node. None of those require bypassing Express's auth — they sit in front of
-# it, not around it.
-
 server {
     listen 80;
     server_name van-pi.local _;
 
-    # Everything — SPA, API, auth — goes to Express. It listens on VAN_PORT
-    # (default 3000; see frontend/server.mjs).
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        # Forward the auth cookie and Set-Cookie in both directions — the
-        # default proxy behaviour does this, called out here because it's the
-        # one header that must not get lost if this config is customized.
         proxy_set_header Cookie $http_cookie;
         proxy_read_timeout 10s;
     }
 
-    # Optional: serve photos directly rather than round-tripping through
-    # Node. Safe to bypass Express here specifically because this location is
-    # read-only static files, not the API — there is nothing here to
-    # authenticate around.
     location /static/photos/ {
         alias /home/todd/van-control-panel/backend/photos/;
         expires 1h;
