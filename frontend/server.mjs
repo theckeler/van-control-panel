@@ -174,9 +174,13 @@ app.use("/api", createProxyMiddleware({
 }));
 
 // --- Camera photos → uvicorn :8000 (served directly by FastAPI's StaticFiles) ---
+// Express strips the "/static" mount prefix from req.url before this runs
+// (standard app.use(path, middleware) behavior) — pathRewrite adds it back,
+// since uvicorn's StaticFiles is mounted at exactly /static/photos.
 app.use("/static", createProxyMiddleware({
   target: "http://localhost:8000",
   changeOrigin: true,
+  pathRewrite: (path) => `/static${path}`,
 }));
 
 // --- Serve built frontend ---
