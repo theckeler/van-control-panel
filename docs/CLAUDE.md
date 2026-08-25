@@ -590,6 +590,37 @@ Applied and verified: `iwconfig wlan0` reports `Power Management:off`.
 - **Event log** — done. `events` table written from every mutation path, read at `/system/events`. Correlating it against hourly readings is what would replace the guessed `ALWAYS_ON_WATTS` figures with measurements; that analysis is not written yet.
 - **Siri / Apple Home for the Shellys** (tabled). Shelly Gen4 supports Matter natively — `Shelly.GetStatus` reports `matter: {num_fabrics: 0, commissionable: false}`, so the capability is there but nothing is commissioned. Commissioning them into the Home app is phone-side setup, no code, and would keep working even with the Pi down. Fallback if that fights: an Apple Shortcut that POSTs to `/shelly/{id}/toggle` with the API key — works for any endpoint, not just relays, but needs the phone to reach the Pi (Tailscale, currently offline on the iPhone).
 - **AI insight panel** (tabled, cost). One button summarising power state by correlating the event log against hourly readings — "SOC fell 22% overnight, and you switched the garage circuit on at 19:40". Would have to be a backend endpoint so the key stays off the client. Roughly $0.001/call with Haiku, cached 15 min. Tabled because it would be the first cloud dependency in an otherwise fully local system, and it would be dead exactly when parked without Starlink.
+- **Door sensor via repurposed light circuit** (planned, not built). Two factory
+  industrial light fixtures (above the rear door and the side slider) are being
+  removed — too bright, cab-overridable, always off in normal use. Their
+  door-triggered positive wire is being reused as a door-open signal instead
+  of wired to a bulb.
+
+  **Wiring:** a spare Shelly 1 Gen4 gets a normal permanent `12V+`/`L` feed
+  like the other units — it must stay always-on so it's reachable regardless
+  of door state, this is not a power-the-Shelly-from-the-door circuit. The
+  door-triggered wire (light fixture's old positive leg) goes into `I`. `O`
+  feeds the Garmin PowerSwitch input, so the hardware-level action (still TBD
+  what) happens with no Pi dependency, same as any other Shelly-fed load.
+  Multimeter check pending: confirm switched-positive vs switched-ground and
+  actual voltage/current before wiring — Sprinter interior lighting runs
+  through the body control module, not a raw door switch, so cab override
+  behavior should already be baked into the signal, but the electrical specs
+  at the connector aren't yet confirmed.
+
+  **Why this works as a door sensor with zero new code:** `van-api` already
+  polls `Switch.GetStatus` on every Shelly every 5s (`shelly.py`). Door open →
+  current flows I→O → relay reads `on`. Door closed → `off`. The event log
+  already timestamps every Shelly state change. So "door opened at 14:32"
+  appears in `/system/events` automatically, and reachability already
+  distinguishes a genuine unreachable unit from "door closed" because this
+  unit is never actually powered down.
+
+  **Remaining work once wired:** label it properly in `SHELLY_UNITS`
+  (`shelly.py`) rather than a generic name, and decide whether it renders as
+  its own dashboard row ("Rear Door: Open") rather than a generic on/off tile,
+  since the semantics differ even though the underlying mechanism is identical
+  to every other Shelly-fed circuit.
 - **Maxxfan will not get a Shelly** — tested and rejected. It defaults open on power loss and closes on power-up, which is exactly wrong for a switched circuit. Its remote is IR, so there is no network path either.
 - **Govee H6199 rock lights** — candidate for on/off and basic colour over BLE. Protocol varies by firmware generation; older units accept unencrypted writes, newer added encryption. Needs a probe before it can be scoped.
 - **EcoFlow (`EF-R10314`)** — confirmed as Todd's, seen in BLE scans at -20 to -44 dBm. Official developer API exists over HTTP and MQTT, needs an API key. Community BLE work also exists.
