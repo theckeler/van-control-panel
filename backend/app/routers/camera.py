@@ -10,10 +10,57 @@ router = APIRouter()
 PHOTOS_BASE = os.path.join(os.path.dirname(__file__), "..", "..", "photos")
 DEVICE_MAP = {"interior": "/dev/video0", "exterior": "/dev/video2"}
 
+# UVC controls tuned on 2026-08-25 for the interior camera's actual mounting
+# position (very close subject, backlit through a window). These live on the
+# USB device itself, not in any app state, so they reset to factory defaults
+# on every reboot or unplug/replug — hence re-applying them before every
+# capture rather than trusting them to persist.
+#
+# focus_absolute: swept 0-21, objective sharpness scored via Laplacian
+# variance. 5 was the clear peak (~1060 vs ~60-115 at the default of 16) —
+# the subject is much closer than autofocus was settling on.
+# brightness: default 8 crushed shadows to near-black (mean ~20/255, min 0)
+# against the bright window in frame. 15 (max) roughly 4x'd mean brightness
+# to ~82 and lifted black level to ~42 — real detail instead of a clipped
+# floor. Left auto-exposure (auto_exposure=3) engaged rather than a fixed
+# manual exposure_time, so it still adapts across day/night.
+CAMERA_TUNING = {
+    "interior": [
+        ("focus_automatic_continuous", "0"),
+        ("focus_absolute", "5"),
+        ("brightness", "15"),
+        ("auto_exposure", "3"),
+    ],
+}
+
+async def _apply_tuning(cam: str, device: str) -> None:
+    """Best-effort — a tuning failure should not block the capture itself."""
+    controls = CAMERA_TUNING.get(cam, [])
+    for ctrl, value in controls:
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "v4l2-ctl", "-d", device, "-c", f"{ctrl}={value}",
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await asyncio.wait_for(proc.wait(), timeout=3.0)
+        except (OSError, asyncio.TimeoutError):
+            pass
+    # The control value updates in the driver instantly, but the physical
+    # focus motor needs time to actually move. Capturing immediately after
+    # setting focus_absolute produced a sharp *setting* and a blurry
+    # *image* (measured: sharpness ~95 vs ~1060 with this delay) —
+    # discovered the hard way when the first version of this function had
+    # no delay at all.
+    if controls:
+        await asyncio.sleep(0.4)
+
 async def _capture(cam: str) -> dict:
     device = DEVICE_MAP.get(cam)
     if not device or not os.path.exists(device):
         raise HTTPException(status_code=503, detail=f"{cam} camera not connected")
+
+    await _apply_tuning(cam, device)
 
     cam_dir = os.path.join(PHOTOS_BASE, cam)
     os.makedirs(cam_dir, exist_ok=True)
