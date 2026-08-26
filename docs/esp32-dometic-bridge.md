@@ -4,9 +4,12 @@
 Pi's BlueZ stack, which can't hold a stable connection to it), publishing
 fridge state to `van-api` over WiFi like every other device.
 
-**Status:** Unverified assumption — the `dometic_cfx_ble` ESPHome component
-targets CFX3. This guide's first goal is finding out if it works on a CFX5
-before building anything further on top of it.
+**Status:** Component source confirmed —
+[`andrewbackway/esphome-dometic_cfx_ble`](https://github.com/andrewbackway/esphome-dometic_cfx_ble),
+16 stars, actively maintained. It's tagged `cfx3` on its own repo, and ours
+is a CFX5 — that's the real unverified assumption. This guide's first goal
+is finding out whether it works on a CFX5 at all before building anything
+further on top of it.
 
 ---
 
@@ -88,10 +91,11 @@ esp32_ble_tracker:
   scan_parameters:
     active: true
 
-# This is the untested part — dometic_cfx_ble targets CFX3. First goal is
-# just seeing whether it discovers and reads anything from a CFX5 at all.
+# This is the untested part — dometic_cfx_ble targets CFX3 (confirmed via
+# its own repo topics tag). First goal is just seeing whether it discovers
+# and reads anything from a CFX5 at all.
 external_components:
-  - source: github://username/esphome-dometic_cfx_ble
+  - source: github://andrewbackway/esphome-dometic_cfx_ble
     components: [dometic_cfx_ble]
 
 dometic_cfx_ble:
@@ -100,9 +104,10 @@ dometic_cfx_ble:
 
 **Before flashing:**
 - Replace `YOUR_SSID` / `YOUR_PASSWORD` with real WiFi credentials
-- The `external_components` source line needs the actual GitHub repo path
-  for `dometic_cfx_ble` — search ESPHome's component registry or GitHub for
-  the exact author/repo, since it wasn't confirmed during today's session
+- Component source confirmed: `andrewbackway/esphome-dometic_cfx_ble`
+  (https://github.com/andrewbackway/esphome-dometic_cfx_ble), 16 stars,
+  actively maintained. Its own repo topics tag it `cfx3` specifically — that's
+  the real open question, not the repo location
 - `mac_address` is already the correct one from earlier BLE scans
 
 ---
