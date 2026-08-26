@@ -36,7 +36,18 @@ async def _capture(cam: str) -> dict:
     if proc.returncode != 0 or not os.path.exists(path):
         raise HTTPException(status_code=500, detail=stderr.decode(errors="replace")[-300:])
 
-    return {"filename": filename, "url": f"/static/photos/{cam}/{filename}", "cam": cam}
+    return {
+        "filename": filename,
+        "url": f"/static/photos/{cam}/{filename}",
+        "cam": cam,
+        "timestamp": _filename_to_iso(filename, cam),
+    }
+
+def _filename_to_iso(filename: str, cam: str) -> str:
+    """cam_20260826T004512Z.jpg -> 2026-08-26T00:45:12+00:00"""
+    raw = filename.replace(f"{cam}_", "").replace(".jpg", "")
+    dt = datetime.strptime(raw, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+    return dt.isoformat()
 
 def get_photos(camera: str, limit: int = 20) -> list[dict]:
     """Get list of photos for a camera, most recent first."""
@@ -48,7 +59,7 @@ def get_photos(camera: str, limit: int = 20) -> list[dict]:
         {
             "filename": os.path.basename(f),
             "url": f"/static/photos/{camera}/{os.path.basename(f)}",
-            "timestamp": os.path.basename(f).replace(f"{camera}_", "").replace(".jpg", ""),
+            "timestamp": _filename_to_iso(os.path.basename(f), camera),
         }
         for f in files[:limit]
     ]

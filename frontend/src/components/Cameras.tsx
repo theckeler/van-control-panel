@@ -63,6 +63,14 @@ function Skeleton() {
   );
 }
 
+function formatCaptureTime(iso: string) {
+  return new Date(iso).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
 function CameraPane({ label, photo }: { label?: string; photo: Photo | null }) {
   return (
     <div className="bg-panel-surface border border-panel-border rounded-xl overflow-hidden">
@@ -74,7 +82,7 @@ function CameraPane({ label, photo }: { label?: string; photo: Photo | null }) {
         )}
         {photo && (
           <span className="text-xs font-mono text-zinc-600">
-            {photo.timestamp}
+            {formatCaptureTime(photo.timestamp)}
           </span>
         )}
       </div>
