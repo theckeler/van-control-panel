@@ -21,7 +21,11 @@ export function Cameras({ className }: { className?: string }) {
     }
     setLoading(true);
     api.camera.latest("interior")
-      .then(setInteriorLatest)
+      .then((photo) => {
+        // eslint-disable-next-line no-console
+        console.log("camera:latest response", photo);
+        setInteriorLatest(photo);
+      })
       .catch(() => setInteriorLatest(null))
       .finally(() => setLoading(false));
   }, [enabled]);
@@ -96,6 +100,11 @@ function CameraPane({ label, photo }: { label?: string; photo: Photo | null }) {
       ) : (
         <div className="flex items-center justify-center h-40 text-xs font-mono text-zinc-600">
           No photo available
+        </div>
+      )}
+      {photo && (
+        <div className="text-xs font-mono text-zinc-600 text-center py-2 border-t border-panel-border">
+          Captured {formatCaptureTime(photo.timestamp)}
         </div>
       )}
     </div>
