@@ -1,0 +1,40 @@
+esphome:
+  name: dometic-bridge
+  friendly_name: Dometic Bridge
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  fast_connect: true
+
+  ap:
+    ssid: "Dometic-Bridge-Fallback"
+    password: !secret fallback_ap_password
+
+logger:
+  level: DEBUG
+
+api:
+  encryption:
+    key: "GENERATE_ME" # esphome will prompt to generate on first run
+
+ota:
+  - platform: esphome
+
+esp32_ble_tracker:
+  scan_parameters:
+    active: true
+
+# This is the untested part — dometic_cfx_ble targets CFX3. First goal is
+# just seeing whether it discovers and reads anything from a CFX5 at all.
+external_components:
+  - source: github://andrewbackway/esphome-dometic_cfx_ble
+    components: [dometic_cfx_ble]
+
+dometic_cfx_ble:
+  mac_address: "88:13:BF:8D:87:F6" # your fridge's known MAC from earlier scans

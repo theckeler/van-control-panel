@@ -24,6 +24,12 @@ backend/*.tmp
 .env.local
 .env.*.local
 
+# ESP32/ESPHome — secrets.yaml holds WiFi credentials and the API
+# encryption key, same pattern as backend/.env.
+esp32-dometic/secrets.yaml
+esp32-dometic/.esphome/
+esp32-dometic/*.bin
+
 # Photos (local only, not committed)
 backend/photos/interior/*.jpg
 backend/photos/exterior/*.jpg
