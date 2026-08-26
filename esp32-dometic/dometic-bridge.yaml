@@ -17,24 +17,76 @@ wifi:
     password: !secret fallback_ap_password
 
 logger:
-  level: DEBUG
+  level: VERY_VERBOSE
 
 api:
   encryption:
-    key: "GENERATE_ME" # esphome will prompt to generate on first run
+    key: "4jqLcf3DaUMClV30PR5ifiJIJaeLWGhCYLqPpoWytJM=" # esphome will prompt to generate on first run
 
 ota:
   - platform: esphome
 
 esp32_ble_tracker:
-  scan_parameters:
-    active: true
 
-# This is the untested part — dometic_cfx_ble targets CFX3. First goal is
-# just seeing whether it discovers and reads anything from a CFX5 at all.
+# Vendored, not github:// — the upstream targets CFX3 (service UUID 537a03xx).
+# Patched locally to 537a04xx after confirming that block on a real CFX5 via
+# BLE scan + hcidump. See components/dometic_cfx_ble/dometic_cfx_ble.cpp for
+# the full story, including what's confirmed vs. extrapolated.
 external_components:
-  - source: github://andrewbackway/esphome-dometic_cfx_ble
+  - source:
+      type: local
+      path: components
     components: [dometic_cfx_ble]
 
+ble_client:
+  - mac_address: "88:13:BF:8D:87:F6" # Replace with your Dometic fridge MAC address
+    id: dometic_fridge # This ID must match your ble_client_id
+
 dometic_cfx_ble:
-  mac_address: "88:13:BF:8D:87:F6" # your fridge's known MAC from earlier scans
+  id: fridge_ble
+  ble_client_id: dometic_fridge # Links the component to the defined client
+  product_type: SZ
+
+# ESPHome's built-in JSON API — GET /sensor/<id>, /binary_sensor/<id>,
+# /text_sensor/<id> each return JSON. van-api polls these exactly like it
+# polls the Shellys' local HTTP API (services/dometic.py). No external
+# access needed, so no auth configured — same trust model as the Shellys,
+# which also have no auth on their local endpoints.
+web_server:
+  version: 3
+
+sensor:
+  - platform: dometic_cfx_ble
+    dometic_cfx_ble_id: fridge_ble
+    type: COMPARTMENT_0_MEASURED_TEMPERATURE
+    name: "Fridge Temperature"
+    id: fridge_temp
+  - platform: dometic_cfx_ble
+    dometic_cfx_ble_id: fridge_ble
+    type: COMPARTMENT_0_SET_TEMPERATURE
+    name: "Fridge Set Temperature"
+    id: fridge_set_temp
+  - platform: dometic_cfx_ble
+    dometic_cfx_ble_id: fridge_ble
+    type: BATTERY_VOLTAGE_LEVEL
+    name: "Fridge Battery Voltage"
+    id: fridge_battery_voltage
+  - platform: dometic_cfx_ble
+    dometic_cfx_ble_id: fridge_ble
+    type: COOLER_POWER
+    name: "Fridge Cooler Power"
+    id: fridge_cooler_power
+
+binary_sensor:
+  - platform: dometic_cfx_ble
+    dometic_cfx_ble_id: fridge_ble
+    type: COMPARTMENT_0_DOOR_OPEN
+    name: "Fridge Door Open"
+    id: fridge_door_open
+
+text_sensor:
+  - platform: dometic_cfx_ble
+    dometic_cfx_ble_id: fridge_ble
+    type: POWER_SOURCE
+    name: "Fridge Power Source"
+    id: fridge_power_source
