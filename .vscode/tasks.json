@@ -109,6 +109,35 @@
       "type": "shell",
       "command": "ssh -t todd@100.87.126.98",
       "problemMatcher": []
+    },
+
+    {
+      "label": "Git: start branch",
+      "detail": "Pulls main, then creates and switches to a new branch off it — see CLAUDE.md → Workflow",
+      "type": "shell",
+      "command": "git checkout main && git pull && git checkout -b '${input:branchName}'",
+      "problemMatcher": []
+    },
+    {
+      "label": "Git: open PR",
+      "detail": "Pushes the current branch and opens a real PR via gh — never merges, that's a manual step for the person",
+      "type": "shell",
+      "command": "git push -u origin HEAD && gh pr create --fill --web",
+      "problemMatcher": []
+    },
+    {
+      "label": "Git: where am I",
+      "detail": "Current branch, and how far it's diverged from main",
+      "type": "shell",
+      "command": "echo \"branch: $(git branch --show-current)\"; git status --short; echo '---'; git log main..HEAD --oneline",
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "branchName",
+      "type": "promptString",
+      "description": "Branch name (e.g. fix-fridge-write-control)"
     }
   ]
 }

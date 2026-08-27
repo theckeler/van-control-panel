@@ -15,11 +15,17 @@ wifi:
   # unreachable, even though nothing is actually wrong. Listing both networks
   # here lets the ESP32 join whichever the Pi is currently on, same as the
   # Pi's own Starlink-primary/OHeck-fallback setup.
+  # Explicit priority, not list order — checked ESPHome's own wifi_component
+  # source (WIFI_NETWORK_STA schema, priority: -128..127, default 0, higher
+  # tried first during a scan-based reconnect). Without it, selection between
+  # two equally-fresh networks falls through to RSSI, which is not the same
+  # as "always prefer Starlink". This makes it deterministic.
   networks:
-    - ssid: !secret wifi_ssid
-      password: !secret wifi_password
     - ssid: !secret starlink_ssid
       password: !secret starlink_password
+      priority: 1
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
   fast_connect: true
 
   ap:

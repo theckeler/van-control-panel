@@ -218,6 +218,83 @@ ssh todd@van-pi.local 'cd ~/van-control-panel && git status'
 
 ---
 
+## Camera capture times out ("capture timed out")
+
+### Symptoms
+- `/photos/capture` or `/photos/latest` hangs for the full timeout, then
+  returns `{"detail": "capture timed out"}`
+- A direct `ffmpeg` call against `/dev/video0` also hangs, even fresh from
+  the command line
+- `v4l2-ctl --list-devices` still lists the camera fine — enumeration works,
+  only actual streaming hangs
+
+### Two separate causes, check both
+
+**1. Orphaned `ffmpeg` process holding the device.** A capture started over
+SSH without a proper TTY can outlive the SSH session that started it,
+leaving it running and holding `/dev/video0` open exclusively. Every
+subsequent capture then blocks waiting for a device that's already open.
+
+```bash
+ssh todd@van-pi.local
+ps aux | grep ffmpeg | grep -v grep
+sudo kill -9 <pid>
+```
+
+**2. The camera itself wedged at the streaming level.** If killing any
+orphaned process doesn't fix it — confirmed by device enumeration succeeding
+while a fresh, isolated `ffmpeg` capture still hangs — this looks like the
+same class of issue as the earlier USB fuse-trip incident: the camera's
+internal streaming state is stuck in a way a software-side reset doesn't
+clear. **Needs a physical USB unplug/replug.** Not something to keep
+debugging remotely; move to the fix once cause 1 is ruled out.
+
+### Prevention
+Avoid backgrounding a raw `ffmpeg &` call over SSH without `nohup`/`disown` or
+running it through a process manager — that's specifically what orphans it
+when the session ends.
+
+---
+
+## Fridge card shows offline / no data, ESP32 seems fine otherwise
+
+### Symptoms
+- `FridgeCard` shows "Offline" or a dimmed last-known reading
+- ESP32's own JSON API (`http://dometic-bridge.local/sensor/...`) also
+  returns null/empty
+- Nothing about the ESP32 or fridge itself has changed
+
+### Cause
+Almost always a network split, not a fridge or firmware problem. The Pi and
+the ESP32 need to be on the *same* WiFi network for mDNS resolution
+(`dometic-bridge.local`) to work at all. The Pi's `prefer-starlink`
+dispatcher actively tries to return it to Starlink, and if the ESP32 is on a
+different network at that moment, resolution fails cleanly and correctly —
+it's just not useful.
+
+### Check
+```bash
+ssh todd@100.87.126.98
+ip -4 addr show wlan0 | grep inet      # which network is the Pi on?
+getent hosts dometic-bridge.local      # can it even resolve the ESP32?
+```
+
+### Fix
+Put them back on the same network. Fastest lever, no reflash needed:
+```bash
+curl -s -X POST http://localhost:8000/system/wifi/switch/netplan-wlan0-OHeck
+# or
+curl -s -X POST http://localhost:8000/system/wifi/switch/starlink
+```
+
+Note this drifts back apart on its own — the ESP32 now has an explicit WiFi
+`priority:` favoring Starlink (see CLAUDE.md → Known Limitations), which
+fixes *which* network it picks on its next reconnect, but not proactively
+abandoning an already-working connection. Full symmetric fix (mirroring the
+Pi's own dispatcher) not built yet.
+
+---
+
 ## Tailscale not connecting
 
 ```bash
