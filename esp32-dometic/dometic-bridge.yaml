@@ -17,7 +17,7 @@ wifi:
     password: !secret fallback_ap_password
 
 logger:
-  level: VERY_VERBOSE
+  level: INFO
 
 api:
   encryption:
@@ -27,6 +27,15 @@ ota:
   - platform: esphome
 
 esp32_ble_tracker:
+  scan_parameters:
+    # Previously interval == window (320ms/320ms) = 100% duty-cycle active
+    # scanning, transmitting scan requests nonstop. The ESP32 and Pi share
+    # the same van and the same 2.4GHz spectrum the Pi's own BLE connection
+    # to the BMS depends on. This gives real rest between scans instead of
+    # contending for airtime constantly.
+    interval: 1100ms
+    window: 30ms
+    active: true
 
 # Vendored, not github:// — the upstream targets CFX3 (service UUID 537a03xx).
 # Patched locally to 537a04xx after confirming that block on a real CFX5 via
