@@ -86,10 +86,10 @@ no loads" removes that possibility permanently and costs nothing.
 ### Interaction with the override question
 
 With Control 1 on ignition, every channel assigned to it is forced on whenever
-the van is running. If the override behaviour described below is real, those
-channels may also be un-switchable from the app while the engine runs. Decide
-channel assignment with that in mind — for Starlink that might be exactly the
-desired behaviour, but it should be a decision rather than a surprise.
+the van is running. **Confirmed 2026-08-27:** those channels can still be
+switched off from the app while the input is active — the input asserts a
+state, it does not lock one in. Assignment is therefore a convenience decision,
+not a safety one.
 
 ---
 
@@ -148,21 +148,35 @@ minute.
 
 ---
 
-## Caveat worth settling early: does the input override the app?
+## Resolved: the input does NOT lock out the app
 
-Garmin's documentation indicates that while a control input is active, it
-**overrides** app and BLE control for the channels assigned to it.
+**Confirmed on the actual unit, 2026-08-27.** With Control 1 held active by the
+van's ignition, the assigned channel could still be switched off from the
+Garmin app.
 
-If that is true, it has a real consequence: a channel driven by a stuck-on
-input cannot be turned off from the phone. For lighting that is an
-inconvenience. For **Starlink or the EcoFlow charge toggle** it is worse — it
-means a failed relay or a shorted trigger wire could pin the van's internet
-into a state the app cannot recover, which is precisely the failure mode this
-project should avoid.
+Garmin's documentation reads as though an active input *overrides* app and BLE
+control. On this hardware it does not — the input asserts a state, and the app
+can still take it back.
 
-This is documented behaviour but has not been verified on this unit. Settle it
-during the bench test, and do not assign Starlink or the EcoFlow channel to a
-control input until it is settled.
+This matters more than it sounds, because it removes the main safety objection
+to the whole approach. The feared failure mode was a stuck-on input or shorted
+trigger wire pinning a channel into a state the app could not recover — which
+for **Starlink or the EcoFlow charge toggle** would have meant a wiring fault
+taking out remote access to the van with no way to recover it from the phone.
+That risk does not exist. The app remains the final authority.
+
+Practical consequences:
+
+- Starlink and the EcoFlow toggle are no longer off-limits for input
+  assignment. Assign them on their merits.
+- A stuck input is now a nuisance rather than a lockout.
+- Bench test 6 below is answered; it is kept for the record and because the
+  behaviour is worth re-confirming after any Garmin firmware update.
+
+Still worth knowing: the *reverse* case is untested. Whether an app-off state
+survives a fresh rising edge on the input — i.e. whether re-triggering
+re-asserts on — has not been checked. With Control 1 on ignition that is every
+engine start, so it will answer itself in normal use.
 
 ---
 
@@ -276,6 +290,72 @@ approach scales past lighting.
 
 ---
 
+## Can the Pi's GPIO drive the input directly?
+
+Physically, yes. It is still the wrong way to do it in this van, for four
+reasons that compound.
+
+**1. 3.3V is the bottom of the spec, not a comfortable point in it.**
+The input accepts 3.3–18V. A Pi GPIO pin is 3.3V *nominal* and sags under
+load, before any drop across the run from the Pi to the PowerSwitch. You would
+be sitting exactly on the threshold and hoping. 12V through a relay contact
+sits in the middle of the range with margin on both sides.
+
+**2. Pi GPIO can source ~16mA absolute maximum**, and the control input's
+actual current draw is not documented. It is probably small. "Probably" is
+carrying weight there, and exceeding it damages the SoC, not a $20 part.
+
+**3. No galvanic isolation — this is the real objection.**
+A direct GPIO connection ties the Pi's 3.3V logic to the 12V system that also
+carries 100A. Two consequences:
+
+- **Ground offset.** Under heavy load, the PowerSwitch's ground reference and
+  the Pi's ground are not at the same potential. That difference appears
+  across the GPIO pin.
+- **Transients.** Vehicle electrical systems produce load-dump spikes far
+  above 12V when the alternator is running. A relay contact or optocoupler
+  absorbs that. A GPIO pin conducts it into the SoC.
+
+The failure mode is a dead Pi — which takes the dashboard, Tailscale, and all
+remote access with it.
+
+**4. Indeterminate state on boot and reboot.**
+GPIO pins default to floating inputs at power-on and during reboot. This
+project has a reboot poller, so reboots happen. A floating pin next to a
+threshold-voltage input is an unpredictable channel state.
+
+### If you want to use GPIO anyway, isolate it
+
+The correct shape keeps the Pi on the logic side of a barrier:
+
+```
+Pi GPIO (3.3V) → optocoupler or relay module → switched 12V → Control Input
+```
+
+The GPIO drives only the LED side of an opto or a relay coil. The input sees a
+clean 12V, and no 12V path ever reaches the Pi. A relay HAT or an opto board
+is a few dollars and removes objections 1 through 3 outright.
+
+### Why the Shelly is still the better fit here
+
+A GPIO relay does have one genuine advantage: it works with WiFi down, whereas
+the Shelly does not.
+
+Against that, the spare Shelly is **already bought, already isolated by
+design** (dry contact rated for vehicle loads), already addressable by
+`shelly.py`, and already rendered on the dashboard. It needs no new backend
+code, no new failure modes, and no wire run from the Pi to the PowerSwitch.
+
+Given that Control 1 is on ignition — a path that does not involve the Pi at
+all — losing Shelly control when WiFi is down is not a serious exposure. The
+critical function already runs on hardware.
+
+Use GPIO if the wire run is short and you specifically want independence from
+WiFi. Otherwise use the Shelly. Either way, **do not wire GPIO straight to the
+control input.**
+
+---
+
 ## Integrating with van-api once it works
 
 No new integration pattern is needed. The Shelly is controlled exactly like
@@ -300,7 +380,9 @@ and the distinction matters if anyone ever reconsiders the wiring.
   ~5A.** Cheapest safety improvement available here.
 - Label the signal busbar so it is not mistaken for a power distribution point.
 - Is the input level-triggered or edge-triggered? (bench test 5)
-- Does an active input override app/BLE control? (bench test 6)
+- Does an active input override app/BLE control? **Answered 2026-08-27: no.**
+  Confirmed on Control 1 with the ignition active — the channel still switched
+  off from the app.
 - Is activation voltage-high on this unit, or is any variant ground-switching?
   Confirm against the Garmin manual for this specific model before wiring.
 - Is the dome light circuit voltage-switched or ground-switched, and does it
