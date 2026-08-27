@@ -117,14 +117,29 @@ Both appear as `/dev/ttyUSB0` and `/dev/ttyUSB1`. Assign persistent names via ud
 
 ## Network
 
-| Device | IP | Notes |
+Starlink was renumbered off `192.168.1.0/24` in **Aug 2026** — both routers
+were handing out the same range, which made an IP meaningless as an
+identifier. `CLAUDE.md` holds the authoritative subnet table.
+
+| Network | Range | Router |
 |---|---|---|
-| Starlink Mini | 192.168.1.1 | Router/gateway |
-| Raspberry Pi 4B | 192.168.1.10 | Set as DHCP reservation |
-| Shelly Maxxfan | 192.168.1.101 | DHCP reservation |
-| Shelly Lights | 192.168.1.102 | DHCP reservation |
-| Shelly USB | 192.168.1.103 | DHCP reservation |
-| Shelly Spare | 192.168.1.104 | DHCP reservation |
+| Starlink | `192.168.4.0/24` | `192.168.4.1` |
+| OHeck (home) | `192.168.1.0/24` | `192.168.1.1` |
+
+Everything is DHCP and `shelly.py` addresses units by `.local` hostname rather
+than IP, so nothing needed reconfiguring after the renumber — but it does mean
+**the fixed addresses below are historical and no longer reliable as
+identifiers.** Use hostnames. The range now tells you which network a device is
+on.
+
+| Device | Notes |
+|---|---|
+| Starlink Mini | Router/gateway on the Starlink network. Dish itself is at `192.168.100.1`, reachable only via a static route — see `starlink-status.md` |
+| Raspberry Pi 4B | DHCP. Joins over `wlan0` |
+| Shelly Maxxfan | `maxxfan.local` |
+| Shelly Lights | `lights.local` |
+| Shelly USB | `usb.local` |
+| Shelly Spare | `spare.local` |
 
 **Tailscale:** Pi runs Tailscale for remote access. IP assigned by Tailscale (100.x.x.x).
 

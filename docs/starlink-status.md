@@ -1,6 +1,10 @@
 # Starlink Mini — Local Status on the Dashboard
 
-**Status:** researched and planned, not implemented.
+**Status:** implemented, not yet tested against the dish.
+
+`backend/app/services/starlink.py`, `/starlink/` and `/starlink/raw`,
+`StarlinkCard.tsx`. Nothing here has touched real hardware — the static route
+below is a prerequisite and is not in place yet.
 
 **Goal:** a connection indicator on the control panel, plus the cheap extras
 that come in the same call — latency, throughput, obstruction, uptime.
@@ -26,10 +30,10 @@ route below.
 
 ## The gotcha: the dish is not reachable by default
 
-The Pi sits at `192.168.1.10`, behind the Mini's integrated router at
-`192.168.1.1`. The dish is on a different subnet, `192.168.100.x`. **The Mini's
-router does not route its own LAN clients to the dish subnet by default.** It
-knows the route; it just doesn't advertise it over DHCP.
+The dish lives on `192.168.100.x`, a separate subnet from the van LAN. **The
+Mini's integrated router does not route its own LAN clients to the dish
+subnet by default.** It knows the route; it just doesn't advertise it over
+DHCP.
 
 So `192.168.100.1` is unreachable from the Pi until a static route is added.
 This is not a Mini quirk to work around — it is normal, and every Starlink
@@ -37,27 +41,47 @@ integration hits it.
 
 ```bash
 # Immediate — does not survive reboot
-sudo ip route add 192.168.100.0/24 via 192.168.1.1 dev eth0
+sudo ip route add 192.168.100.0/24 via 192.168.4.1 dev wlan0
 
 # Verify before going any further
 ping -c3 192.168.100.1
 ```
 
+**`192.168.4.1`, not `192.168.1.1`.** Starlink was renumbered off
+`192.168.1.0/24` in Aug 2026 because both routers were handing out the same
+range — see the Subnets table in `CLAUDE.md`. And `wlan0`, not `eth0`: the Pi
+joins Starlink over WiFi.
+
 Make it persistent in `/etc/dhcpcd.conf` on Raspberry Pi OS:
 
 ```
-interface eth0
-static_routes=192.168.100.0/24 via 192.168.1.1
+interface wlan0
+static_routes=192.168.100.0/24 via 192.168.4.1
 ```
-
-Adjust `eth0` if the Pi reaches the Mini over WiFi.
 
 **Verify the route works before writing any code.** If `ping` fails, nothing
 downstream will work, and the failure will present as a generic gRPC
 `UNAVAILABLE` that looks like a library problem rather than a routing one.
 
+### The dual-network consequence
+
+This is worth thinking through before trusting the card.
+
+The Pi drops to the OHeck home network when Starlink fails, and
+NetworkManager **does not roam back** on its own — that's a documented gotcha
+in `CLAUDE.md`, patched by the `90-prefer-starlink` dispatcher script.
+
+While the Pi is on OHeck it is not on Starlink's LAN at all, so the dish is
+unreachable regardless of whether Starlink itself is working. The card will
+correctly show "Offline / Dish unreachable".
+
+So `reachable = false` means **"the Pi cannot see the dish"**, which is not the
+same statement as "Starlink is down". When parked on home WiFi with Starlink
+stowed, that's the expected and honest reading. The `state` field is the one
+that tells you about Starlink; `reachable` tells you about the network path.
+
 If the Mini is ever moved to bypass mode behind a third-party router, the route
-moves to that router instead and the Pi needs no change.
+moves to that router instead.
 
 ---
 

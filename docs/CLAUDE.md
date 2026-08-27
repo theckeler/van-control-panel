@@ -572,7 +572,7 @@ Applied and verified: `iwconfig wlan0` reports `Power Management:off`.
 - **History charts** — `HistoryCard` is wired up and rendering. SOC 24h and Solar 30d tabs both work. Daily solar only populates after a midnight rollup, so a fresh install shows the raw-derived fallback.
 - **CORS** is `allow_origins=["*"]` — fine for local/Tailscale, tighten if Funnel is used long-term
 - **Maxxfan and Ceiling Lights** Shellys not yet installed — show as `installed: false` in API
-- **`loads` breakdown in system.py is unconditional** — claims Starlink 22W and Fridge 40W regardless of actual state. Latent only: the frontend never reads it. See "system.py load estimation" below.
+- **`loads` breakdown in system.py is unconditional** — claims Starlink 22W and Fridge 40W regardless of actual state. Latent only: the frontend never reads it. See "system.py load estimation" below. **Partly solvable as of 2026-08-27:** the Starlink integration exposes real `power_w` from the dish, so the 22W guess can be replaced with a measurement (or dropped when the dish is unreachable, which is itself the signal that it's drawing nothing).
 - **Vercel demo build** — built and deployed. See "Vercel Demo Mode" below.
 - **Dometic CFX5 fridge** — ESP32-S3 bridge exists (`esp32-dometic/`), BLE
   connects reliably, and the CFX3-vs-CFX5 UUID gap is fixed and confirmed
@@ -605,6 +605,33 @@ Applied and verified: `iwconfig wlan0` reports `Power Management:off`.
   is reachable two ways: the official cloud MQTT API (richest, but internet
   required) or local BLE GATT via `rabits/ha-ef-ble`, which explicitly
   supports our `R613` serial and works fully offline. Offline path preferred.
+- **Starlink Mini** — built 2026-08-27, **untested against the dish**. Status
+  read from the dish's own unauthenticated gRPC server at
+  `192.168.100.1:9200` — fully local, works with no internet, which is the
+  point. `services/starlink.py`, `/starlink/` and `/starlink/raw`,
+  `StarlinkCard.tsx`. See `starlink-status.md`.
+  - **Blocked on a static route.** The dish subnet is not reachable from the
+    van LAN by default: `sudo ip route add 192.168.100.0/24 via 192.168.4.1
+    dev wlan0`. Without it every call fails as a generic gRPC `UNAVAILABLE`
+    that reads like a library bug rather than a routing one. `ping
+    192.168.100.1` settles it.
+  - `reachable` and `online` are deliberately separate. A stowed dish answers
+    the API fine, and "searching for satellites" is a different problem from
+    "unplugged". Note that when the Pi falls back to OHeck, it is off
+    Starlink's LAN entirely, so `reachable` goes false regardless of whether
+    Starlink is actually up.
+  - Field names shift across firmware, so both calls merge the returned dicts
+    and read by key rather than unpacking positionally. `/starlink/raw` dumps
+    the whole mapping — check real names there before trusting anything.
+  - **Power draw is available** (`latest_power`, via a second `history_stats`
+    call, polled at 30s). This is the missing input for the `ALWAYS_ON_WATTS`
+    problem below: it replaces the hardcoded `"Starlink": 22` guess with a
+    real measurement. Not all terminals support it, and unsupported hardware
+    returns `0.0` rather than erroring — treated as "unsupported" and reported
+    as `None`.
+  - GPS was removed from the local API in May 2026. `gps_ready`/`gps_sats`
+    still report lock status, but coordinates are gone on Mini hardware; a USB
+    dongle is the path if position is ever wanted.
 - **Pi slowness while ESP32 plugged in** — likely root-caused and fixed
   2026-08-27. The ESP32's BLE scanner was at 320ms/320ms (100% duty-cycle
   active scanning, transmitting nonstop) plus `VERY_VERBOSE` logging left on
@@ -612,7 +639,7 @@ Applied and verified: `iwconfig wlan0` reports `Power Management:off`.
   own BLE link to the BMS, sitting inches away in the same van. Scanner eased
   to 1100ms/30ms, logger back to sane levels. Pi's load average and response
   times looked healthy afterward; worth a longer-term check if it recurs.
-- **Seven API calls per poll cycle** — `fetchAll` hits battery, mppt, shore, orion, shelly, system and mode/current separately every 5s. A `/snapshot` endpoint was considered and **rejected after measuring**: six of the seven return in ~3ms, so collapsing them saves ~18ms of round trips, while a single blocking call would make the one slow endpoint (shelly) stall the whole dashboard. `Promise.allSettled` currently isolates it. Revisit only if the fast endpoints stop being fast.
+- **Seven API calls per poll cycle** — `fetchAll` hits battery, mppt, shore, orion, shelly, system and mode/current separately every 5s. A `/snapshot` endpoint was considered and **rejected after measuring**: six of the seven return in ~3ms, so collapsing them saves ~18ms of round trips, while a single blocking call would make the one slow endpoint (shelly) stall the whole dashboard. `Promise.allSettled` currently isolates it. Revisit only if the fast endpoints stop being fast. **Now nine as of 2026-08-27** (ecoflow, starlink). Starlink is the second genuinely slow one — a gRPC call that can take up to 10s when the dish is unreachable — which reinforces the original decision rather than changing it.
 - **Mode persistence** — done. Persisted to `backend/mode.json`, written atomically. Note this saves the *selection* only; actually applying a mode (camera intervals, Shelly schedules) is still unimplemented.
 - **Shelly latency is ~200ms and variable, and that is the floor.** Both units
   are on Starlink's 2.4GHz radio (BSSID `72:52:a8:29:1d:7c`, channel varies —

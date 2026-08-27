@@ -7,15 +7,25 @@ the property that matters in a van, since the most useful time to know
 Starlink's state is when it isn't working.
 
 PREREQUISITE — the dish is not reachable by default:
-    The Pi sits at 192.168.1.10 behind the Mini's integrated router. The dish
-    is on 192.168.100.x and the router does not route its own LAN clients
-    there. Until a static route exists, every call here fails as a generic
-    UNAVAILABLE that looks like a library bug rather than a routing problem.
+    The dish sits on 192.168.100.x, a different subnet from the van LAN, and
+    the Mini's integrated router does not route its own clients there. Until a
+    static route exists, every call here fails as a generic UNAVAILABLE that
+    looks like a library bug rather than a routing problem.
 
-        sudo ip route add 192.168.100.0/24 via 192.168.1.1 dev eth0
+        sudo ip route add 192.168.100.0/24 via 192.168.4.1 dev wlan0
         ping -c3 192.168.100.1
 
-    Persist it in /etc/dhcpcd.conf. See docs/starlink-status.md.
+    Note 192.168.4.1, not .1.1 — Starlink was renumbered off 192.168.1.0/24 in
+    Aug 2026, and wlan0 because the Pi joins over WiFi. Persist it in
+    /etc/dhcpcd.conf. See docs/starlink-status.md.
+
+DUAL-NETWORK CONSEQUENCE:
+    The Pi falls back to the OHeck home network when Starlink drops, and
+    NetworkManager does not roam back on its own (see CLAUDE.md). While on
+    OHeck the Pi is not on Starlink's LAN at all, so the dish is unreachable
+    and this reports reachable=False even if the dish is up. That is correct
+    behaviour, not a bug — but "unreachable" here means "the Pi cannot see the
+    dish", which is not the same as "Starlink is down".
 
 WHY A THREAD EXECUTOR:
     starlink_grpc uses blocking gRPC, not grpc.aio, with a hardcoded 10s
