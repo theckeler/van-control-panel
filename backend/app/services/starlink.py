@@ -81,6 +81,7 @@ except Exception as exc:  # pragma: no cover - depends on deployment
 STATUS_INTERVAL = 5     # matches the dashboard poll; one lightweight RPC
 POWER_INTERVAL = 30     # a second RPC, and only latest_power is wanted
 STALE_AFTER = 30        # ~6 missed status polls
+MAX_BACKOFF = 60        # ceiling when the dish can't be reached
 
 # Alerts worth surfacing in a van. The dish returns many more; these are the
 # ones that mean "go outside and do something about it".
@@ -142,6 +143,14 @@ class StarlinkReading:
 
 _cache = StarlinkReading()
 _raw: dict[str, Any] = {}
+
+# Consecutive failed status polls, used to back off.
+#
+# Failing every 5s forever is the wrong default here: the Pi drops to the home
+# network regularly, and while it's there the dish is unreachable by
+# definition — so this failure mode is routine, not exceptional. Left at 5s it
+# writes roughly 17k warnings a day into journald on an SD card.
+_failures = 0
 
 # Single worker: the gRPC channel is not thread-safe, so every call has to
 # happen on the same thread.
@@ -247,11 +256,15 @@ def _build(data: dict[str, Any], power_w: float | None) -> StarlinkReading:
     )
 
 
-async def poll_status() -> None:
-    """One status RPC. Keeps the last good reading on failure."""
-    global _cache, _raw
+async def poll_status() -> bool:
+    """
+    One status RPC. Returns whether it succeeded, for backoff.
+
+    Keeps the last good reading on failure.
+    """
+    global _cache, _raw, _failures
     if starlink_grpc is None:
-        return
+        return False
     try:
         data = await _run_blocking(_blocking_status)
     except Exception as exc:
@@ -261,14 +274,25 @@ async def poll_status() -> None:
         # Keep the last good reading rather than blanking it. A single missed
         # poll shouldn't wipe the card; `reachable` already goes false on the
         # error, and `updated_at` is left alone so staleness still advances.
-        logger.warning("Starlink: status unreachable (%s)", exc)
+        #
+        # Only the first failure in a run is a warning. After that it's a
+        # known state being re-observed, not news.
+        if _failures == 0:
+            logger.warning("Starlink: status unreachable (%s)", exc)
+        else:
+            logger.debug("Starlink: still unreachable (%s)", exc)
+        _failures += 1
         _reset_context()
         _cache.error = str(exc)
-        return
+        return False
 
+    if _failures:
+        logger.info("Starlink: reachable again after %d failed polls", _failures)
+    _failures = 0
     _raw = data
     _cache = _build(data, _cache.power_w)
     logger.debug("Starlink: state=%s latency=%s", _cache.state, _cache.latency_ms)
+    return True
 
 
 async def poll_power() -> None:
@@ -318,6 +342,19 @@ async def warm_up() -> None:
         )
 
 
+def _next_delay() -> float:
+    """
+    5s while healthy; doubling up to MAX_BACKOFF while the dish is unreachable.
+
+    Recovery still happens within a minute, which is fine — an unreachable
+    dish is not something you need sub-minute notification of, and the common
+    cause (Pi on the home network) is visible on the card anyway.
+    """
+    if not _failures:
+        return STATUS_INTERVAL
+    return min(STATUS_INTERVAL * (2 ** min(_failures, 6)), MAX_BACKOFF)
+
+
 async def run() -> None:
     """Status on the dashboard cadence, power on a slower one."""
     if not settings.starlink_enabled:
@@ -330,19 +367,23 @@ async def run() -> None:
     logger.info("Starlink poll loop started (%s)", settings.starlink_target)
     await warm_up()
 
-    ticks = 0
+    elapsed = 0.0
+    last_power = -POWER_INTERVAL
     try:
         while True:
             try:
-                await poll_status()
-                if ticks % max(1, POWER_INTERVAL // STATUS_INTERVAL) == 0:
+                ok = await poll_status()
+                # No point asking for power stats we already know we can't get.
+                if ok and elapsed - last_power >= POWER_INTERVAL:
                     await poll_power()
+                    last_power = elapsed
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
                 logger.warning("Starlink poll error: %s", exc)
-            ticks += 1
-            await asyncio.sleep(STATUS_INTERVAL)
+            delay = _next_delay()
+            elapsed += delay
+            await asyncio.sleep(delay)
     finally:
         _reset_context()
         _executor.shutdown(wait=False)
