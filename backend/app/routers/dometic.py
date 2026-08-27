@@ -5,8 +5,8 @@ from app.services import dometic
 router = APIRouter()
 
 class FridgeData(BaseModel):
-    temp_c: float | None
-    set_temp_c: float | None
+    temp_f: float | None
+    set_temp_f: float | None
     battery_voltage: float | None
     cooler_on: bool | None
     door_open: bool | None
@@ -26,8 +26,8 @@ async def get_fridge():
     """
     r = dometic.get_latest()
     return FridgeData(
-        temp_c=r.temp_c,
-        set_temp_c=r.set_temp_c,
+        temp_f=r.temp_f,
+        set_temp_f=r.set_temp_f,
         battery_voltage=r.battery_voltage,
         cooler_on=r.cooler_on,
         door_open=r.door_open,

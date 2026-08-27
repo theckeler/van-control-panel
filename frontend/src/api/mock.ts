@@ -350,8 +350,8 @@ export const mockApi = {
 
   dometic: {
     get: (): Promise<DometicData> => delay({
-      temp_c: 4.2,
-      set_temp_c: 4.0,
+      temp_f: 39.6,
+      set_temp_f: 39.2,
       battery_voltage: 12.6,
       cooler_on: true,
       door_open: false,

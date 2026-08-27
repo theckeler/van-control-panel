@@ -42,15 +42,15 @@ export function FridgeCard({ className }: { className?: string }) {
               reachable ? "text-zinc-200" : "text-zinc-600",
             )}
           >
-            {reachable && fridge?.temp_c != null
-              ? `${fridge.temp_c.toFixed(1)}°C`
+            {reachable && fridge?.temp_f != null
+              ? `${fridge.temp_f.toFixed(1)}°F`
               : "—"}
           </div>
           <div className="text-xs font-mono text-zinc-600">
             {!reachable
               ? "Offline"
-              : fridge?.set_temp_c != null
-                ? `Set to ${fridge.set_temp_c.toFixed(1)}°C`
+              : fridge?.set_temp_f != null
+                ? `Set to ${fridge.set_temp_f.toFixed(1)}°F`
                 : "No set point"}
           </div>
           {reachable && fridge?.cooler_on != null && (

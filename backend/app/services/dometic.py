@@ -38,10 +38,22 @@ ENTITIES = {
 }
 
 
+def _c_to_f(celsius: float | None) -> float | None:
+    """
+    The fork has no temperature_unit config option (unlike the old vendored
+    component — checked, not assumed: its __init__.py CONFIG_SCHEMA has no
+    such key). The fridge always reports native Celsius over BLE, so F/C
+    conversion happens here rather than on the ESP32.
+    """
+    if celsius is None:
+        return None
+    return round(celsius * 9.0 / 5.0 + 32.0, 1)
+
+
 @dataclass
 class FridgeReading:
-    temp_c: float | None = None
-    set_temp_c: float | None = None
+    temp_f: float | None = None
+    set_temp_f: float | None = None
     battery_voltage: float | None = None
     cooler_on: bool | None = None
     door_open: bool | None = None
@@ -99,8 +111,8 @@ async def poll_once() -> bool:
         return False
 
     _cache = FridgeReading(
-        temp_c=values["temp_c"],
-        set_temp_c=values["set_temp_c"],
+        temp_f=_c_to_f(values["temp_c"]),
+        set_temp_f=_c_to_f(values["set_temp_c"]),
         battery_voltage=values["battery_voltage"],
         cooler_on=values["cooler_on"],
         door_open=values["door_open"],

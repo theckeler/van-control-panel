@@ -94,8 +94,8 @@ export interface StarlinkData {
 }
 
 export interface DometicData {
-  temp_c: number | null
-  set_temp_c: number | null
+  temp_f: number | null
+  set_temp_f: number | null
   battery_voltage: number | null
   cooler_on: boolean | null
   door_open: boolean | null
