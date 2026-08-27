@@ -16,6 +16,13 @@ import { Panel, StatusDot } from "./ui";
  * See backend/app/services/starlink.py and docs/starlink-status.md.
  */
 
+/**
+ * The Pi is on Starlink's LAN only when its IP is in 192.168.4.0/24.
+ * Starlink was renumbered off 192.168.1.0/24 in Aug 2026 precisely so the
+ * range would identify the network — this is that payoff.
+ */
+const STARLINK_LAN_PREFIX = "192.168.4.";
+
 const STATE_LABEL: Record<string, string> = {
   CONNECTED: "Connected",
   BOOTING: "Booting",
@@ -46,19 +53,31 @@ function uptime(seconds: number | null): string | null {
 
 export function StarlinkCard({ className }: { className?: string }) {
   const starlink = useVanStore((s) => s.starlink);
+  const system = useVanStore((s) => s.system);
 
   const online = !!starlink?.online;
   const reachable = !!starlink?.reachable;
+
+  // When the Pi falls back to the home network it is off Starlink's LAN
+  // entirely, so the dish is unreachable whether or not Starlink is working.
+  // Saying "dish unreachable" there would send you outside to check a dish
+  // that is fine. Null means we don't know the Pi's IP yet.
+  const onStarlinkLan = system?.wifi_ip
+    ? system.wifi_ip.startsWith(STARLINK_LAN_PREFIX)
+    : null;
 
   let primary = "—";
   let detail = "No data";
 
   if (starlink) {
     if (!reachable) {
-      primary = "Offline";
-      // Distinguish "we can't reach the dish" from "Starlink has no service".
-      // The former is nearly always the missing static route on first setup.
-      detail = starlink.error ? "Dish unreachable" : "No recent reading";
+      if (onStarlinkLan === false) {
+        primary = "Off network";
+        detail = system?.ssid ? `Pi is on ${system.ssid}` : "Pi is not on Starlink";
+      } else {
+        primary = "Offline";
+        detail = starlink.error ? "Dish unreachable" : "No recent reading";
+      }
     } else {
       primary = starlink.state
         ? (STATE_LABEL[starlink.state] ?? starlink.state)
