@@ -75,6 +75,24 @@ export interface EcoflowData {
   connected: boolean
 }
 
+export interface StarlinkData {
+  reachable: boolean
+  online: boolean
+  state: string | null
+  uptime_s: number | null
+  latency_ms: number | null
+  ping_drop_rate: number | null
+  downlink_bps: number | null
+  uplink_bps: number | null
+  fraction_obstructed: number | null
+  currently_obstructed: boolean | null
+  power_w: number | null
+  alerts: string[]
+  hardware_version: string | null
+  software_version: string | null
+  error: string | null
+}
+
 export interface ShoreData {
   connected: boolean
   charge_mode: string

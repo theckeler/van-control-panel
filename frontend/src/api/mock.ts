@@ -11,7 +11,7 @@
  */
 import type {
   BatteryData, MpptData, EcoflowData, ShoreData, OrionData,
-  ShellyUnit, Photo, ModeResponse, ModeName, SystemData,
+  ShellyUnit, Photo, ModeResponse, ModeName, SystemData, StarlinkData,
   RawReading, HourlyReading, DailyReading,
 } from '../types'
 
@@ -325,6 +325,26 @@ export const mockApi = {
       battery_percent: 13,
       serial: 'R613ZAB6XG1P0314',
       connected: true,
+    }),
+  },
+
+  starlink: {
+    get: (): Promise<StarlinkData> => delay({
+      reachable: true,
+      online: true,
+      state: 'CONNECTED',
+      uptime_s: 43200,
+      latency_ms: 38.4,
+      ping_drop_rate: 0,
+      downlink_bps: 84_000_000,
+      uplink_bps: 9_500_000,
+      fraction_obstructed: 0.0021,
+      currently_obstructed: false,
+      power_w: 27.4,
+      alerts: [],
+      hardware_version: 'mini',
+      software_version: 'demo',
+      error: null,
     }),
   },
 

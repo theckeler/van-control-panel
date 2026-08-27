@@ -1,6 +1,6 @@
 import type {
   BatteryData, MpptData, EcoflowData, ShoreData, OrionData,
-  ShellyUnit, Photo, ModeResponse, SystemData,
+  ShellyUnit, Photo, ModeResponse, SystemData, StarlinkData,
   RawReading, HourlyReading, DailyReading, PiHealth, WifiProfile, BackupStatus,
 } from '../types'
 import { mockApi } from './mock'
@@ -46,6 +46,9 @@ const realApi = {
   },
   ecoflow: {
     get: () => get<EcoflowData>('/ecoflow/'),
+  },
+  starlink: {
+    get: () => get<StarlinkData>('/starlink/'),
   },
   shore: {
     get: () => get<ShoreData>('/shore/'),

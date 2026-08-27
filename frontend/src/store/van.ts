@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type {
   BatteryData, MpptData, EcoflowData, ShoreData, OrionData,
-  ShellyUnit, SystemData, ModeResponse,
+  ShellyUnit, SystemData, ModeResponse, StarlinkData,
   RawReading, HourlyReading, DailyReading,
 } from '../types'
 import { api } from '../api/client'
@@ -29,6 +29,7 @@ interface VanStore {
   battery: BatteryData | null
   mppt: MpptData | null
   ecoflow: EcoflowData | null
+  starlink: StarlinkData | null
   shore: ShoreData | null
   orion: OrionData | null
   shellys: ShellyUnit[]
@@ -58,6 +59,7 @@ export const useVanStore = create<VanStore>((set, get) => ({
   battery: null,
   mppt: null,
   ecoflow: null,
+  starlink: null,
   shore: null,
   orion: null,
   shellys: [],
@@ -76,7 +78,7 @@ export const useVanStore = create<VanStore>((set, get) => ({
   fetchAll: async () => {
     set({ loading: true, error: null })
     try {
-      const [battery, mppt, ecoflow, shore, orion, shellys, system, mode] = await Promise.allSettled([
+      const [battery, mppt, ecoflow, shore, orion, shellys, system, mode, starlink] = await Promise.allSettled([
         api.battery.get(),
         api.mppt.get(),
         api.ecoflow.get(),
@@ -85,6 +87,10 @@ export const useVanStore = create<VanStore>((set, get) => ({
         api.shelly.getAll(),
         api.system.get(),
         api.mode.current(),
+        // Starlink is a second slow endpoint alongside Shelly — a gRPC call
+        // that can take up to 10s when the dish is unplugged. allSettled is
+        // what keeps that from stalling the other eight.
+        api.starlink.get(),
       ])
 
       set({
@@ -96,6 +102,7 @@ export const useVanStore = create<VanStore>((set, get) => ({
         shellys: shellys.status === 'fulfilled' ? shellys.value : get().shellys,
         system: system.status === 'fulfilled' ? system.value : get().system,
         mode: mode.status === 'fulfilled' ? mode.value : get().mode,
+        starlink: starlink.status === 'fulfilled' ? starlink.value : get().starlink,
         loading: false,
         lastUpdated: new Date(),
       })

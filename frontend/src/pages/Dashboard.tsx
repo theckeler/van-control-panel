@@ -8,6 +8,7 @@ import { HistoryCard } from "../components/HistoryCard";
 import { PowerModal } from "../components/PowerModal";
 import { SettingsDrawer } from "../components/SettingsDrawer";
 import { ShellyPanel } from "../components/ShellyPanel";
+import { StarlinkCard } from "../components/StarlinkCard";
 import { Toaster } from "../components/Toaster";
 import { WifiBadge } from "../components/WifiBadge";
 import { Button, Stack } from "../components/ui";
@@ -84,6 +85,7 @@ export function Dashboard() {
       <BatteryCard />
       <ChargeSourcesCard />
       <EcoflowCard />
+      <StarlinkCard />
       <HistoryCard />
       <Cameras />
       {/* <ModeSelector /> */}
