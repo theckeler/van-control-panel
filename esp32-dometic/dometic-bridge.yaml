@@ -118,11 +118,6 @@ sensor:
     type: BATTERY_VOLTAGE_LEVEL
     name: "Fridge Battery Voltage"
     id: fridge_battery_voltage
-  - platform: dometic_cfx_ble
-    dometic_cfx_ble_id: fridge_ble
-    type: COOLER_POWER
-    name: "Fridge Cooler Power"
-    id: fridge_cooler_power
 
 binary_sensor:
   - platform: dometic_cfx_ble
@@ -130,6 +125,14 @@ binary_sensor:
     type: COMPARTMENT_0_DOOR_OPEN
     name: "Fridge Door Open"
     id: fridge_door_open
+  # Was under sensor: — real DDM2 type is INT8_BOOLEAN, and
+  # decode_to_float_() has no case for booleans, so it silently returned
+  # null even while the fridge was running.
+  - platform: dometic_cfx_ble
+    dometic_cfx_ble_id: fridge_ble
+    type: COOLER_POWER
+    name: "Fridge Cooler Power"
+    id: fridge_cooler_power
 
 text_sensor:
   - platform: dometic_cfx_ble
