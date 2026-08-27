@@ -62,7 +62,7 @@ than one admitting the gaps.
 | **Shore power**         | Inferred from the BMS/MPPT current delta — no charger telemetry        |
 | **DC-DC charger**       | Orion-Tr 12/12-18 is non-smart. Static config only                     |
 | **Dometic CFX5 fridge** | BlueZ is incompatible with Dometic's BLE module. Needs an ESP32 bridge |
-| **Garmin PowerSwitch**  | Won't bond with anything but its own app                               |
+| **Garmin PowerSwitch**  | BlueZ can't connect. Protocol is undocumented — see 2026-08-27 review |
 | **Maxxfan relay**       | Tested and rejected — it defaults open on power loss                   |
 | **Applying modes**      | The selection persists, but nothing is driven by it yet                |
 

@@ -292,7 +292,23 @@ This also sidesteps the single-radio constraint for the PowerSwitch, and gives a
 
 Failed with both `connect` and `pair`, the latter returning `org.bluez.Error.ConnectionAttemptFailed`. Likely bonded to a Garmin head unit or the Garmin Drive app and refusing additional centrals. Protocol is proprietary with no public implementation found. Lower priority than the fridge and no clear path without a phone-side packet capture.
 
+> **Corrected 2026-08-27 — see `rubber-duck-review-2026-08-27.md`.** The
+> "refusing additional centrals" explanation above is almost certainly wrong.
+> Garmin documents that the PowerSwitch supports up to four simultaneous
+> controllers, and `le-connection-abort-by-local` is a local host-stack abort,
+> not a peripheral rejection. This is the same BlueZ incompatibility already
+> established for the Dometic, which means an ESP32 has a real chance of
+> connecting. The protocol being undocumented remains true and is now the
+> actual blocker.
+
 **Safety note for any future work:** the PowerSwitch controls the 52" light bar, KC SlimLite pair, and RGB rock lights. Enumeration and reads are safe. Blind writes to unknown characteristics can energise real exterior circuits and must be done deliberately with the lights in view.
+
+> **Corrected 2026-08-27.** That circuit list is incomplete in a way that
+> understates the risk. The PowerSwitch also controls **Starlink** and the
+> **EcoFlow charge toggle**. A blind write can therefore cut the van's
+> internet — and with it Tailscale, the dashboard, and any remote path back
+> in. Write experiments must be done in person, at the vehicle, never
+> remotely.
 
 ---
 

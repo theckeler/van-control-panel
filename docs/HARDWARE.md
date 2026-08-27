@@ -69,7 +69,7 @@ Replace `idVendor` and `idProduct` with your webcam's values from `lsusb`.
 | Item | Model | Rating |
 |---|---|---|
 | Fuse block | Blue Sea 5046 12-circuit | ATC blade fuses per circuit |
-| Switch controller | Garmin PowerSwitch | Starlink, EcoFlow, light bar, KC ditch lights |
+| Switch controller | Garmin PowerSwitch | Accessory lights, light bar, KC lights, Starlink, EcoFlow charge toggle |
 | Breaker/switch — MPPT | Blue Sea 285 series 7180 | 20A |
 | Breaker/switch — IP22 | Blue Sea 285 series 7180 | 20A |
 | Breaker/switch — fuse block | Blue Sea 285 series 7182 | 40A |
