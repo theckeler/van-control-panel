@@ -345,10 +345,19 @@ accepting a **3.3V to 18V** signal, each mappable in the app to any subset of
 the six output channels. Applying voltage activates the assigned outputs. No
 pairing, no protocol, no BLE.
 
-There is already a spare Shelly 1 Gen4 at `192.168.1.104`, and `shelly.py`
-already has the HTTP control pattern. Wiring the spare's NO contact from a
-fused 12V source to Control Input 1 gives van-api real control in roughly the
-time it takes to run the wire.
+There is already a spare Shelly 1 Gen4 (`spare.local`), and `shelly.py` already
+has the HTTP control pattern. Wiring its NO contact from a fused 12V source to
+a control input gives van-api real control in roughly the time it takes to run
+the wire.
+
+**Superseded in detail — see `powerswitch-control-input.md`.** Written before
+the as-built wiring was established, this section originally suggested Control
+Input 1. That input is **already occupied** by the van's own ignition sense,
+tapped under the seat through the signal busbar. Control 2 is the free one, and
+it is currently earmarked for the dome-light tap, so anything else sharing it
+needs the diode-OR arrangement described in that doc. Note also that fixed IPs
+stopped being meaningful after the Aug 2026 Starlink renumber — Shellys are
+addressed by `.local` hostname.
 
 The limitation is honest: two inputs means two groups, not six independent
 channels. Whether that is sufficient depends entirely on the use case. It also
