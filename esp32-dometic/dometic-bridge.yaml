@@ -37,15 +37,40 @@ esp32_ble_tracker:
     window: 30ms
     active: true
 
-# Vendored, not github:// — the upstream targets CFX3 (service UUID 537a03xx).
-# Patched locally to 537a04xx after confirming that block on a real CFX5 via
-# BLE scan + hcidump. See components/dometic_cfx_ble/dometic_cfx_ble.cpp for
-# the full story, including what's confirmed vs. extrapolated.
+# Switched 2026-08-27 from the locally-vendored CFX3 component to the CFX5
+# fork. See docs/rubber-duck-review-2026-08-27.md for the full reasoning.
+#
+# Short version: 537a03xx and 537a04xx are not the same protocol at different
+# addresses, they are different generations. 537a03xx is DDM1 (CFX3);
+# 537a04xx is DDM2 (CFX5/CFX2, firmware IDs MC1/MC2/MC3). Our fridge
+# advertises MC1_8d87f4, so it is DDM2. The vendored component patched the
+# UUIDs correctly but still spoke DDM1 opcodes (PUB 0x00 / SUB 0x01 / PING
+# 0x02) and one-byte values, where DDM2 uses PUB 0x10 / SET 0x11 / SUB 0x12
+# and 32-bit little-endian values. The subscribe frame we were writing was
+# never going to be parsed — which also explains why product_type made no
+# difference: it was a field inside a frame the fridge ignored.
+#
+# The second blocker is bonding. The CFX never sends a Security Request and
+# never returns an ATT auth error; it silently accepts unencrypted writes and
+# simply declines to notify. The central has to initiate encryption
+# unprompted, ~270ms after connect, which nothing here was doing. This fork
+# handles both DDM2 and bonding.
+#
+# UNVALIDATED AS COMMITTED: this has not been flashed yet. On first run,
+# check the fork's README — the config keys and sensor `type:` names below
+# come from the old component's schema and may need renaming. Put the fridge
+# into Bluetooth PAIR mode before the first flash; the initial bond requires
+# it. The bond lives in NVS, so a reflash or NVS erase means PAIR mode again.
+#
+# The old vendored copy is still in components/ (untracked) as a fallback.
 external_components:
-  - source:
-      type: local
-      path: components
+  - source: github://philippe-a11y/esphome-dometic-cfx5
     components: [dometic_cfx_ble]
+
+esp32_ble:
+  io_capability: none # Just Works — matches what the phone app presents.
+    # This is already the ESPHome default; it is set explicitly so a future
+    # reader doesn't "fix" it, since bonding depends on it.
 
 ble_client:
   - mac_address: "88:13:BF:8D:87:F6" # Replace with your Dometic fridge MAC address
@@ -58,23 +83,16 @@ dometic_cfx_ble:
                     # semantically correct choice.
                     #
                     # All three product types (SZ, SZI, DZ) were tested
-                    # 2026-08-27 with identical results: connects, discovers
-                    # both characteristics, registers for notifications, and
-                    # successfully writes the subscribe payload at the BLE
-                    # layer (ESP_GATTC_WRITE_CHAR_EVT x3 every time) — then
-                    # zero RX frames, ever, on any of them. Confirmed the
-                    # payload's product-type byte does change correctly per
-                    # value (01/02/03), so the write itself is not the
-                    # problem.
+                    # 2026-08-27 against the old DDM1 component with identical
+                    # results: connects, discovers both characteristics,
+                    # registers for notifications, writes the subscribe payload
+                    # successfully at the BLE layer (ESP_GATTC_WRITE_CHAR_EVT
+                    # x3 every time) — then zero RX frames, ever.
                     #
-                    # That pattern rules out "wrong product_type" and points
-                    # toward the fridge requiring real bonding/pairing before
-                    # it trusts a peer enough to send data. This client's
-                    # IO Capability is "none" — no pairing is attempted at
-                    # all, just an open, unauthenticated GATT connection.
-                    # Adding real BLE bonding would be genuine new C++ work
-                    # in the vendored component, a separate project from
-                    # this debugging session.
+                    # That experiment correctly ruled out product_type. It is
+                    # now understood to have been testing a field inside a
+                    # DDM1 frame the fridge never parsed, on an unencrypted
+                    # link it would not have answered anyway.
 
 # ESPHome's built-in JSON API — GET /sensor/<id>, /binary_sensor/<id>,
 # /text_sensor/<id> each return JSON. van-api polls these exactly like it
