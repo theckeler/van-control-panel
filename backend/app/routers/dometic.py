@@ -12,6 +12,7 @@ class FridgeData(BaseModel):
     door_open: bool | None
     power_source: str | None
     reachable: bool
+    last_seen: str | None
 
 @router.get("/", response_model=FridgeData)
 async def get_fridge():
@@ -33,4 +34,5 @@ async def get_fridge():
         door_open=r.door_open,
         power_source=r.power_source,
         reachable=r.reachable,
+        last_seen=r.updated_at.isoformat() if r.updated_at else None,
     )

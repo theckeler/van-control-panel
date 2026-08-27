@@ -357,6 +357,7 @@ export const mockApi = {
       door_open: false,
       power_source: 'DC',
       reachable: true,
+      last_seen: new Date().toISOString(),
     }),
   },
 

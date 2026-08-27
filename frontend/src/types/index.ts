@@ -101,6 +101,7 @@ export interface DometicData {
   door_open: boolean | null
   power_source: string | null
   reachable: boolean
+  last_seen: string | null
 }
 
 export interface ShoreData {
