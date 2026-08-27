@@ -285,7 +285,12 @@ rollback that it stopped being worth the speed. One branch per complete piece
 of work — not per fragment, not bundled across unrelated fixes.
 
 1. `git checkout main && git pull` — start clean.
-2. `git checkout -b <descriptive-name>` — one branch per logical unit of work.
+2. `git checkout -b <descriptive-name>` — one branch per logical unit of
+   work. **Called a "PR" in conversation**, not "session" or "build" — those
+   imply something bigger and vaguer than what these actually are. Branch
+   names are short, kebab-case, verb-first: `fix-fridge-write-control`,
+   `add-camera-light-toggle`, `docs-x`. Matches the placeholder already in
+   the "Git: start branch" VS Code task.
 3. Do the work.
    - **Backend/frontend:** test locally against real hardware, using the
      "Dev: full stack (local backend)" VS Code task — never overwrite what's
