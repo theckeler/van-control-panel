@@ -2,7 +2,7 @@
 
 Context file for Claude Code. Gives full project context so sessions don't require re-explaining the architecture.
 
-**Jump to:** [Quick Start](#quick-start) · [Recovery](#recovery) · [Auth](#auth) ·
+**Jump to:** [Quick Start](#quick-start) · [Workflow](#workflow) · [Recovery](#recovery) · [Auth](#auth) ·
 [Networking](#networking) · [Known Limitations / TODOs](#known-limitations--todos)
 
 Rebuilding the Pi from scratch: **[SETUP.md](SETUP.md)**.
@@ -275,6 +275,41 @@ cd frontend && VAN_API_TARGET=http://localhost:8000 npm run dev
 # backend
 cd backend && .venv/bin/uvicorn app.main:app --reload --port 8000
 ```
+
+---
+
+## Workflow
+
+Established 2026-08-27, after enough direct-to-`main` pushes needed manual
+rollback that it stopped being worth the speed. One branch per complete piece
+of work — not per fragment, not bundled across unrelated fixes.
+
+1. `git checkout main && git pull` — start clean.
+2. `git checkout -b <descriptive-name>` — one branch per logical unit of work.
+3. Do the work.
+   - **Backend/frontend:** test locally against real hardware, using the
+     "Dev: full stack (local backend)" VS Code task — never overwrite what's
+     actually running on the Pi's `van-api`/`van-frontend` services mid-task.
+   - **ESP32 firmware:** there is no separate "dev" build of a physical
+     board — flashing *is* the test. Live hardware iteration happens freely
+     during the branch; this is expected, not a workflow violation.
+4. Confirm a clean build (`npm run build`, `py_compile`) and real behavior
+   before opening anything.
+5. Push the branch, open a real PR with `gh pr create` (installed and
+   authenticated — confirmed, not assumed). Never push directly to `main`.
+6. **The person merges, not Claude.** Wait for review.
+7. After merge: deploy to the Pi and do one live pass to confirm it actually
+   works in production, not just in dev. Prefer a manual deploy
+   (`git fetch && git reset --hard origin/main`, restart the relevant
+   service) over trusting the self-hosted CI/CD runner to fire — it has
+   repeatedly missed pushes this project, silently, which is a separate,
+   still-open problem this workflow does not fix on its own. See the
+   "deploy did not happen" line in Recovery below.
+
+A PR gate fixes a different problem than flaky deploys: it's a review
+checkpoint before merge, not a guarantee the runner behaves after it. Worth
+keeping those two problems mentally separate rather than assuming one solves
+the other.
 
 ---
 
@@ -611,6 +646,37 @@ Applied and verified: `iwconfig wlan0` reports `Power Management:off`.
   cycle) — looks like normal resource contention on a small board juggling
   WiFi, BLE, and its own HTTP server at once. Not investigated further;
   `dometic.py` already tolerates it (per-field failure, not all-or-nothing).
+  Backend (`services/dometic.py`, `/dometic/`) and `FridgeCard.tsx` are live
+  and confirmed pulling real data through the full pipeline, not just off the
+  ESP32 directly. Fields are Fahrenheit (`temp_f`/`set_temp_f`) — the fork has
+  no `temperature_unit` config option (checked its `__init__.py`, unlike the
+  old vendored component), so conversion happens once in `dometic.py`, the
+  one place that touches the raw BLE-derived Celsius value.
+
+  `FridgeCard.tsx` mirrors `BatteryCard`'s last-known-value pattern rather
+  than blanking on every brief disconnect: shows the last reading, dimmed,
+  with a `last_seen` age. A single ESP32 juggling BLE, WiFi and its own HTTP
+  server hits brief hiccups often enough that blanking on every one made the
+  card feel far less reliable than the underlying data actually was.
+
+  **Fixed 2026-08-27, later same day: WiFi priority.** ESPHome's
+  `wifi_component` supports an explicit per-network `priority:` (`-128..127`,
+  default `0`, higher tried first — checked the source, not list order as
+  first assumed). Starlink is now `priority: 1` over OHeck's default `0`.
+  Confirmed live: the board picked Starlink correctly on a fresh boot with
+  both networks visible. This makes *connection-time* selection
+  deterministic — it does not make the board proactively abandon an
+  already-working OHeck connection, same sticky-network behavior as
+  NetworkManager on the Pi before its own dispatcher fix. No ESP32-side
+  dispatcher exists yet; the Pi's own WiFi switch endpoint is still the
+  manual lever when the two drift apart.
+
+  **Not yet built:** writing to the fridge (set temperature, on/off). The
+  fork genuinely supports it — confirmed `ACTION_SET = 0x11` is the real
+  opcode, not stubbed, and `number.py` exists with min/max/step — but adding
+  a *write* control while the connection was actively unstable felt like the
+  wrong moment to add risk to a live, running fridge. Revisit once the
+  connection has been stable for a real stretch.
 - **EcoFlow River 2 Max** — live. Battery % decoded from an unencrypted byte
   in the BLE advertisement (manufacturer ID `0xB5B5`, offset 17, right after
   a 16-byte ASCII serial), confirmed against the unit's own screen. No
@@ -624,18 +690,22 @@ Applied and verified: `iwconfig wlan0` reports `Power Management:off`.
   is reachable two ways: the official cloud MQTT API (richest, but internet
   required) or local BLE GATT via `rabits/ha-ef-ble`, which explicitly
   supports our `R613` serial and works fully offline. Offline path preferred.
-- **Starlink Mini** — built 2026-08-27, **untested against the dish**. Status
-  read from the dish's own unauthenticated gRPC server at
-  `192.168.100.1:9200` — fully local, works with no internet, which is the
-  point. `services/starlink.py`, `/starlink/` and `/starlink/raw`,
-  `StarlinkCard.tsx`. See `starlink-status.md`.
-  - **Blocked on a static route.** The dish subnet is not reachable from the
-    van LAN by default: `sudo ip route add 192.168.100.0/24 via 192.168.4.1
-    dev wlan0`. Without it every call fails as a generic gRPC `UNAVAILABLE`
-    that reads like a library bug rather than a routing one. `ping
-    192.168.100.1` settles it. **Do the route before merging** — pushing to
-    `main` deploys to the Pi, so merging early puts a failing poll loop on the
-    live van.
+  Not pursued further — needs a real user-ID retrieval step (safely, via the
+  person's own browser session, not a third-party credential-collecting
+  tool) before it's worth scoping as its own project.
+- **Starlink Mini — validated live, 2026-08-27.** Was "untested against the
+  dish"; no longer. Static route added
+  (`sudo ip route add 192.168.100.0/24 via 192.168.4.1 dev wlan0`), and
+  `/starlink/` returned real telemetry: `state: CONNECTED`, 34ms latency,
+  12.3% obstruction, and — genuinely useful — `power_w: 18.6`, a measured
+  draw that directly replaces the hardcoded 22W guess in `system.py`'s
+  `ALWAYS_ON_WATTS` (see the load-estimation TODO above). **Route is not yet
+  persisted** — it only exists in the live kernel routing table right now and
+  will not survive a reboot. The service's own docstring says to add it to
+  `/etc/dhcpcd.conf`; not done yet. Reads from the dish's own unauthenticated
+  gRPC server at `192.168.100.1:9200` — fully local, no internet needed.
+  `services/starlink.py`, `/starlink/` and `/starlink/raw`, `StarlinkCard.tsx`.
+  See `starlink-status.md`.
   - Status polls back off 5s → 10 → 20 → 40 → 60 while unreachable, resetting
     on first success, and only the first failure logs at warning. An
     unreachable dish is routine here rather than exceptional — the Pi sits on
