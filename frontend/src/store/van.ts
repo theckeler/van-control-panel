@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type {
   BatteryData, MpptData, EcoflowData, ShoreData, OrionData,
-  ShellyUnit, SystemData, ModeResponse, StarlinkData,
+  ShellyUnit, SystemData, ModeResponse, StarlinkData, DometicData,
   RawReading, HourlyReading, DailyReading,
 } from '../types'
 import { api } from '../api/client'
@@ -30,6 +30,7 @@ interface VanStore {
   mppt: MpptData | null
   ecoflow: EcoflowData | null
   starlink: StarlinkData | null
+  dometic: DometicData | null
   shore: ShoreData | null
   orion: OrionData | null
   shellys: ShellyUnit[]
@@ -60,6 +61,7 @@ export const useVanStore = create<VanStore>((set, get) => ({
   mppt: null,
   ecoflow: null,
   starlink: null,
+  dometic: null,
   shore: null,
   orion: null,
   shellys: [],
@@ -78,7 +80,7 @@ export const useVanStore = create<VanStore>((set, get) => ({
   fetchAll: async () => {
     set({ loading: true, error: null })
     try {
-      const [battery, mppt, ecoflow, shore, orion, shellys, system, mode, starlink] = await Promise.allSettled([
+      const [battery, mppt, ecoflow, shore, orion, shellys, system, mode, starlink, dometic] = await Promise.allSettled([
         api.battery.get(),
         api.mppt.get(),
         api.ecoflow.get(),
@@ -91,18 +93,20 @@ export const useVanStore = create<VanStore>((set, get) => ({
         // that can take up to 10s when the dish is unplugged. allSettled is
         // what keeps that from stalling the other eight.
         api.starlink.get(),
+        api.dometic.get(),
       ])
 
       set({
         battery: battery.status === 'fulfilled' ? battery.value : get().battery,
         mppt: mppt.status === 'fulfilled' ? mppt.value : get().mppt,
         ecoflow: ecoflow.status === 'fulfilled' ? ecoflow.value : get().ecoflow,
+        starlink: starlink.status === 'fulfilled' ? starlink.value : get().starlink,
+        dometic: dometic.status === 'fulfilled' ? dometic.value : get().dometic,
         shore: shore.status === 'fulfilled' ? shore.value : get().shore,
         orion: orion.status === 'fulfilled' ? orion.value : get().orion,
         shellys: shellys.status === 'fulfilled' ? shellys.value : get().shellys,
         system: system.status === 'fulfilled' ? system.value : get().system,
         mode: mode.status === 'fulfilled' ? mode.value : get().mode,
-        starlink: starlink.status === 'fulfilled' ? starlink.value : get().starlink,
         loading: false,
         lastUpdated: new Date(),
       })

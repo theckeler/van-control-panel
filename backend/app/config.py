@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     starlink_target: str = "192.168.100.1:9200"
     starlink_enabled: bool = True
 
+    # Dometic CFX535 fridge bridge — ESP32-S3 running the philippe-a11y
+    # DDM2+bonding fork, exposing ESPHome's web_server v3 JSON API locally.
+    # Same trust model as the Shellys: no auth, LAN-only.
+    dometic_bridge_host: str = "dometic-bridge.local"
+
     # Optional API key — if set, all endpoints require X-API-Key header
     van_api_key: str = ""
 

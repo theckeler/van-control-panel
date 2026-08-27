@@ -4,6 +4,7 @@ import { BatteryCard } from "../components/BatteryCard";
 import { Cameras } from "../components/Cameras";
 import { ChargeSourcesCard } from "../components/ChargeSourcesCard";
 import { EcoflowCard } from "../components/EcoflowCard";
+import { FridgeCard } from "../components/FridgeCard";
 import { HistoryCard } from "../components/HistoryCard";
 import { PowerModal } from "../components/PowerModal";
 import { SettingsDrawer } from "../components/SettingsDrawer";
@@ -85,6 +86,7 @@ export function Dashboard() {
       <BatteryCard />
       <ChargeSourcesCard />
       <EcoflowCard />
+      <FridgeCard />
       <StarlinkCard />
       <HistoryCard />
       <Cameras />

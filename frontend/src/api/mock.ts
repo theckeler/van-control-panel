@@ -11,7 +11,7 @@
  */
 import type {
   BatteryData, MpptData, EcoflowData, ShoreData, OrionData,
-  ShellyUnit, Photo, ModeResponse, ModeName, SystemData, StarlinkData,
+  ShellyUnit, Photo, ModeResponse, ModeName, SystemData, StarlinkData, DometicData,
   RawReading, HourlyReading, DailyReading,
 } from '../types'
 
@@ -345,6 +345,18 @@ export const mockApi = {
       hardware_version: 'mini',
       software_version: 'demo',
       error: null,
+    }),
+  },
+
+  dometic: {
+    get: (): Promise<DometicData> => delay({
+      temp_c: 4.2,
+      set_temp_c: 4.0,
+      battery_voltage: 12.6,
+      cooler_power_w: 45,
+      door_open: false,
+      power_source: 'DC',
+      reachable: true,
     }),
   },
 

@@ -1,5 +1,5 @@
 import type {
-  BatteryData, MpptData, EcoflowData, ShoreData, OrionData,
+  BatteryData, MpptData, EcoflowData, ShoreData, OrionData, DometicData,
   ShellyUnit, Photo, ModeResponse, SystemData, StarlinkData,
   RawReading, HourlyReading, DailyReading, PiHealth, WifiProfile, BackupStatus,
 } from '../types'
@@ -49,6 +49,9 @@ const realApi = {
   },
   starlink: {
     get: () => get<StarlinkData>('/starlink/'),
+  },
+  dometic: {
+    get: () => get<DometicData>('/dometic/'),
   },
   shore: {
     get: () => get<ShoreData>('/shore/'),
