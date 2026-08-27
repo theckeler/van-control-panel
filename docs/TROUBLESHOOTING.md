@@ -14,6 +14,18 @@ Common issues and their fixes for the Van Control Panel system.
 ### Cause
 The Power Queen BMS firmware has a lockout mechanism. If too many rapid BLE connection attempts are made in a short period, the BMS enters a state where it advertises normally but rejects (or ignores) all incoming connections. This is most commonly triggered by repeated `van-api` restarts during development.
 
+**Observed variant, 2026-08-27: not advertising at all, not just refusing
+connections.** After an unusually heavy stretch of development — many
+`van-api` restarts across deploys, manual syncs, and WiFi switching in one
+long session — the BMS went offline with `BMS: Device ... was not found`,
+not the usual "found but rejected." Confirmed via direct `bluetoothctl`
+scans (12s and 25s, both zero packets) that it had stopped broadcasting
+entirely, not just declining connections. Plausible, not proven: the
+correlation with heavy restart activity matches the documented mechanism
+closely enough to be worth recording, but this wasn't a controlled test —
+treat it as a likely more-severe form of the same lockout rather than a
+confirmed separate cause. Same fix applies (physical power cycle below).
+
 ### Fix — Physical power cycle (most reliable)
 
 **Important:** The Pi runs off the house battery. Shut it down gracefully before cutting power.
@@ -44,6 +56,10 @@ If you don't want to power cycle, open the Power Queen app on your phone, let it
 - Do not restart `van-api` repeatedly in quick succession
 - In normal operation the persistent connection holds for days
 - The 5-minute reconnect cooldown (`RECONNECT_IN = 300` in `battery_ble.py`) prevents hammering
+- A long, heavy development session (many deploys, manual syncs, WiFi
+  switching) adds up to exactly this pattern even when no single restart
+  seems excessive. If the BMS goes quiet partway through a long session,
+  it's worth suspecting cumulative restart load before anything else.
 
 ---
 
