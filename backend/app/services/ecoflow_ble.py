@@ -1,5 +1,5 @@
 """
-EcoFlow River 2 Max — BLE service (one-shot passive scan, decoded manually)
+EcoFlow River 2 Max — BLE service (one-shot scan, decoded manually)
 
 Unlike Victron, this doesn't use the victron-ble library or any decryption —
 the battery percentage is a plain, unencrypted byte in the manufacturer data,
@@ -13,9 +13,22 @@ company ID already stripped by bleak):
     [0]      0x13         constant marker/type byte, meaning unknown
     [1:17]   ASCII         16-byte device serial, e.g. "R613ZAB6XG1P0314"
     [17]     uint8         battery percentage (confirmed against real display)
-    [18:24]  ??            unknown — possibly watts in/out or status flags,
-                            not decoded; needs the same live-comparison method
-                            to pin down safely rather than guessing
+    [18:24]  constant      NOT undecoded data — independently measured on two
+                            River 2 units and confirmed constant across
+                            sessions, with the final byte varying between units
+                            (most likely a checksum). Watts, charge state and
+                            remaining time are NOT in the advertisement at all.
+
+Battery percent is therefore the ceiling for passive scanning, permanently.
+Everything else requires an authenticated GATT session (see
+docs/rubber-duck-review-2026-08-27.md for the two viable paths). Don't spend
+another evening capturing advertisements hoping for more.
+
+Note on scanning mode: this is an active scan, which is bleak's default —
+BleakScanner transmits scan requests. Passive scanning on BlueZ requires
+or_patterns and changes discovery reliability, so it's a deliberate open
+question rather than a one-word change. Relevant because the Pi shares 2.4GHz
+with its own BMS connection and the ESP32 bridge.
 """
 import asyncio
 import logging
@@ -81,7 +94,7 @@ def _parse(payload: bytes) -> EcoflowReading | None:
 
 
 async def poll_once(timeout: float = 10.0):
-    """Passive scan for one EcoFlow advertisement then stop."""
+    """Scan for one EcoFlow advertisement then stop. Active scan (bleak default)."""
     if not settings.ecoflow_mac:
         logger.warning("ECOFLOW_MAC not set — skipping EcoFlow poll")
         return
