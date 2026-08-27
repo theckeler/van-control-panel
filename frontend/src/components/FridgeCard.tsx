@@ -53,6 +53,16 @@ export function FridgeCard({ className }: { className?: string }) {
                 ? `Set to ${fridge.set_temp_c.toFixed(1)}°C`
                 : "No set point"}
           </div>
+          {reachable && fridge?.cooler_on != null && (
+            <div
+              className={clsx(
+                "text-xs font-mono",
+                fridge.cooler_on ? "text-charge-dc" : "text-zinc-600",
+              )}
+            >
+              {fridge.cooler_on ? "compressor running" : "idle"}
+            </div>
+          )}
           {reachable && doorOpen && (
             <div className="text-xs font-mono text-amber-600">door open</div>
           )}

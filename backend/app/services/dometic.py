@@ -28,7 +28,11 @@ ENTITIES = {
     "temp_c": ("sensor", "Fridge Temperature"),
     "set_temp_c": ("sensor", "Fridge Set Temperature"),
     "battery_voltage": ("sensor", "Fridge Battery Voltage"),
-    "cooler_power_w": ("sensor", "Fridge Cooler Power"),
+    # COOLER_POWER's real DDM2 type is INT8_BOOLEAN (compressor on/off), not
+    # a wattage — it lives under binary_sensor: on the ESP32 side, not
+    # sensor:. Originally wired to the wrong domain, which meant this field
+    # silently returned null from the moment the fridge first connected.
+    "cooler_on": ("binary_sensor", "Fridge Cooler Power"),
     "door_open": ("binary_sensor", "Fridge Door Open"),
     "power_source": ("text_sensor", "Fridge Power Source"),
 }
@@ -39,7 +43,7 @@ class FridgeReading:
     temp_c: float | None = None
     set_temp_c: float | None = None
     battery_voltage: float | None = None
-    cooler_power_w: float | None = None
+    cooler_on: bool | None = None
     door_open: bool | None = None
     power_source: str | None = None
     updated_at: datetime | None = None
@@ -98,7 +102,7 @@ async def poll_once() -> bool:
         temp_c=values["temp_c"],
         set_temp_c=values["set_temp_c"],
         battery_voltage=values["battery_voltage"],
-        cooler_power_w=values["cooler_power_w"],
+        cooler_on=values["cooler_on"],
         door_open=values["door_open"],
         power_source=values["power_source"],
         updated_at=datetime.now(timezone.utc),

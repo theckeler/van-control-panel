@@ -97,7 +97,7 @@ export interface DometicData {
   temp_c: number | null
   set_temp_c: number | null
   battery_voltage: number | null
-  cooler_power_w: number | null
+  cooler_on: boolean | null
   door_open: boolean | null
   power_source: string | null
   reachable: boolean

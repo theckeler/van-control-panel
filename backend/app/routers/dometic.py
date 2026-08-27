@@ -8,7 +8,7 @@ class FridgeData(BaseModel):
     temp_c: float | None
     set_temp_c: float | None
     battery_voltage: float | None
-    cooler_power_w: float | None
+    cooler_on: bool | None
     door_open: bool | None
     power_source: str | None
     reachable: bool
@@ -29,7 +29,7 @@ async def get_fridge():
         temp_c=r.temp_c,
         set_temp_c=r.set_temp_c,
         battery_voltage=r.battery_voltage,
-        cooler_power_w=r.cooler_power_w,
+        cooler_on=r.cooler_on,
         door_open=r.door_open,
         power_source=r.power_source,
         reachable=r.reachable,
