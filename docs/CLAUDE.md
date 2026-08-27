@@ -574,7 +574,31 @@ Applied and verified: `iwconfig wlan0` reports `Power Management:off`.
 - **Maxxfan and Ceiling Lights** Shellys not yet installed — show as `installed: false` in API
 - **`loads` breakdown in system.py is unconditional** — claims Starlink 22W and Fridge 40W regardless of actual state. Latent only: the frontend never reads it. See "system.py load estimation" below.
 - **Vercel demo build** — built and deployed. See "Vercel Demo Mode" below.
-- **Dometic CFX5 / Garmin PowerSwitch** — not reachable from the Pi. BlueZ is incompatible with Dometic's BLE module. Requires an ESP32 bridge. See `rubber-duck-review.md`.
+- **Dometic CFX5 fridge** — ESP32-S3 bridge exists (`esp32-dometic/`), BLE
+  connects reliably, and the CFX3-vs-CFX5 UUID gap is fixed and confirmed
+  (service `537a0400`, write `537a0401`, notify `537a0402`, all read directly
+  off the real hardware). Blocked on the next layer: full handshake succeeds
+  (connect → discover → register notify → write subscribe) but the fridge
+  never sends data back, on all three legal `product_type` values (SZ, SZI,
+  DZ) tested 2026-08-27 with identical results. Client `IO Capability: none`
+  — no BLE pairing/bonding is attempted at all, and the fridge most likely
+  requires it before trusting a peer with real data. Real bonding support is
+  new C++ work in the vendored component — a separate project. Full writeup
+  in `esp32-dometic/dometic-bridge.yaml`'s comments and `rubber-duck-review.md`.
+- **EcoFlow River 2 Max** — live. Battery % decoded from an unencrypted byte
+  in the BLE advertisement (manufacturer ID `0xB5B5`, offset 17, right after
+  a 16-byte ASCII serial), confirmed against the unit's own screen. No
+  connection, no auth, same passive-scan pattern as Victron. `services/
+  ecoflow_ble.py`, `/ecoflow/`, `EcoflowCard.tsx`. Only battery % — charging
+  state and watts live in EcoFlow's encrypted protocol, out of reach of
+  passive scanning. See the User ID / full-telemetry note below.
+- **Pi slowness while ESP32 plugged in** — likely root-caused and fixed
+  2026-08-27. The ESP32's BLE scanner was at 320ms/320ms (100% duty-cycle
+  active scanning, transmitting nonstop) plus `VERY_VERBOSE` logging left on
+  from debugging — both plausible sources of 2.4GHz contention with the Pi's
+  own BLE link to the BMS, sitting inches away in the same van. Scanner eased
+  to 1100ms/30ms, logger back to sane levels. Pi's load average and response
+  times looked healthy afterward; worth a longer-term check if it recurs.
 - **Seven API calls per poll cycle** — `fetchAll` hits battery, mppt, shore, orion, shelly, system and mode/current separately every 5s. A `/snapshot` endpoint was considered and **rejected after measuring**: six of the seven return in ~3ms, so collapsing them saves ~18ms of round trips, while a single blocking call would make the one slow endpoint (shelly) stall the whole dashboard. `Promise.allSettled` currently isolates it. Revisit only if the fast endpoints stop being fast.
 - **Mode persistence** — done. Persisted to `backend/mode.json`, written atomically. Note this saves the *selection* only; actually applying a mode (camera intervals, Shelly schedules) is still unimplemented.
 - **Shelly latency is ~200ms and variable, and that is the floor.** Both units
