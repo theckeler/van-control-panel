@@ -906,6 +906,55 @@ Tokens live in `tailwind.config.ts` and `index.css`. Colours are semantic
 (`charge.solar`, `soc.low`, `panel.surface`) and driven by CSS variables, so
 light/dark is a `data-theme` swap on `:root`. No raw hex in components.
 
+### Figma — redesign in progress, not yet built
+
+[Van Control Panel — Dashboard UI](https://www.figma.com/design/793FjJIPcg092uFJuGnVe6/Van-Control-Panel-%E2%80%94-Dashboard-UI)
+
+Discussed 2026-08-27. **The visual direction is a real, confirmed change** —
+light background, bold saturated colour (green for good/on, orange for
+off/warning), rounded corners, sans-serif. This is the actual target, not
+just how the mockup happened to get styled — a genuine departure from the
+dark-mode monospace terminal aesthetic currently built. Nothing has been
+re-themed yet; this is direction, not a merged change.
+
+The data underneath matches closely, which is a good sign the backend work
+was aimed correctly even before the frontend catches up: Battery
+(%/V/W/°F), Solar (`SOURCE`/W/state), EcoFlow (%), Starlink
+(latency/bandwidth/obstruction), CFX5 (°F/running) all correspond to real
+fields already live in the API.
+
+**Confirmed architectural principle, not just for this Figma:** components
+stay separate always. The design shows EcoFlow/Starlink/CFX5 sitting
+visually adjacent in one "Devices" panel — that's about layout proximity
+only. `EcoflowCard`, `StarlinkCard`, `FridgeCard` stay three separate
+components regardless of how close together they're rendered.
+
+**Confirmed, actionable:** the header's row of icon buttons (WiFi, Camera,
+Mode, Backup, Power) is not meant to consolidate into one settings drawer
+the way `SettingsDrawer.tsx` currently does — the intent is **separate
+drawers**, one per concern. Not built yet.
+
+**Still discussing, not yet actionable:**
+- A third Shelly switch button in the mockup ("Door Lights" in the visible
+  text, "Ceiling" as the layer name) — placeholder for now, not a confirmed
+  circuit. Likely connects to the door-sensor project already in Known
+  Limitations, but not confirmed.
+- Network status section in the mock only shows the current network + one
+  placeholder row. Real design needs figuring out what's actually available
+  to display per source (Solar/Shore/Orion) before it can be finished —
+  open question, not yet answered.
+
+### Still need (mockups, not code)
+
+- More offline-state mockups as new cards get designed. The pattern itself
+  is already confirmed correct: last-known values replace the live view
+  when a source goes offline, matching what's already built (`BatteryCard`,
+  `FridgeCard`).
+- Camera controls: the design shows five icons (two photo-library variants,
+  options, a light toggle, capture) against the single on/off toggle that
+  exists today. Aspirational, wanted eventually, not committed to a
+  timeline.
+
 Primitives are in `src/components/ui/`:
 
 | Primitive | Purpose |
@@ -984,11 +1033,17 @@ Set `VITE_DEMO=true` in Vercel's environment variables. The Pi build never sets 
 
 **Deploy workflow uses `git reset --hard`.** Not `git pull`. The Pi may have locally modified files from rsync sessions during development.
 
-**Prompt before committing.** Always stage files, show the diff summary, and ask before committing or pushing.
+**Follow the Workflow section above.** Branch per unit of work, PR via `gh`,
+the person merges — not a direct push to `main`. Superseded 2026-08-27; this
+line used to say "prompt before committing, always ask before pushing,"
+which described the old direct-to-`main` process. Committing to a feature
+branch needs no permission each time — it's expected, reversible work. The
+real gate moved to the PR/merge step.
 
-**Push deploys to the Pi.** The self-hosted runner picks up every push to
-`main`. There is no staging environment — a push to `backend/**` restarts
-`van-api` on the live van. Verify backend changes locally first.
+**Push to `main` deploys to the Pi.** The self-hosted runner picks up every
+push to `main` — there is no separate staging *environment*, though the
+branch/PR is now effectively a staging *step* before anything reaches the
+van. Verify backend changes locally first regardless.
 
 **Check whether duplication is real before extracting it.** Grepping for
 repeated class strings found six copies of the card surface, but five of them
