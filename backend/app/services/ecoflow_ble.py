@@ -19,7 +19,7 @@ company ID already stripped by bleak):
 """
 import asyncio
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from bleak import BleakScanner
@@ -38,10 +38,12 @@ STALE_AFTER = 180  # EcoFlow advertises far less often than Victron
 class EcoflowReading:
     battery_percent: int | None = None
     serial: str | None = None
-    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime | None = None
 
     @property
     def is_stale(self) -> bool:
+        if self.updated_at is None:
+            return True
         return (datetime.now(timezone.utc) - self.updated_at).total_seconds() > STALE_AFTER
 
     @property
@@ -71,7 +73,11 @@ def _parse(payload: bytes) -> EcoflowReading | None:
         logger.warning("EcoFlow battery byte out of range: %d — layout may have changed", battery)
         return None
 
-    return EcoflowReading(battery_percent=battery, serial=serial)
+    return EcoflowReading(
+        battery_percent=battery,
+        serial=serial,
+        updated_at=datetime.now(timezone.utc),
+    )
 
 
 async def poll_once(timeout: float = 10.0):
