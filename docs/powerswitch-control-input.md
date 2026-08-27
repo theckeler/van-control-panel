@@ -42,10 +42,54 @@ subset of the six output channels.
 
 | Input | Purpose | Source | Status |
 |---|---|---|---|
-| Control 1 | Van start / ignition sense | Vehicle ignition-switched 12V | Planned, not wired |
-| Control 2 | Door-open project | TBD — see below | Planned, not wired |
+| Control 1 | Van start / ignition sense | Ignition-switched 12V, under-seat tap via signal busbar | Wired |
+| Control 2 | Door-open project | Dome light circuit | Planned |
 
-Nothing is connected to either input today.
+### The under-seat signal busbar
+
+A fused line runs from an under-seat connection to a small busbar, which feeds
+two destinations:
+
+- the Orion-Tr's **remote on/off terminal** (not its main input)
+- the PowerSwitch **Control Input 1**
+
+Both therefore come up when the van is running.
+
+**The topology is correct.** This is one source fanning out to two
+destinations, which needs no diode isolation — the diode-OR pattern described
+below applies only in the reverse case, where several *sources* drive a single
+input. Nothing here carries load current: the Orion-Tr's real input remains its
+own 8AWG/30A feed, and the PowerSwitch's heavy supply remains its own direct
+battery feed.
+
+**The fuse is the thing to check.** Recollection is roughly 12AWG wire on a
+40A or 20A fuse. If that is accurate, it is oversized on both counts:
+
+- *Against the load* — this line drives two high-impedance signal inputs
+  drawing milliamps. Nothing on it will ever pull an amp.
+- *Against the wire* — a fuse protects the conductor, not the device. 12AWG in
+  this kind of run is generally treated as good for ~20–25A. A 40A fuse on it
+  means a chafed-through wire can pass 40A and heat the insulation without the
+  fuse ever clearing, which is the failure mode fuses exist to prevent.
+
+**Suggested change:** confirm the actual fuse rating, and if it is above about
+5A, drop it to 5A (or 3A). Nothing on this circuit needs more, and a smaller
+fuse clears a fault far sooner. The 12AWG itself is oversized for a signal run
+but harmless — mechanically robust and negligible volt-drop, which is fine.
+
+**Label the busbar.** This is the less obvious risk. A busbar fed by 12AWG on a
+large fuse *looks* like a power distribution point. Someone later — including
+the person who built it — could reasonably tap it for a real load, and it is
+not built for that. A physical label reading something like "SIGNAL ONLY — mA,
+no loads" removes that possibility permanently and costs nothing.
+
+### Interaction with the override question
+
+With Control 1 on ignition, every channel assigned to it is forced on whenever
+the van is running. If the override behaviour described below is real, those
+channels may also be un-switchable from the app while the engine runs. Decide
+channel assignment with that in mind — for Starlink that might be exactly the
+desired behaviour, but it should be a decision rather than a surprise.
 
 ---
 
@@ -122,28 +166,54 @@ control input until it is settled.
 
 ---
 
-## A trap specific to the door-open project
+## The door-open project: dome light tap
 
-Most vehicle door pin switches are **ground-switching**: the switch connects
-the circuit to chassis ground when the door opens, rather than supplying 12V.
+The plan is **not** to use door pin switches. Instead, tap the existing dome
+light circuit: doors open, the interior lamp comes on, and that same signal
+drives Control Input 2.
 
-The PowerSwitch control input wants **voltage present** to activate. A
-ground-switching door pin wired directly to it will do nothing, or will read
-backwards from what is intended.
+This is a better starting point than a door pin, because a lamp circuit is
+already a switched 12V source rather than a bare switch contact. But it needs
+the same verification, because on a VS30 the interior lighting is driven by
+the body computer and two behaviours are common:
 
-Before wiring anything, measure the actual door switch behaviour with a
-multimeter:
+- **Ground-side switching.** The lamp sits at a constant +12V and the SAM
+  switches the *ground* side. If yours is wired this way, tapping the hot side
+  gives permanent 12V — the channel would simply be on always — and the
+  switched side is a ground path, which will not drive a voltage-high input at
+  all. This is the same trap as a door pin, just relocated.
+- **Soft fade.** VS30 dome lamps typically ramp on and off rather than
+  switching hard. A voltage ramping slowly through the input's ~3.3V threshold
+  could produce brief chatter at each transition. Probably harmless, but worth
+  observing rather than discovering later.
 
-- Probe between the switch output and ground, with the door open and closed.
-- If the output reads ~12V with the door open, it is voltage-switching and can
-  drive the input through a diode directly.
-- If it reads continuity to ground with the door open, it is ground-switching
-  and needs conversion — a small automotive relay, or the Shelly's `SW`
-  terminal used as the sense input with the relay output driving the
-  PowerSwitch.
+**Measure before wiring.** At the dome circuit, with a multimeter:
 
-The Shelly approach has the advantage of putting the door state on the network
-at the same time, which is likely wanted for the dashboard regardless.
+- Probe the lamp's switched conductor to ground, doors open and doors closed.
+- ~12V with doors open and ~0V closed: voltage-switching, and it can drive the
+  input through a blocking diode directly.
+- Constant ~12V in both states: the SAM is switching ground. Use the Shelly's
+  `SW` terminal to sense that circuit and drive the PowerSwitch from the
+  relay output instead.
+- Watch whether the voltage steps or ramps, to see the fade behaviour.
+
+### What the signal actually means
+
+Worth being precise, because the project name is slightly misleading. The dome
+circuit means *interior lamp active*, which is not the same as *door open*:
+
+- it also activates on unlock, and on the manual dome switch;
+- it times out on its own, typically after 10–15 minutes;
+- it generally goes out when the van is locked or driven off.
+
+That may be perfectly acceptable, or even preferable, for triggering lighting.
+It is not a reliable door-state sensor, so it should not later be treated as
+one on the dashboard. If genuine door state is wanted for van-api, that is a
+separate sensor.
+
+Using a Shelly to sense the circuit rather than wiring straight through has a
+secondary benefit: it puts the state on the network, which is what the
+dashboard would want anyway.
 
 ---
 
@@ -226,13 +296,15 @@ and the distinction matters if anyone ever reconsiders the wiring.
 
 ## Open questions
 
+- **Confirm the under-seat signal fuse rating and downsize it if it is above
+  ~5A.** Cheapest safety improvement available here.
+- Label the signal busbar so it is not mistaken for a power distribution point.
 - Is the input level-triggered or edge-triggered? (bench test 5)
 - Does an active input override app/BLE control? (bench test 6)
 - Is activation voltage-high on this unit, or is any variant ground-switching?
   Confirm against the Garmin manual for this specific model before wiring.
-- Is the door pin switch ground-switching or voltage-switching? (multimeter,
-  before any door wiring)
-- With Control 1 committed to ignition sense and Control 2 to the door
-  project, both inputs are spoken for. Any further van-api-driven switching
-  would have to share Control 2 through the diode OR — worth deciding whether
-  that is desirable before it becomes necessary.
+- Is the dome light circuit voltage-switched or ground-switched, and does it
+  ramp? (multimeter, before any door wiring)
+- Both inputs are now spoken for. Any further van-api-driven switching would
+  have to share Control 2 through the diode OR — worth deciding whether that
+  is desirable before it becomes necessary.
