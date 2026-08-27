@@ -13,6 +13,12 @@ class Settings(BaseSettings):
     # EcoFlow River 2 Max — passive advertisement only, no auth needed
     ecoflow_mac: str = "80:65:99:08:76:D9"
 
+    # Starlink Mini — local gRPC on the dish itself, unauthenticated.
+    # Requires a static route; the Mini's router does not reach this subnet
+    # from its own LAN by default. See docs/starlink-status.md.
+    starlink_target: str = "192.168.100.1:9200"
+    starlink_enabled: bool = True
+
     # Optional API key — if set, all endpoints require X-API-Key header
     van_api_key: str = ""
 

@@ -7,3 +7,8 @@ pydantic>=2.9.0
 pydantic-settings>=2.5.0
 victron-ble>=0.9.0
 bleak>=0.21.0
+# Starlink local gRPC. grpcio>=1.46 is the floor for prebuilt aarch64 wheels —
+# below that pip tries to compile it on the Pi.
+starlink-grpc-core>=1.1.0
+grpcio>=1.46
+yagrc>=1.1.3

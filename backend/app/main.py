@@ -3,8 +3,9 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
-from app.routers import battery, mppt, shore, orion, shelly, camera, mode, system, ecoflow
+from app.routers import battery, mppt, shore, orion, shelly, camera, mode, system, ecoflow, starlink
 from app.services import ble_orchestrator, data_logger, db
+from app.services import starlink as starlink_service
 from app.config import settings
 import asyncio
 import hmac
@@ -19,6 +20,7 @@ async def lifespan(app: FastAPI):
     tasks = [
         asyncio.create_task(ble_orchestrator.run()),
         asyncio.create_task(data_logger.run()),
+        asyncio.create_task(starlink_service.run()),
     ]
     yield
     for task in tasks:
@@ -85,6 +87,7 @@ app.include_router(camera.router, prefix="/photos", tags=["camera"])
 app.include_router(mode.router, prefix="/mode", tags=["mode"])
 app.include_router(system.router, prefix="/system", tags=["system"])
 app.include_router(ecoflow.router, prefix="/ecoflow", tags=["ecoflow"])
+app.include_router(starlink.router, prefix="/starlink", tags=["starlink"])
 
 PHOTOS_DIR = os.path.join(os.path.dirname(__file__), "..", "photos")
 app.mount("/static/photos", StaticFiles(directory=PHOTOS_DIR), name="photos")
