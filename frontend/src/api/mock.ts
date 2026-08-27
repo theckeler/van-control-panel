@@ -10,7 +10,7 @@
  * so the charts and the battery card agree with each other.
  */
 import type {
-  BatteryData, MpptData, ShoreData, OrionData,
+  BatteryData, MpptData, EcoflowData, ShoreData, OrionData,
   ShellyUnit, Photo, ModeResponse, ModeName, SystemData,
   RawReading, HourlyReading, DailyReading,
 } from '../types'
@@ -318,6 +318,14 @@ export const mockApi = {
       daily:   (days = 30)  => delay(dailyReadings(days), 200),
       monthly: ()           => delay(monthlyReadings(), 200),
     },
+  },
+
+  ecoflow: {
+    get: (): Promise<EcoflowData> => delay({
+      battery_percent: 13,
+      serial: 'R613ZAB6XG1P0314',
+      connected: true,
+    }),
   },
 
   shore: {

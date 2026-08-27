@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type {
-  BatteryData, MpptData, ShoreData, OrionData,
+  BatteryData, MpptData, EcoflowData, ShoreData, OrionData,
   ShellyUnit, SystemData, ModeResponse,
   RawReading, HourlyReading, DailyReading,
 } from '../types'
@@ -28,6 +28,7 @@ interface VanStore {
   // Live data
   battery: BatteryData | null
   mppt: MpptData | null
+  ecoflow: EcoflowData | null
   shore: ShoreData | null
   orion: OrionData | null
   shellys: ShellyUnit[]
@@ -56,6 +57,7 @@ interface VanStore {
 export const useVanStore = create<VanStore>((set, get) => ({
   battery: null,
   mppt: null,
+  ecoflow: null,
   shore: null,
   orion: null,
   shellys: [],
@@ -74,9 +76,10 @@ export const useVanStore = create<VanStore>((set, get) => ({
   fetchAll: async () => {
     set({ loading: true, error: null })
     try {
-      const [battery, mppt, shore, orion, shellys, system, mode] = await Promise.allSettled([
+      const [battery, mppt, ecoflow, shore, orion, shellys, system, mode] = await Promise.allSettled([
         api.battery.get(),
         api.mppt.get(),
+        api.ecoflow.get(),
         api.shore.get(),
         api.orion.get(),
         api.shelly.getAll(),
@@ -87,6 +90,7 @@ export const useVanStore = create<VanStore>((set, get) => ({
       set({
         battery: battery.status === 'fulfilled' ? battery.value : get().battery,
         mppt: mppt.status === 'fulfilled' ? mppt.value : get().mppt,
+        ecoflow: ecoflow.status === 'fulfilled' ? ecoflow.value : get().ecoflow,
         shore: shore.status === 'fulfilled' ? shore.value : get().shore,
         orion: orion.status === 'fulfilled' ? orion.value : get().orion,
         shellys: shellys.status === 'fulfilled' ? shellys.value : get().shellys,

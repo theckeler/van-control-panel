@@ -3,6 +3,7 @@ import { isDemo } from "../api/client";
 import { BatteryCard } from "../components/BatteryCard";
 import { Cameras } from "../components/Cameras";
 import { ChargeSourcesCard } from "../components/ChargeSourcesCard";
+import { EcoflowCard } from "../components/EcoflowCard";
 import { HistoryCard } from "../components/HistoryCard";
 import { PowerModal } from "../components/PowerModal";
 import { SettingsDrawer } from "../components/SettingsDrawer";
@@ -82,6 +83,7 @@ export function Dashboard() {
       <ShellyPanel />
       <BatteryCard />
       <ChargeSourcesCard />
+      <EcoflowCard />
       <HistoryCard />
       <Cameras />
       {/* <ModeSelector /> */}

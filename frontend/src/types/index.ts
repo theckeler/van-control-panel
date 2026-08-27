@@ -69,6 +69,12 @@ export interface MpptData {
   connected: boolean
 }
 
+export interface EcoflowData {
+  battery_percent: number | null
+  serial: string | null
+  connected: boolean
+}
+
 export interface ShoreData {
   connected: boolean
   charge_mode: string

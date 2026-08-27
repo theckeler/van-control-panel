@@ -1,5 +1,5 @@
 import type {
-  BatteryData, MpptData, ShoreData, OrionData,
+  BatteryData, MpptData, EcoflowData, ShoreData, OrionData,
   ShellyUnit, Photo, ModeResponse, SystemData,
   RawReading, HourlyReading, DailyReading, PiHealth, WifiProfile, BackupStatus,
 } from '../types'
@@ -43,6 +43,9 @@ const realApi = {
       daily:   (days = 30)   => get<DailyReading[]>(`/mppt/history/daily?days=${days}`),
       monthly: ()            => get<DailyReading[]>(`/mppt/history/monthly`),
     },
+  },
+  ecoflow: {
+    get: () => get<EcoflowData>('/ecoflow/'),
   },
   shore: {
     get: () => get<ShoreData>('/shore/'),

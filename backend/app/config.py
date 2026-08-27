@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     # Power Queen 12V 100Ah LiFePO4 BMS
     bms_mac: str = "C8:47:80:5D:08:6F"
 
+    # EcoFlow River 2 Max — passive advertisement only, no auth needed
+    ecoflow_mac: str = "80:65:99:08:76:D9"
+
     # Optional API key — if set, all endpoints require X-API-Key header
     van_api_key: str = ""
 

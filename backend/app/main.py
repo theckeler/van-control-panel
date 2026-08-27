@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
-from app.routers import battery, mppt, shore, orion, shelly, camera, mode, system
+from app.routers import battery, mppt, shore, orion, shelly, camera, mode, system, ecoflow
 from app.services import ble_orchestrator, data_logger, db
 from app.config import settings
 import asyncio
@@ -84,6 +84,7 @@ app.include_router(shelly.router, prefix="/shelly", tags=["shelly"])
 app.include_router(camera.router, prefix="/photos", tags=["camera"])
 app.include_router(mode.router, prefix="/mode", tags=["mode"])
 app.include_router(system.router, prefix="/system", tags=["system"])
+app.include_router(ecoflow.router, prefix="/ecoflow", tags=["ecoflow"])
 
 PHOTOS_DIR = os.path.join(os.path.dirname(__file__), "..", "photos")
 app.mount("/static/photos", StaticFiles(directory=PHOTOS_DIR), name="photos")
