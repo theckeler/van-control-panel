@@ -17,7 +17,7 @@ wifi:
     password: !secret fallback_ap_password
 
 logger:
-  level: INFO
+  level: VERBOSE
 
 api:
   encryption:
@@ -54,7 +54,27 @@ ble_client:
 dometic_cfx_ble:
   id: fridge_ble
   ble_client_id: dometic_fridge # Links the component to the defined client
-  product_type: SZ
+  product_type: SZ # CFX5 35 is single-zone, no icemaker — SZ is the
+                    # semantically correct choice.
+                    #
+                    # All three product types (SZ, SZI, DZ) were tested
+                    # 2026-08-27 with identical results: connects, discovers
+                    # both characteristics, registers for notifications, and
+                    # successfully writes the subscribe payload at the BLE
+                    # layer (ESP_GATTC_WRITE_CHAR_EVT x3 every time) — then
+                    # zero RX frames, ever, on any of them. Confirmed the
+                    # payload's product-type byte does change correctly per
+                    # value (01/02/03), so the write itself is not the
+                    # problem.
+                    #
+                    # That pattern rules out "wrong product_type" and points
+                    # toward the fridge requiring real bonding/pairing before
+                    # it trusts a peer enough to send data. This client's
+                    # IO Capability is "none" — no pairing is attempted at
+                    # all, just an open, unauthenticated GATT connection.
+                    # Adding real BLE bonding would be genuine new C++ work
+                    # in the vendored component, a separate project from
+                    # this debugging session.
 
 # ESPHome's built-in JSON API — GET /sensor/<id>, /binary_sensor/<id>,
 # /text_sensor/<id> each return JSON. van-api polls these exactly like it

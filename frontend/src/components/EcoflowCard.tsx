@@ -3,12 +3,14 @@ import { useVanStore } from "../store/van";
 import { Panel, StatusDot } from "./ui";
 
 /**
- * EcoFlow River 2 Max — portable power station feeding the fridge via its
- * own barrel input. Not part of the house battery charging system, so this
- * is deliberately its own card rather than a row in ChargeSourcesCard.
+ * EcoFlow River 2 Max — portable power station. Not wired into the house
+ * battery charging system, and not dedicated to any one load — this card
+ * just reports its own battery level.
  *
  * Battery % only, decoded from an unencrypted byte in the BLE advertisement
- * — no official API. See backend/app/services/ecoflow_ble.py.
+ * — no official API. Charging state and watts in/out live in EcoFlow's
+ * encrypted protocol, which passive scanning can't reach.
+ * See backend/app/services/ecoflow_ble.py.
  */
 export function EcoflowCard({ className }: { className?: string }) {
   const ecoflow = useVanStore((s) => s.ecoflow);
@@ -33,7 +35,7 @@ export function EcoflowCard({ className }: { className?: string }) {
             {known ? `${ecoflow!.battery_percent}%` : "—"}
           </div>
           <div className="text-xs font-mono text-zinc-600">
-            {ecoflow?.connected ? "Fridge power" : "No signal"}
+            {ecoflow?.connected ? "Portable battery" : "No signal"}
           </div>
         </div>
       </div>
