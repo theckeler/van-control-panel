@@ -397,6 +397,14 @@ one-time mapping in the Garmin app answers whether two groups are enough. If
 they are, the BLE work is weeks of effort and live-circuit risk for a problem
 already solved.
 
+**Update, same day:** both inputs are already spoken for — Control 1 for van
+start / ignition sense, Control 2 for the door-open project. That constrains
+the plan rather than killing it: additional sources can share Control 2
+through a diode OR, and the Shelly being bought for the door project can serve
+as the test article. Wiring steps, the diode-OR pattern, and a bench test that
+settles the level-vs-edge and app-override questions are in
+`powerswitch-control-input.md`.
+
 Keep the ESP32 BLE path as a genuine option rather than a closed door, because
 the blocker is now believed to be BlueZ rather than the device refusing us —
 but sequence it behind the fridge. The fridge has a known protocol, a
