@@ -585,6 +585,13 @@ Applied and verified: `iwconfig wlan0` reports `Power Management:off`.
   requires it before trusting a peer with real data. Real bonding support is
   new C++ work in the vendored component — a separate project. Full writeup
   in `esp32-dometic/dometic-bridge.yaml`'s comments and `rubber-duck-review.md`.
+  **Superseded 2026-08-27 — see `rubber-duck-review-2026-08-27.md`.** Bonding
+  is confirmed as *a* blocker but not the only one: `537a03xx` and `537a04xx`
+  are different protocol generations (DDM1 vs DDM2), and the vendored
+  component speaks DDM1 opcodes the CFX5 will never parse. Try the
+  `philippe-a11y/esphome-dometic-cfx5` fork, which handles both, before
+  writing any C++. Also note `esp32-dometic/components/` is untracked — the
+  patched source exists on one machine only.
 - **EcoFlow River 2 Max** — live. Battery % decoded from an unencrypted byte
   in the BLE advertisement (manufacturer ID `0xB5B5`, offset 17, right after
   a 16-byte ASCII serial), confirmed against the unit's own screen. No
@@ -592,6 +599,12 @@ Applied and verified: `iwconfig wlan0` reports `Power Management:off`.
   ecoflow_ble.py`, `/ecoflow/`, `EcoflowCard.tsx`. Only battery % — charging
   state and watts live in EcoFlow's encrypted protocol, out of reach of
   passive scanning. See the User ID / full-telemetry note below.
+  **Updated 2026-08-27 — see `rubber-duck-review-2026-08-27.md`.** The
+  advertisement is now confirmed to contain nothing beyond battery % (bytes
+  18-24 are constant or a checksum), so that avenue is closed. Full telemetry
+  is reachable two ways: the official cloud MQTT API (richest, but internet
+  required) or local BLE GATT via `rabits/ha-ef-ble`, which explicitly
+  supports our `R613` serial and works fully offline. Offline path preferred.
 - **Pi slowness while ESP32 plugged in** — likely root-caused and fixed
   2026-08-27. The ESP32's BLE scanner was at 320ms/320ms (100% duty-cycle
   active scanning, transmitting nonstop) plus `VERY_VERBOSE` logging left on
@@ -660,7 +673,7 @@ Devices seen on `hci0`, including ones not integrated.
 | Power Queen BMS | `C8:47:80:5D:08:6F` | `P-12100BNNA70-B00793` | Integrated |
 | Victron SmartSolar | `E8:18:52:D1:81:B7` | `SmartSolar HQ2218GMEKM` | Integrated |
 | Dometic CFX5 35 | `88:13:BF:8D:87:F6` | `MC1_8d87f4` | Blocked — BlueZ incompatible |
-| Garmin PowerSwitch | `F0:53:20:C3:99:B4` | `PowerSwitch-99B4` | Blocked — 4 attempts, always `le-connection-abort-by-local`, including with van-api stopped |
+| Garmin PowerSwitch | `F0:53:20:C3:99:B4` | `PowerSwitch-99B4` | Blocked — 4 attempts, always `le-connection-abort-by-local`, including with van-api stopped. Same BlueZ incompatibility as the Dometic, not a bonding refusal (2026-08-27). Controls Starlink and the EcoFlow charge toggle as well as lighting — see safety note |
 
 The Dometic is a rare advertiser. Expect to wait through several scan cycles before it appears.
 
