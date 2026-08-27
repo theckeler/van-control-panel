@@ -414,6 +414,17 @@ as the test article. Wiring steps, the diode-OR pattern, and a bench test that
 settles the level-vs-edge and app-override questions are in
 `powerswitch-control-input.md`.
 
+**Tabled, 2026-08-27: Wolfbox as a PowerSwitch alternative.** Checked —
+Wolfbox makes dash cams, GPS displays and hardwire kits, not a BLE relay
+panel. No product to evaluate. The real competitors in this category are
+XKcommand, BlueGhozt, Nilight, and Trigger One (triggercontroller.com), any
+of which do the same job as PowerSwitch. Not pursued: the actual blocker
+isn't the brand, it's a closed protocol with no public reverse-engineering,
+and there's no evidence any of these four has been documented by anyone
+either. Swapping brands would very likely relocate the same wall rather than
+avoid it. Worth a real look only if a specific unit turns up with a
+documented local HTTP/WiFi API — the Shelly pattern, not the PowerSwitch one.
+
 Keep the ESP32 BLE path as a genuine option rather than a closed door, because
 the blocker is now believed to be BlueZ rather than the device refusing us —
 but sequence it behind the fridge. The fridge has a known protocol, a
