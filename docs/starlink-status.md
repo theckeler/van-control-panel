@@ -220,12 +220,42 @@ Starlink is a second slow endpoint by that standard. That does not change the
 conclusion — it reinforces it. Keep it as its own endpoint and let
 `allSettled` isolate it, exactly like Shelly.
 
-Suggested cadence:
+Cadence, as implemented:
 
-- `status_data()` on the normal 5s dashboard poll. It is a single lightweight
-  RPC; the official app polls at about 1s.
-- `history_stats()` for power on a slower loop, ~30s. It is a second RPC and
-  only `latest_power` is wanted.
+- `status_data()` every 5s while healthy, matching the dashboard poll. It is a
+  single lightweight RPC; the official app polls at about 1s.
+- `history_stats()` for power every 30s. It is a second RPC and only
+  `latest_power` is wanted. Skipped entirely while status is failing, rather
+  than attempted and failed alongside it.
+
+### Backoff: an unreachable dish is routine, not exceptional
+
+This is the bit that matters in a van, and it isn't obvious until you think
+about how often the failure actually fires.
+
+The Pi drops to the home network whenever Starlink goes down, and
+NetworkManager does not roam back on its own. While it is there the dish is
+unreachable **by definition** — so "cannot reach the dish" is a normal
+operating state that can persist for days, not a rare error.
+
+Polling every 5s through that writes roughly **17,000 warnings a day into
+journald, on an SD card**. So status polls back off:
+
+```
+5s → 10 → 20 → 40 → 60, then hold at 60 while failing
+```
+
+and reset to 5s on the first success. Recovery is therefore detected within a
+minute, which is fine — an unreachable dish is not something needing sub-minute
+notification, and the most common cause is already visible on the card.
+
+Logging follows the same principle. Only the **first** failure in a run logs at
+warning; subsequent ones drop to debug, because a known state being re-observed
+is not news. Recovery logs once at info with the failure count — that's the
+line actually worth reading in `journalctl`.
+
+Note the loop tracks elapsed time rather than counting ticks. Once backoff
+engages, ticks stop being 5s apart, so tick-count arithmetic would drift.
 
 ### Telling failure modes apart
 
@@ -272,3 +302,19 @@ and is specifically called out as desirable in the 2026-08-24 review.
   guessed 22W constant in `system.py`.
 - Is 5s polling comfortable in practice, or does the dish deprioritise frequent
   local requests? Nothing suggests it does, but worth watching once running.
+- Is 60s the right backoff ceiling? It's a guess, tuned for log volume rather
+  than measured against anything. If Starlink recovery feels sluggish on the
+  dashboard, lower `MAX_BACKOFF`; if journald is still noisy, raise it.
+
+## Note on deploying this
+
+Pushing to `main` **is** deploying — a self-hosted Actions runner on the Pi
+picks up `backend/**` and `frontend/**` changes, pip installs, and restarts
+`van-api` (see the CI/CD section in `CLAUDE.md`).
+
+That means merging this before the static route exists puts a failing poll loop
+on the live Pi. Do the route first, confirm `ping 192.168.100.1`, then merge.
+
+Note also that `pip install -r requirements.txt` adds the gRPC dependencies but
+reverting the commit will **not** remove them — pip does not uninstall on
+rollback. Harmless, but they stay in the venv.

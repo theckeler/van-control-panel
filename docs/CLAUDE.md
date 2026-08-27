@@ -614,7 +614,14 @@ Applied and verified: `iwconfig wlan0` reports `Power Management:off`.
     van LAN by default: `sudo ip route add 192.168.100.0/24 via 192.168.4.1
     dev wlan0`. Without it every call fails as a generic gRPC `UNAVAILABLE`
     that reads like a library bug rather than a routing one. `ping
-    192.168.100.1` settles it.
+    192.168.100.1` settles it. **Do the route before merging** — pushing to
+    `main` deploys to the Pi, so merging early puts a failing poll loop on the
+    live van.
+  - Status polls back off 5s → 10 → 20 → 40 → 60 while unreachable, resetting
+    on first success, and only the first failure logs at warning. An
+    unreachable dish is routine here rather than exceptional — the Pi sits on
+    OHeck for days at a time — and at a flat 5s it wrote ~17k warnings a day
+    into journald on an SD card.
   - `reachable` and `online` are deliberately separate. A stowed dish answers
     the API fine, and "searching for satellites" is a different problem from
     "unplugged". Note that when the Pi falls back to OHeck, it is off
