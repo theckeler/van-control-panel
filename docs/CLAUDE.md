@@ -574,24 +574,43 @@ Applied and verified: `iwconfig wlan0` reports `Power Management:off`.
 - **Maxxfan and Ceiling Lights** Shellys not yet installed — show as `installed: false` in API
 - **`loads` breakdown in system.py is unconditional** — claims Starlink 22W and Fridge 40W regardless of actual state. Latent only: the frontend never reads it. See "system.py load estimation" below. **Partly solvable as of 2026-08-27:** the Starlink integration exposes real `power_w` from the dish, so the 22W guess can be replaced with a measurement (or dropped when the dish is unreachable, which is itself the signal that it's drawing nothing).
 - **Vercel demo build** — built and deployed. See "Vercel Demo Mode" below.
-- **Dometic CFX5 fridge** — ESP32-S3 bridge exists (`esp32-dometic/`), BLE
-  connects reliably, and the CFX3-vs-CFX5 UUID gap is fixed and confirmed
-  (service `537a0400`, write `537a0401`, notify `537a0402`, all read directly
-  off the real hardware). Blocked on the next layer: full handshake succeeds
-  (connect → discover → register notify → write subscribe) but the fridge
-  never sends data back, on all three legal `product_type` values (SZ, SZI,
-  DZ) tested 2026-08-27 with identical results. Client `IO Capability: none`
-  — no BLE pairing/bonding is attempted at all, and the fridge most likely
-  requires it before trusting a peer with real data. Real bonding support is
-  new C++ work in the vendored component — a separate project. Full writeup
-  in `esp32-dometic/dometic-bridge.yaml`'s comments and `rubber-duck-review.md`.
-  **Superseded 2026-08-27 — see `rubber-duck-review-2026-08-27.md`.** Bonding
-  is confirmed as *a* blocker but not the only one: `537a03xx` and `537a04xx`
-  are different protocol generations (DDM1 vs DDM2), and the vendored
-  component speaks DDM1 opcodes the CFX5 will never parse. Try the
-  `philippe-a11y/esphome-dometic-cfx5` fork, which handles both, before
-  writing any C++. Also note `esp32-dometic/components/` is untracked — the
-  patched source exists on one machine only.
+- **Dometic CFX5 fridge — LIVE, 2026-08-27.** Multi-day blocker resolved.
+  Root cause was two separate bugs, not one: the fridge speaks DDM2
+  (`537a04xx`, 32-bit values, PUB/SET/SUB opcodes `0x10/0x11/0x12`), not DDM3
+  (`537a03xx` — the vendored component's protocol, which only shared the
+  UUID-patching insight, not the wire format); and it requires real BLE
+  bonding, which nothing in ESPHome's default `ble_client` initiates on its
+  own since the CFX never sends a Security Request. Swapped to
+  `github://philippe-a11y/esphome-dometic-cfx5`, which handles both. Full
+  investigation in `docs/rubber-duck-review-2026-08-27.md`.
+
+  Real entities confirmed live against the hardware: temperature, set point,
+  battery voltage, door open, power source, and compressor on/off. That last
+  one had its own bug — `COOLER_POWER`'s real type is `INT8_BOOLEAN`, but it
+  was wired under `sensor:` (numeric) instead of `binary_sensor:`, so
+  `decode_to_float_()` silently returned null even with the fridge running.
+  Fixed in both the ESP32 YAML and `services/dometic.py`, which had made the
+  identical wrong-domain mistake independently.
+
+  Backend (`services/dometic.py`, `/dometic/`) and `FridgeCard.tsx` are live
+  and confirmed pulling real data through the full pipeline, not just off the
+  ESP32 directly.
+
+  **Known gap, not yet fixed:** the ESP32 is single-homed to OHeck
+  (`secrets.yaml`, no fallback network), while the Pi's `prefer-starlink`
+  dispatcher actively tries to keep it on Starlink — its normal, preferred
+  state. The two will usually be on different networks, at which point mDNS
+  resolution fails and the fridge card goes `reachable: false` — correctly,
+  but not usefully. Pi was manually switched to OHeck to confirm the pipeline
+  works end-to-end; it is not on its default network right now. Real fix is
+  giving the ESP32 a second WiFi network to fall back to, mirroring how the
+  Pi itself handles Starlink-primary/OHeck-fallback. Not done.
+
+  Also unresolved: individual fields occasionally miss a single 5s poll cycle
+  (e.g. `power_source` or `door_open` briefly null, self-correcting next
+  cycle) — looks like normal resource contention on a small board juggling
+  WiFi, BLE, and its own HTTP server at once. Not investigated further;
+  `dometic.py` already tolerates it (per-field failure, not all-or-nothing).
 - **EcoFlow River 2 Max** — live. Battery % decoded from an unencrypted byte
   in the BLE advertisement (manufacturer ID `0xB5B5`, offset 17, right after
   a 16-byte ASCII serial), confirmed against the unit's own screen. No
