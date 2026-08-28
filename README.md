@@ -6,7 +6,8 @@
 ![Platform](https://img.shields.io/badge/platform-Raspberry%20Pi%204B-red)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-<img width="901" height="817" alt="Van Control Panel dashboard" src="https://github.com/user-attachments/assets/e9d4e822-4deb-49b4-a966-6fd2bac862a5" />
+<img width="821" height="780" alt="image" src="https://github.com/user-attachments/assets/aa98d6e1-44fa-4078-8c45-ffb89cb7441c" />
+<img width="549" height="785" alt="image" src="https://github.com/user-attachments/assets/357755d8-0493-4adc-8d27-c78447a657dc" />
 
 ---
 
