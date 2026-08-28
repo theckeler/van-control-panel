@@ -110,6 +110,13 @@
       "command": "ssh -t todd@100.123.186.63",
       "problemMatcher": []
     },
+    {
+      "label": "Pi: run full setup script",
+      "detail": "Copies scripts/pi-setup.sh over and runs it interactively (real prompts — password, possibly sudo) — see the script's own comments for what it does and doesn't automate",
+      "type": "shell",
+      "command": "scp scripts/pi-setup.sh todd@100.123.186.63:~/ && ssh -t todd@100.123.186.63 'chmod +x pi-setup.sh && ./pi-setup.sh'",
+      "problemMatcher": []
+    },
 
     {
       "label": "Git: start branch",
