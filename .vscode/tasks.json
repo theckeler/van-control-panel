@@ -88,26 +88,26 @@
     {
       "label": "Pi: status",
       "type": "shell",
-      "command": "ssh todd@100.87.126.98 'systemctl is-active van-api van-frontend; curl -s localhost:8000/system/wifi; echo; curl -s localhost:8000/shelly/'",
+      "command": "ssh todd@100.123.186.63 'systemctl is-active van-api van-frontend; curl -s localhost:8000/system/wifi; echo; curl -s localhost:8000/shelly/'",
       "problemMatcher": []
     },
     {
       "label": "Pi: tail van-api log",
       "type": "shell",
-      "command": "ssh -t todd@100.87.126.98 'sudo journalctl -u van-api -f'",
+      "command": "ssh -t todd@100.123.186.63 'sudo journalctl -u van-api -f'",
       "isBackground": true,
       "problemMatcher": []
     },
     {
       "label": "Pi: recent events",
       "type": "shell",
-      "command": "ssh todd@100.87.126.98 'curl -s localhost:8000/system/events?hours=48 | python3 -m json.tool'",
+      "command": "ssh todd@100.123.186.63 'curl -s localhost:8000/system/events?hours=48 | python3 -m json.tool'",
       "problemMatcher": []
     },
     {
       "label": "Pi: shell",
       "type": "shell",
-      "command": "ssh -t todd@100.87.126.98",
+      "command": "ssh -t todd@100.123.186.63",
       "problemMatcher": []
     },
 

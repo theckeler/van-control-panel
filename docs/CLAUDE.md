@@ -576,12 +576,12 @@ sleep 5; ip neigh | grep -v FAILED
 
 ### Development access
 
-`vite.config.ts` proxies `/api` to the Tailscale address `100.87.126.98:8000`
+`vite.config.ts` proxies `/api` to the Tailscale address `100.123.186.63:8000`
 rather than a LAN address, because the Pi's LAN IP changes with the network it
 joins. Tailscale works regardless of which one that is.
 
 `ssh todd@van-pi.local` only works when the Mac and Pi are on the same network,
-since mDNS does not cross. `ssh todd@100.87.126.98` always works.
+since mDNS does not cross. `ssh todd@100.123.186.63` always works.
 
 Do not pin `van-pi.local` in the Mac's `/etc/hosts` — the Pi's LAN IP is not
 stable, and a stale entry silently breaks SSH.
