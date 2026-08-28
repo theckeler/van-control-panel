@@ -31,6 +31,15 @@ Budget about an hour, most of it waiting on installs.
 
 ---
 
+**Do every download-heavy step on OHeck, not Starlink, then switch over at the
+end (step 3 covers Starlink; only make it primary once the heavy installs are
+done).** Learned the hard way on the 2026-08-28 rebuild: Starlink had real,
+measured signal obstruction that turned Tailscale's ~36MB package into a
+20+ minute ordeal — the second attempt only failed at all because the first
+one's `apt-get` never exited cleanly after a mid-download TLS drop (see the
+dpkg lock gotcha below). OHeck did the same install in under a minute. Steps
+2 (Node), 4 (Tailscale), and 5 (`npm install`) are the heavy ones.
+
 ## 1. Flash the OS
 
 Raspberry Pi Imager, 64-bit Raspberry Pi OS. In the imager's advanced options
@@ -42,6 +51,44 @@ Boot it, then:
 ```bash
 ssh todd@van-pi.local
 sudo apt update && sudo apt full-upgrade -y
+```
+
+**Rebuilding on the same hostname?** SSH will refuse to connect — the new
+Pi has a fresh host key that doesn't match the old one saved in
+`~/.ssh/known_hosts`. Clear it first:
+
+```bash
+ssh-keygen -R van-pi.local
+ssh-keygen -R 100.87.126.98   # if the Tailscale IP is reused too
+```
+
+Only after that will `ssh-copy-id` actually work — run it *after* clearing
+the old key, not before. Running it while the old key is still saved fails
+with the same host-key-changed error and silently does **not** install your
+key, which is easy to miss since password auth still works fine on its own
+and papers over the failure.
+
+```bash
+ssh-copy-id todd@van-pi.local
+```
+
+**`sudo` may ask for a password by default now** — this Imager version
+doesn't always set up passwordless sudo for the default user the way older
+Raspberry Pi OS releases did. Fix it once, from an interactive session where
+you can type the password yourself (not automatable):
+
+```bash
+echo "todd ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/010_todd-nopasswd
+```
+
+**`full-upgrade` usually installs a new kernel you're not running yet** —
+check `uname -r` against what apt just installed. A pending kernel upgrade
+that hasn't been rebooted into was a real, confirmed source of odd,
+intermittent service flakiness (mDNS resolution dropping in and out) on the
+2026-08-28 rebuild. Reboot before continuing if they don't match:
+
+```bash
+sudo reboot
 ```
 
 ## 2. System packages
@@ -62,7 +109,19 @@ node --version   # expect v20.x
 
 ## 3. WiFi: Starlink preferred, OHeck fallback
 
+`<starlink-pass>` below is a placeholder to replace with the real password —
+copy-pasting it literally breaks the command two ways at once: `nmcli` sees a
+literal string it can't use, and `<`/`>` are shell redirection operators, so
+the shell mangles the command before `nmcli` even runs.
+
+If a `starlink` connection profile already exists from an earlier attempt —
+common if this is a redo, not a first run — connecting again fails with
+`802-11-wireless-security.key-mgmt: property is missing`, a genuinely
+confusing error for what's actually just a stale/conflicting profile. Delete
+it first:
+
 ```bash
+sudo nmcli connection delete starlink   # only if one already exists
 sudo nmcli device wifi connect "Sir Salettelot" password "<starlink-pass>" name starlink
 sudo nmcli connection modify starlink connection.autoconnect-priority 100
 sudo nmcli connection modify starlink 802-11-wireless.powersave 2
@@ -81,13 +140,32 @@ Verify:
 
 ```bash
 nmcli -f NAME,AUTOCONNECT-PRIORITY connection show
-iwconfig wlan0 | grep -E "ESSID|Signal level|Power Management|Tx excessive"
+nmcli -f IN-USE,SSID,SIGNAL,SECURITY device wifi list ifname wlan0
+ip -4 addr show wlan0 | grep inet
 ```
 
-Want `Power Management:off`, `Tx excessive retries:0`, and a 5GHz association.
-Signal around -55 dBm is normal. See `CLAUDE.md` → Networking for the band and
-subnet details, and for why NetworkManager will not roam back to Starlink on
-its own after an outage.
+`iwconfig` is not installed on this Debian version (neither is `iw`) — the
+old verification command silently does nothing rather than erroring, so it
+looks like success. The `nmcli`/`ip` combination above actually confirms
+signal and the real subnet.
+
+**If installs later hang or DNS-dependent commands time out while genuinely
+being able to reach raw IPs**, Starlink's own router (`192.168.4.1`, the
+default DNS resolver via DHCP) can have an intermittent resolution problem
+even while basic connectivity is fine — confirmed 2026-08-28, `curl
+https://1.1.1.1` succeeded instantly while `curl https://tailscale.com`
+timed out completely. Point at a public resolver instead:
+
+```bash
+sudo nmcli connection modify starlink ipv4.dns "1.1.1.1 8.8.8.8"
+sudo nmcli connection modify starlink ipv4.ignore-auto-dns yes
+sudo nmcli connection up starlink
+```
+
+Want `Power Management:off` (via `nmcli`, not `iwconfig`, on this version) and
+a 5GHz association. Signal around -55 dBm is normal. See `CLAUDE.md` →
+Networking for the band and subnet details, and for why NetworkManager will
+not roam back to Starlink on its own after an outage.
 
 ## 4. Tailscale
 
@@ -104,6 +182,22 @@ tailscale ip -4    # expect 100.87.126.98 if the machine name is reused
 
 If the IP differs, update `frontend/vite.config.ts` on the Mac, which proxies
 `/api` to that address.
+
+**If `curl | sh` dies partway through** (a TLS error, a dropped connection —
+more likely on Starlink, see the note at the top of this doc), the `apt-get`
+it spawned can be left running and holding the dpkg lock even after the
+outer script has exited. Every retry then fails immediately with `Could not
+get lock /var/lib/dpkg/lock-frontend`, which looks like a fresh problem but
+is actually the previous attempt's orphaned process still alive. Confirmed
+2026-08-28 — check for it before assuming anything else is wrong:
+
+```bash
+ps aux | grep apt-get
+# if something's actually there and stuck (check CPU time isn't climbing):
+sudo kill -9 <pid>
+sudo rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/cache/apt/archives/lock
+sudo dpkg --configure -a
+```
 
 ## 5. Clone and build
 
