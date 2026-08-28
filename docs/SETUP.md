@@ -4,6 +4,25 @@ Recovery checklist for a dead SD card or a fresh Pi. Written as an ordered
 walkthrough rather than a script, because several steps need a token, a
 password, or a decision that cannot be committed to the repo.
 
+**Added 2026-08-28: `scripts/pi-setup.sh` now automates everything below
+that doesn't genuinely need a human — steps 1, 2, 4, 5, 6, 7, 8. It's
+idempotent (safe to re-run after any failure) and every check in it came
+from something that actually went wrong during a real rebuild, not a
+guess. Also runnable as the "Pi: run full setup script" VS Code task.**
+
+```bash
+scp scripts/pi-setup.sh todd@van-pi.local:~/
+ssh todd@van-pi.local
+chmod +x pi-setup.sh && ./pi-setup.sh
+```
+
+Steps 3 (WiFi/Starlink), 9 (backups — mostly automated by the script, one
+manual trust step), 10 (GitHub Actions runner) still need you directly — the
+script prints exactly which ones and why when it finishes. This walkthrough
+stays the reference for understanding *why* each step exists, debugging when
+something's genuinely different from a normal rebuild, or running any single
+step in isolation.
+
 Budget about an hour, most of it waiting on installs.
 
 ## What you need first
