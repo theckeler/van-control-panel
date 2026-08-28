@@ -23,7 +23,7 @@ Budget about an hour, most of it waiting on installs.
 |---|---|
 | Hostname | `van-pi` |
 | User | `todd` |
-| Tailscale IP | `100.87.126.98` |
+| Tailscale IP | `100.123.186.63` |
 | Python | 3.13.5 |
 | Node | v20.20.2 |
 | OS | Debian Trixie (arm64), Raspberry Pi OS |
@@ -99,11 +99,24 @@ sudo tailscale up
 Follow the printed URL to authenticate. Confirm the address:
 
 ```bash
-tailscale ip -4    # expect 100.87.126.98 if the machine name is reused
+tailscale ip -4
 ```
 
-If the IP differs, update `frontend/vite.config.ts` on the Mac, which proxies
-`/api` to that address.
+**Do not expect this to match the old address, even with the hostname
+reused.** Confirmed 2026-08-28: a fresh OS install gets a genuinely new
+Tailscale node identity, not a reused one, so it lands on a new IP from the
+pool regardless of hostname. Current value is `100.123.186.63` — check the
+Reference table above stays accurate whenever this changes again, and update
+every place listed below.
+
+If the IP differs, every hardcoded reference needs updating — confirmed
+2026-08-28 this is more than just `vite.config.ts`:
+
+```bash
+grep -rl "100\.87\.126\.98" --include="*.ts" --include="*.md" --include="*.json" .
+# currently: frontend/vite.config.ts, docs/TROUBLESHOOTING.md,
+# docs/SETUP.md, docs/CLAUDE.md, .vscode/tasks.json
+```
 
 ## 5. Clone and build
 
@@ -196,7 +209,7 @@ Skip this and the logger starts a fresh history. To keep the old readings:
 On the Mac:
 
 ```bash
-scp ~/van-backups/van_power-<date>.db.gz todd@100.87.126.98:~/
+scp ~/van-backups/van_power-<date>.db.gz todd@100.123.186.63:~/
 ```
 
 On the Pi:
