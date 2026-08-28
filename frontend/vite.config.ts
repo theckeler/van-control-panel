@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
   // Set VAN_API_TARGET=http://localhost:8000 to develop against a backend
   // running on this machine instead. The VS Code "Dev: full stack (local)"
   // task does that for you.
-  const target = env.VAN_API_TARGET || 'http://100.87.126.98:8000'
+  const target = env.VAN_API_TARGET || 'http://100.123.186.63:8000'
   const isLocal = target.includes('localhost') || target.includes('127.0.0.1')
 
   return {

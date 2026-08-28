@@ -38,7 +38,7 @@ ssh todd@van-pi.local 'sudo shutdown now'
 
 Or if on Tailscale:
 ```bash
-ssh todd@100.87.126.98 'sudo shutdown now'
+ssh todd@100.123.186.63 'sudo shutdown now'
 ```
 
 **Step 2 — Flip the Nilight 50A house main disconnect OFF**
@@ -290,7 +290,7 @@ it's just not useful.
 
 ### Check
 ```bash
-ssh todd@100.87.126.98
+ssh todd@100.123.186.63
 ip -4 addr show wlan0 | grep inet      # which network is the Pi on?
 getent hosts dometic-bridge.local      # can it even resolve the ESP32?
 ```
@@ -348,5 +348,5 @@ ssh todd@van-pi.local 'sudo journalctl -u van-api -f'
 ssh todd@van-pi.local 'sqlite3 ~/van-control-panel/backend/van_power.db "SELECT COUNT(*), source FROM readings_raw GROUP BY source;"'
 
 # Tailscale IP (if mDNS not working)
-ssh todd@100.87.126.98 'echo connected'
+ssh todd@100.123.186.63 'echo connected'
 ```

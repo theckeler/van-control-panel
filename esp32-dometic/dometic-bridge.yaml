@@ -26,11 +26,51 @@ wifi:
       priority: 1
     - ssid: !secret wifi_ssid
       password: !secret wifi_password
-  fast_connect: true
+  # fast_connect was true. It has a "reconnect to the BSSID from the
+  # previous boot" shortcut that can bypass priority-based scan sorting
+  # entirely — suspected root cause, 2026-08-28, of a fresh flash landing
+  # back on OHeck even with Starlink confirmed broadcasting at full signal.
+  # That flash only touched the interval: logic, not this wifi: block, so
+  # the cached OHeck BSSID from moments earlier likely survived and won
+  # before priority was ever consulted. Disabled to force a genuine
+  # scan-and-sort on every reconnect — slower, but this only matters for
+  # the rare case (interval below, or an actual disconnect), where
+  # correctness matters far more than a few seconds of boot speed.
+  fast_connect: false
 
   ap:
     ssid: "Dometic-Bridge-Fallback"
     password: !secret fallback_ap_password
+
+# Closes the gap the priority: fix above doesn't: ESPHome only re-evaluates
+# the network list on an actual disconnect, never proactively while already
+# connected — confirmed by direct test 2026-08-27, switching the Pi to
+# Starlink and watching this board sit on OHeck for 60+ seconds doing
+# nothing. Mirrors the Pi's own 90-prefer-starlink dispatcher, but ESPHome
+# has no "network came into range" event to hook, so this polls instead.
+#
+# Only acts when NOT already on Starlink, so the common case (already on the
+# preferred network) never touches WiFi at all.
+#
+# First attempt used wifi.disable + wifi.enable — logically reasonable, but
+# proven wrong by direct test 2026-08-28: with Starlink confirmed broadcasting
+# at full strength (verified independently via the Pi's own scan, signal 97),
+# the interval fired correctly (watched the log line print live) but landed
+# right back on OHeck anyway. disable/enable doesn't force the same
+# priority-sorted scan a real boot does — some faster reconnect-to-last-known
+# path wins instead. A genuine reboot is the only mechanism actually verified
+# (twice, independently) to respect priority correctly, so this uses that —
+# heavier per-occurrence, but it only fires when already stuck on the
+# fallback network, which should be rare in steady state.
+interval:
+  - interval: 5min
+    then:
+      - if:
+          condition:
+            lambda: 'return id(current_ssid).state != "Sir Salettelot";'
+          then:
+            - logger.log: "Not on Starlink — rebooting to force a priority-sorted reconnect"
+            - lambda: 'App.safe_reboot();'
 
 logger:
   level: VERBOSE
@@ -160,3 +200,10 @@ text_sensor:
     type: POWER_SOURCE
     name: "Fridge Power Source"
     id: fridge_power_source
+  # Used by the network-follow interval below to know which network the
+  # board is currently on, without any custom C++ — a real, documented
+  # ESPHome platform (checked wifi_info/text_sensor.py before using it).
+  - platform: wifi_info
+    ssid:
+      name: "Current SSID"
+      id: current_ssid
