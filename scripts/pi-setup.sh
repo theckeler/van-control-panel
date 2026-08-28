@@ -189,6 +189,32 @@ EOF
 sudo systemctl daemon-reload
 sudo systemctl enable --now van-api van-frontend
 
+# Bluetooth is soft-blocked by default on a fresh Raspberry Pi OS Lite
+# install — confirmed 2026-08-28. Nothing BLE-related (BMS, Victron,
+# EcoFlow) works until this is unblocked. Doing it here rather than
+# expecting it to just work.
+log "Unblocking Bluetooth"
+sudo rfkill unblock bluetooth
+sudo systemctl restart bluetooth
+sleep 2
+if bluetoothctl show | grep -q "Powered: yes"; then
+  echo "Bluetooth adapter is on"
+else
+  warn "Bluetooth still showing as off — check rfkill list manually"
+fi
+
+# NetworkManager dispatcher: makes the Pi proactively return to Starlink
+# when it reappears, instead of sitting on OHeck indefinitely after a
+# Starlink outage. Without this, autoconnect-priority is only evaluated
+# at boot or after a disconnect — confirmed missing from this rebuild on
+# 2026-08-28, which is why the dashboard felt slow when the Pi was stuck
+# on a marginal OHeck signal with Starlink unavailable.
+log "Network dispatcher"
+sudo install -o root -g root -m 755 \
+  ~/van-control-panel/scripts/90-prefer-starlink \
+  /etc/NetworkManager/dispatcher.d/90-prefer-starlink
+echo "dispatcher installed"
+
 log "Verifying services actually came up"
 sleep 3
 if ! curl -s -m 8 http://localhost:8000/health | grep -q '"status"'; then
@@ -198,6 +224,17 @@ if ! curl -s -m 8 -o /dev/null -w "%{http_code}" http://localhost:3000/ | grep -
   die "van-frontend isn't answering. Check: sudo journalctl -u van-frontend -n 50 --no-pager"
 fi
 echo "Both services confirmed responding, not just 'started'."
+
+# nginx as a reverse proxy on :80 so the dashboard is reachable without
+# a port number. The config already exists in the repo — this just deploys
+# it. Confirmed missing from pi-setup.sh on 2026-08-28, added manually.
+log "nginx on :80"
+sudo apt install -y nginx
+sudo cp ~/van-control-panel/nginx.conf.example /etc/nginx/sites-available/van-control-panel
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo ln -sf /etc/nginx/sites-available/van-control-panel /etc/nginx/sites-enabled/van-control-panel
+sudo nginx -t && sudo systemctl enable --now nginx
+echo "nginx serving on :80"
 
 # --- 8. Backup to the Mac ----------------------------------------------------
 log "Backup script + timer"
