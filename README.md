@@ -78,6 +78,11 @@ than one admitting the gaps.
 Served in production by a small Express server that also proxies the API and
 handles auth.
 
+Design work happens in Figma first: **[Van Control Panel — Dashboard UI](https://www.figma.com/design/793FjJIPcg092uFJuGnVe6/Van-Control-Panel-%E2%80%94-Dashboard-UI)**.
+The file currently holds a redesign — lighter surfaces, bolder state colour,
+per-concern drawers instead of one settings panel — that is deliberate
+direction rather than anything merged. The screenshots above are the live build.
+
 **Backend** — FastAPI on uvicorn. `bleak` for BLE, `victron-ble` for the MPPT,
 a vendored fork of `pq_bms_bluetooth` for the BMS, `httpx` for the Shellys,
 `starlink-grpc-core` for the dish, SQLite for storage.
@@ -175,6 +180,7 @@ FastAPI backend for anything not arriving over loopback.
 - [API Reference](docs/API.md)
 - [Hardware](docs/HARDWARE.md)
 - [Operating Modes](docs/MODES.md)
+- [Design file](https://www.figma.com/design/793FjJIPcg092uFJuGnVe6/Van-Control-Panel-%E2%80%94-Dashboard-UI) — Figma, redesign in progress
 - [Future Features](docs/FUTURE-FEATURES.md) — prioritized roadmap
 - [Claude Code Context](docs/CLAUDE.md) — conventions, gotchas, full system notes
 - [Rubber Duck Review](docs/rubber-duck-review.md) — bugs found, and the reasoning errors behind them
