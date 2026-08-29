@@ -43,6 +43,9 @@ cd frontend && VITE_DEMO=true npm run dev
 | ------------------------------------------- | ---------------------------------------------------------------- |
 | **Battery** — Power Queen 100Ah LiFePO4 BMS | SOC, voltage, current, temperature, per-cell voltages over BLE   |
 | **Solar** — Victron SmartSolar MPPT 75/15   | Panel watts, charge state, daily yield from BLE advertisements   |
+| **Fridge** — Dometic CFX5 35                | Temp, set point, compressor, door, power source via an ESP32 BLE bridge |
+| **Starlink Mini**                           | Latency, throughput, obstruction, and measured power draw over local gRPC |
+| **EcoFlow River 2 Max**                     | Battery % decoded from the raw BLE advertisement — no auth, no cloud |
 | **Smart relays** — 2× Shelly 1 Gen4         | USB outlets and garage circuit, local HTTP, no cloud             |
 | **History** — SQLite, four tiers            | Raw → hourly → daily → monthly, automatic rollup and pruning     |
 | **Operating modes**                         | Storage / Camp / Trail / In Town, persisted across restarts      |
@@ -62,7 +65,7 @@ than one admitting the gaps.
 | **Cameras**             | Router and UI scaffolded, hardware not yet installed                   |
 | **Shore power**         | Inferred from the BMS/MPPT current delta — no charger telemetry        |
 | **DC-DC charger**       | Orion-Tr 12/12-18 is non-smart. Static config only                     |
-| **Dometic CFX5 fridge** | BlueZ is incompatible with Dometic's BLE module. Needs an ESP32 bridge |
+| **Fridge control**      | Reading works. Writing (set temp, on/off) is supported by the component but not wired up |
 | **Garmin PowerSwitch**  | BlueZ can't connect. Protocol is undocumented — see 2026-08-27 review |
 | **Maxxfan relay**       | Tested and rejected — it defaults open on power loss                   |
 | **Applying modes**      | The selection persists, but nothing is driven by it yet                |
@@ -77,10 +80,15 @@ handles auth.
 
 **Backend** — FastAPI on uvicorn. `bleak` for BLE, `victron-ble` for the MPPT,
 a vendored fork of `pq_bms_bluetooth` for the BMS, `httpx` for the Shellys,
-SQLite for storage.
+`starlink-grpc-core` for the dish, SQLite for storage.
 
-**Infrastructure** — Raspberry Pi 4B, Starlink Mini with a home network as
-fallback, Tailscale, and a self-hosted GitHub Actions runner that deploys on push.
+**Firmware** — an ESP32-S3 running ESPHome bridges the Dometic fridge, which
+BlueZ cannot talk to at all. It exposes a local JSON API the Pi polls like any
+other WiFi device.
+
+**Infrastructure** — Raspberry Pi 4B, nginx on :80 in front of the Express
+server, Starlink Mini with a home network as fallback, Tailscale, and a
+self-hosted GitHub Actions runner that deploys on push.
 
 ### Notable implementation details
 
@@ -89,10 +97,20 @@ fallback, Tailscale, and a self-hosted GitHub Actions runner that deploys on pus
 - **The BMS needs a persistent connection.** Rapid reconnects trigger a firmware
   lockout that requires physically pulling the 50A disconnect, so there is a
   5-minute cooldown guard.
+- **The fridge took an ESP32 to reach at all.** Two independent blockers: the
+  CFX5 speaks a different protocol generation than the widely-forked CFX3
+  component (`537a04xx`, not `537a03xx`), and it requires real BLE bonding that
+  ESPHome's default client never initiates. BlueZ on the Pi can't do either.
+- **EcoFlow battery % is a single unencrypted byte** in the BLE advertisement,
+  at a fixed offset after the serial number. Verified against the unit's own
+  screen. Everything richer than that lives behind their encrypted protocol.
 - **History is downsampled server-side.** Raw endpoints bucket-average to ~300
   points rather than shipping 2,880 rows a chart can't display.
 - **Polling pauses when the tab is hidden**, which cut idle request volume by
   roughly 85%.
+- **NetworkManager won't roam back to a preferred network** on its own — it only
+  evaluates priority at boot or after a disconnect. A dispatcher script handles
+  the return to Starlink, and the ESP32 needed its own equivalent.
 
 ---
 
@@ -112,7 +130,14 @@ cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 `--include=dev` matters if `NODE_ENV=production` is set in your shell — npm will
 otherwise silently skip devDependencies, including TypeScript.
 
-Rebuilding the Pi from a blank SD card: **[docs/SETUP.md](docs/SETUP.md)**.
+Rebuilding the Pi from a blank SD card: **[docs/SETUP.md](docs/SETUP.md)**. Most
+of it is automated by `scripts/pi-setup.sh`, which is idempotent and safe to
+re-run after a failure:
+
+```bash
+scp scripts/pi-setup.sh todd@van-pi.local:~/
+ssh -t todd@van-pi.local 'chmod +x pi-setup.sh && ./pi-setup.sh'
+```
 
 ---
 
@@ -153,6 +178,7 @@ FastAPI backend for anything not arriving over loopback.
 - [Future Features](docs/FUTURE-FEATURES.md) — prioritized roadmap
 - [Claude Code Context](docs/CLAUDE.md) — conventions, gotchas, full system notes
 - [Rubber Duck Review](docs/rubber-duck-review.md) — bugs found, and the reasoning errors behind them
+- [Rubber Duck Review, 2026-08-27](docs/rubber-duck-review-2026-08-27.md) — the CFX5 protocol investigation
 
 ---
 
