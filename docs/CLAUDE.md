@@ -567,6 +567,27 @@ Symptoms: dashboard loads but circuits show unreachable, `avahi-browse` returns
 no Shellys, `*.local` pings fail with "Name or service not known" from the Pi
 while resolving fine from a Mac on the other network.
 
+**The DNS cache makes this outlast the split.** `shelly.py` caches `.local`
+resolutions for `DNS_TTL` seconds to avoid paying ~105ms of mDNS per call. When
+the Shellys move networks, that cache still holds their *old* IPs, so the
+Shellys can be fully back and reachable while the API keeps timing out against
+stale addresses. Confirmed 2026-08-28: `avahi-browse` listed both units, a
+direct `curl` to the new IP returned `200`, and `/shelly/` still reported both
+unreachable until `van-api` was restarted.
+
+```bash
+sudo systemctl restart van-api    # clears the resolution cache
+```
+
+Restarting is the fast path. Waiting out the TTL also works.
+
+**Do not factory-reset the Shellys for this.** They have a two-slot WiFi config
+(`sta` = Starlink, `sta1` = OHeck) and fall back on their own, exactly as
+designed. A unit sitting on `192.168.1.60` when the code expects
+`192.168.4.x` is the fallback working, not a misconfiguration. The Shelly app
+shows this directly under Wi-Fi 2 — "Device is connected, SSID: OHeck".
+
+
 Sweep the current subnet without nmap (which is not installed):
 
 ```bash
@@ -600,6 +621,88 @@ Note the syntax is `<setting>.<property>` — `802-11-wireless.powersave`, with 
 dot, not a hyphen. `2` is the enum for disable (`3` is enable, `0` is default).
 
 Applied and verified: `iwconfig wlan0` reports `Power Management:off`.
+
+### Signal quality — the onboard radio is the real ceiling
+
+Measured 2026-08-28 during a session where the dashboard felt slow and the
+Shellys kept dropping. The diagnosis path is worth keeping because the
+symptoms looked like DNS and were not.
+
+**What the numbers actually were:**
+
+| Measurement | Value | Healthy would be |
+|---|---|---|
+| Pi signal (OHeck, ch 7, 2.4GHz) | `-65 dBm`, quality 45/70 | above `-60 dBm` |
+| Retries (`/proc/net/wireless`) | 111 | low tens |
+| Mac → router | 0% loss, 3-8ms | same |
+| Mac → Pi | **80% loss**, 10-634ms | 0%, <10ms |
+| Pi → router | 10% loss, 2-75ms | 0%, <10ms |
+| Interface errors (`ip -s link`) | 0 RX, 0 TX | 0 |
+
+Zero interface errors with heavy packet loss means the hardware and driver are
+fine. It is purely RF: the signal is too weak to sustain a reliable link.
+
+**The 5GHz clue.** The Mac was associated to OHeck on channel 48 (5GHz) with a
+perfect link. The Pi could not see OHeck's 5GHz radio *at all* — a rescan
+returned only `OHeck 55 ch 7 2442 MHz`. 5GHz has shorter range than 2.4GHz, so
+"can't see the 5GHz SSID that other devices are using fine" is a direct
+distance signal, not a config problem.
+
+**Why it seemed like DNS.** `van-pi.local` resolving intermittently, the dev
+server at `localhost:5173` failing to reach the API, Tailscale showing the Pi
+offline — all of these are what heavy packet loss looks like from the
+application layer. `dscacheutil -q host -a name van-pi.local` returned the
+correct IP the whole time. Check loss before suspecting resolution:
+
+```bash
+ping -c15 <pi-ip>          # from the Mac
+ssh ... 'cat /proc/net/wireless'   # signal, quality, retries
+ssh ... 'ip -s link show wlan0'    # errors/dropped — should be 0
+```
+
+**Nothing in software fixes this.** Powersave was already disabled, priorities
+were correct, the dispatcher was installed. The van had simply moved further
+from the house router than it used to sit. Starlink measured signal 94 when it
+was on, versus OHeck's 54 — which is why everything worked well before and
+degrades now.
+
+### USB WiFi dongle — evaluated, worth it for two reasons
+
+The Pi 4B's onboard radio is a Broadcom `brcmfmac` with a PCB trace antenna.
+It cannot be improved in software and has no external antenna connector.
+
+A USB adapter with an external antenna helps in two distinct ways:
+
+1. **Range.** A real antenna on a marginal link is the difference between
+   `-65 dBm` and something workable. This is the fix for the problem above.
+2. **Simultaneous AP + client.** A second radio means the Pi can stay joined
+   to Starlink/OHeck *and* run its own access point at the same time, so the
+   dashboard is reachable from a phone with no upstream network at all —
+   parked in the woods, Starlink stowed. The onboard radio alone cannot do
+   both reliably; sharing one radio between AP and client modes is possible
+   but unstable.
+
+**What to look for**, in priority order:
+
+- **Chipset over brand.** `MT7612U` (5GHz-capable, dual band, mainline Linux
+  driver, AP mode supported) or `RTL8812AU` (very common, needs a DKMS driver
+  on Debian — more setup, more likely to break on kernel upgrades). Prefer
+  MT7612U specifically because the driver is in-tree.
+- **External antenna**, ideally detachable RP-SMA so it can be upgraded or
+  relocated. This is the entire point.
+- **AP mode support** — verify with `iw list | grep -A10 "Supported interface
+  modes"` after plugging in; look for `AP` in the list.
+- **Dual band.** 5GHz is what the Mac is already using successfully on OHeck.
+
+Known-good in the Pi community: Alfa AWUS036ACM (MT7612U, detachable antenna,
+in-tree driver). Panda Wireless PAU0D is the same chipset, cheaper, fixed
+antenna.
+
+**Not yet purchased or tested.** When one arrives it becomes `wlan1`, and the
+existing NetworkManager profiles stay on `wlan0` — plan on either moving them
+or binding them to the new interface explicitly. The AP-mode side is a
+separate build (`hostapd` + `dnsmasq`, or NetworkManager's own AP mode) and is
+not scoped yet.
 
 ---
 
