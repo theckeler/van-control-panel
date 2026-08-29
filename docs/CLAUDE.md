@@ -684,25 +684,70 @@ A USB adapter with an external antenna helps in two distinct ways:
 
 **What to look for**, in priority order:
 
-- **Chipset over brand.** `MT7612U` (5GHz-capable, dual band, mainline Linux
-  driver, AP mode supported) or `RTL8812AU` (very common, needs a DKMS driver
-  on Debian — more setup, more likely to break on kernel upgrades). Prefer
-  MT7612U specifically because the driver is in-tree.
-- **External antenna**, ideally detachable RP-SMA so it can be upgraded or
-  relocated. This is the entire point.
-- **AP mode support** — verify with `iw list | grep -A10 "Supported interface
-  modes"` after plugging in; look for `AP` in the list.
+- **Chipset over brand.** `MT7612U` — dual band, 2x2, AP mode supported, and
+  the `mt76` driver has been in-kernel since Linux 4.19 (2018), so there is
+  nothing to install. `RTL8812AU` also works but needs a DKMS driver on
+  Debian, which is more setup and more likely to break on kernel upgrades.
+- **External antenna**, ideally detachable RP-SMA. Fixed PCB antennas lose
+  >40% signal beyond 5m, which defeats the entire point given range is the
+  problem being solved.
 - **Dual band.** 5GHz is what the Mac is already using successfully on OHeck.
+- **AP mode support** — verify after plugging in with
+  `iw list | grep -A10 "Supported interface modes"`, look for `AP`.
 
-Known-good in the Pi community: Alfa AWUS036ACM (MT7612U, detachable antenna,
-in-tree driver). Panda Wireless PAU0D is the same chipset, cheaper, fixed
-antenna.
+**Decided: Alfa AWUS036ACM.** ~$60 on Amazon (fluctuates, check price
+history), 4.5★/1000+, sold and shipped by Amazon with 30-day returns.
+[Listing](https://www.amazon.com/Network-AWUS036ACM-Long-Range-Wide-Coverage-High-Sensitivity/dp/B08BJS8FXD).
+Two detachable 5dBi antennas, USB 3.0, MT7612U.
 
-**Not yet purchased or tested.** When one arrives it becomes `wlan1`, and the
-existing NetworkManager profiles stay on `wlan0` — plan on either moving them
-or binding them to the new interface explicitly. The AP-mode side is a
-separate build (`hostapd` + `dnsmasq`, or NetworkManager's own AP mode) and is
-not scoped yet.
+Chosen over cheaper options because `morrownr/7612u` — the maintainer of the
+in-kernel driver docs — writes his Raspberry Pi 4B hostapd AP-mode guide
+using this exact adapter and states it "works very well with the Raspberry Pi
+hardware." Given AP mode is half the reason for buying one, using the adapter
+the reference guide was written against removes a whole class of problem.
+
+One caveat found and then resolved: a
+[forum thread](https://github.com/morrownr/USB-WiFi/discussions/213) reports
+an AWUS036ACM crashing under load on a Pi 4B, and the same maintainer says
+there "I would not use an Alfa ACM." That user was running **two** adapters
+simultaneously off one Pi, which is a power-budget problem, not an adapter
+problem. Single adapter is the supported configuration.
+
+**Sourcing warning — this is a real trap.** Searching Amazon for "MT7612U"
+returns adapters that match the keyword in metadata but use entirely
+different silicon. Checked 2026-08-28: the top three EDUP results were
+`MT7921AU` (says so in the title), an "AC600" (433 Mbps 5GHz = 1x1, so
+RTL8811AU or MT7610U), and a $7 unit with no band spec at all. Search by
+model name, not chipset. The listing must say **MT7612U** in the actual
+specs and be rated **AC1200** with 867 Mbps on 5GHz. "AC600" or a bare
+"1200Mbps" with no band breakdown are both tells.
+
+The Pi forums note the same problem with AliExpress units: they "may look
+identical" but only work on Windows.
+
+**Power and heat: not a concern here.** ~400mA / 2W at 5V — a
+[report](https://github.com/morrownr/USB-WiFi/discussions/213) of two
+adapters together pulling max 800mA is the source. That's under half the
+Pi's own ~5W and trivial next to Starlink's measured 18.6W. Running
+continuously it's ~48Wh/day, under 4% of the 1280Wh bank. Thermal
+throttling only shows up during sustained 30+ minute transfers, which is not
+this workload — polling a few endpoints every 5s barely touches the radio.
+
+**Known constraints for when it arrives:**
+
+- It comes up as `wlan1`. Existing NetworkManager profiles are bound to
+  `wlan0` — either move them or bind explicitly.
+- **The mt7612u driver does not support DFS channels in AP mode.** Managed
+  mode is fine. For the hotspot, use a non-DFS channel: 36 or 149 in the US.
+  Channels 52/60/100 will fail with "Device is not active" and look like a
+  hardware fault.
+- Use a **blue USB 3.0 port**. On USB 2.0 throughput caps around 480 Mbps
+  regardless of what the chip supports.
+- The AP-mode side is its own build (`hostapd` + `dnsmasq`, or
+  NetworkManager's AP mode) and is not scoped yet. `morrownr/7612u` has a
+  Pi 4B-specific guide.
+
+**Not yet purchased or tested.**
 
 ---
 

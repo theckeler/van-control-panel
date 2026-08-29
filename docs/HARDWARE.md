@@ -15,8 +15,10 @@
 | Cooling | Aluminum passive heatsink kit | Cabinet gets warm — heatsink required |
 | Power supply | 12V to USB-C 5V 3A buck converter | Steps van 12V to Pi USB-C. Fused 3A at fuse block |
 | Enclosure | DIN rail mount case | Mounts on HDPE panel DIN rail |
+| WiFi adapter | Alfa AWUS036ACM (MT7612U) | **Not purchased yet.** ~$60. Dual band, 2× detachable 5dBi antennas, USB 3.0. See CLAUDE.md → Networking for why this one and the sourcing trap |
 
 **Power draw:** ~3-5W at load. At 12V ≈ 6-10Ah/day. Less than 3% of 300Ah battery.
+The WiFi adapter adds ~2W (~400mA at 5V) when fitted.
 
 ---
 
