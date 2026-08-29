@@ -13,7 +13,7 @@
 | Single board computer | Raspberry Pi 4B 1GB | Main server. FastAPI, BLE, VE.Direct, cameras |
 | Storage | SanDisk Endurance 32GB microSD | Rated for 24/7 continuous write |
 | Cooling | Aluminum passive heatsink kit | Cabinet gets warm — heatsink required |
-| Power supply | 12V to USB-C 5V 3A buck converter | Steps van 12V to Pi USB-C. Fused 3A at fuse block |
+| Power supply | 12V to USB-C 5V 3A buck converter | Steps van 12V to Pi USB-C. Fused 3A at fuse block. **As actually wired 2026-08-28: cigarette-lighter socket → 12V/USB-A car adapter → Pi, with the ESP32 also fed from the Pi.** Check the adapter's real rating before adding USB peripherals |
 | Enclosure | DIN rail mount case | Mounts on HDPE panel DIN rail |
 | WiFi adapter | Alfa AWUS036ACM (MT7612U) | **Not purchased yet.** ~$60. Dual band, 2× detachable 5dBi antennas, USB 3.0. See CLAUDE.md → Networking for why this one and the sourcing trap |
 

@@ -725,6 +725,21 @@ specs and be rated **AC1200** with 867 Mbps on 5GHz. "AC600" or a bare
 The Pi forums note the same problem with AliExpress units: they "may look
 identical" but only work on Windows.
 
+**Considered and rejected: Panda Wireless PAU0A**, $31, Amazon's Choice, and
+it explicitly lists Raspbian support — so it looks like a reasonable cheaper
+option. Two problems. "AC600" means 433 Mbps on 5GHz, i.e. a 1×1 radio, so
+it is not MT7612U (which is 2×2 / AC1200) — most likely RTL8811AU or
+MT7610U. And it is a compact nub with an *internal* antenna, which fails the
+actual requirement: the problem being solved is range at `-65 dBm`, and this
+has less antenna than the onboard radio it would be replacing.
+
+Note PAU0**A** (compact, internal antenna) is a different product from
+PAU0**D** (larger, external antenna). Easy to confuse.
+
+Where a PAU0A could still make sense: as a *second* adapter dedicated to the
+AP side, where the phone is a few feet away and range is irrelevant. Not as
+the fix for this problem.
+
 **Power and heat: not a concern here.** ~400mA / 2W at 5V — a
 [report](https://github.com/morrownr/USB-WiFi/discussions/213) of two
 adapters together pulling max 800mA is the source. That's under half the
@@ -734,6 +749,29 @@ throttling only shows up during sustained 30+ minute transfers, which is not
 this workload — polling a few endpoints every 5s barely touches the radio.
 
 **Known constraints for when it arrives:**
+
+- **Check the power budget first.** As of 2026-08-28 the Pi is powered from a
+  cigarette-lighter socket via a 12V→USB-A car adapter, with the ESP32 also
+  hanging off the Pi. Many cheap car USB adapters are rated 2.1A or 2.4A
+  total, and a Pi 4B alone can draw up to 3A under load — adding a ~400mA
+  WiFi adapter on top of an already-marginal supply produces undervoltage,
+  which looks exactly like the flaky-network symptoms this adapter is meant
+  to fix. Verify before and after fitting:
+
+  ```bash
+  vcgencmd get_throttled     # 0x0 is clean; any bit set means undervoltage
+  ```
+
+  Bits `0x1` (under-voltage now) or `0x10000` (under-voltage since boot) mean
+  the supply is the problem, not the adapter. `SettingsDrawer` already
+  surfaces throttle flags via `health.py`, so this is also visible from the
+  dashboard.
+
+  **Baseline measured 2026-08-28, before adding anything:**
+  `throttled=0x0`, core `0.916V`, `50.1°C` — clean, with the Pi and ESP32
+  both running off the current car adapter. So there is headroom today; the
+  question is only whether another ~400mA crosses the line. Re-run the same
+  check after fitting and compare against these numbers.
 
 - It comes up as `wlan1`. Existing NetworkManager profiles are bound to
   `wlan0` — either move them or bind explicitly.
