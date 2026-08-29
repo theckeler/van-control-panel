@@ -311,6 +311,107 @@ Pi's own dispatcher) not built yet.
 
 ---
 
+## All BLE devices offline at once (BMS, Victron, EcoFlow)
+
+### Symptoms
+- `/battery/`, `/mppt/`, `/ecoflow/` all return zeros with `connected: false`
+- `van-api` is running fine, no errors in the journal
+- Happens immediately after a fresh OS install
+
+### Cause
+Bluetooth is **soft-blocked by rfkill** by default on a fresh Raspberry Pi OS
+Lite install. `bluetoothctl show` reports `Powered: no` and
+`PowerState: off-blocked`. Nothing BLE-related can work regardless of the
+services running correctly — they have no radio to talk to.
+
+One root cause explains all three devices at once. If only *one* BLE device is
+offline, this is not it.
+
+### Fix
+```bash
+sudo rfkill unblock bluetooth
+sudo systemctl restart bluetooth
+bluetoothctl show | grep -E "Powered|PowerState"   # want: Powered: yes
+sudo systemctl restart van-api
+```
+
+Confirmed 2026-08-28. Now handled automatically by `scripts/pi-setup.sh`; this
+entry is for diagnosing an install that predates it or was done by hand.
+
+### Note on the BMS specifically
+After unblocking, the BMS may still show `connected: false` with a
+`retry_in` countdown. That is the normal 5-minute `RECONNECT_IN` cooldown, not
+a failure. Confirm it is genuinely advertising rather than restarting anything:
+
+```bash
+(echo "scan on"; sleep 20; echo "scan off"; echo "exit") | bluetoothctl \
+  | grep -i "C8:47:80:5D:08:6F"
+```
+
+If it appears, wait the cooldown out. Restarting `van-api` repeatedly to force
+a retry is the documented cause of BMS lockout — the cooldown exists precisely
+to prevent that.
+
+---
+
+## Tailscale hostname is van-pi-2, not van-pi
+
+### Symptoms
+- `van-pi.tailba93b9.ts.net` does not resolve
+- `tailscale status` shows `van-pi-2` as the active node, with `van-pi` and
+  `van-pi-1` listed as offline
+
+### Cause
+Every fresh OS install registers a **new** Tailscale node. The old ones keep
+the good hostname, so the new install gets suffixed. Rebuilding twice in one
+day produced `van-pi`, `van-pi-1`, and `van-pi-2`.
+
+Same collision-avoidance behaviour as mDNS, at a different layer.
+
+### Fix
+Delete the stale offline machines at
+[login.tailscale.com/admin/machines](https://login.tailscale.com/admin/machines),
+then rename or re-register the current one. The CLI cannot delete nodes — this
+is admin-console only.
+
+Until then, use the suffixed name or the numeric IP. Note the address is
+**`http://`, not `https://`** — nothing in this stack listens on 443 and no
+TLS cert is configured. Tailscale can provision one via Funnel, but that is
+separate setup that has not been done.
+
+---
+
+## mDNS: van-pi.local does not resolve
+
+### Symptoms
+- `ping van-pi.local` → "cannot resolve"
+- The Pi is definitely up and reachable by IP
+
+### Cause
+Avahi renamed itself to avoid a collision. Check what it actually claimed:
+
+```bash
+sudo systemctl status avahi-daemon --no-pager | grep "running \["
+```
+
+If it shows `running [van-pi-2.local]`, a stale advertisement from a previous
+install is still being defended somewhere on the network.
+
+### Fix
+```bash
+sudo systemctl restart avahi-daemon
+sudo systemctl status avahi-daemon --no-pager | grep "running \["   # want van-pi.local
+```
+
+Confirmed 2026-08-28: a single restart reclaimed the correct name.
+
+**Before assuming mDNS is broken, rule out packet loss.** Heavy WiFi loss looks
+identical from the application layer. `dscacheutil -q host -a name van-pi.local`
+on the Mac will return the correct IP even while everything feels broken — see
+CLAUDE.md → Networking → Signal quality.
+
+---
+
 ## Tailscale not connecting
 
 ```bash
