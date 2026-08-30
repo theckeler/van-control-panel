@@ -29,11 +29,17 @@ async def _resolve(hostname: str) -> str | None:
         return hit[0]
     try:
         loop = asyncio.get_running_loop()
-        info = await loop.getaddrinfo(hostname, None, family=socket.AF_INET)
+        # wait_for is critical: getaddrinfo runs in the thread pool executor.
+        # When the pool is saturated (BLE + Starlink tasks compete for threads)
+        # the query queues indefinitely, hanging the entire /shelly/ endpoint.
+        info = await asyncio.wait_for(
+            loop.getaddrinfo(hostname, None, family=socket.AF_INET),
+            timeout=2.0,
+        )
         ip = info[0][4][0]
         _dns_cache[hostname] = (ip, now)
         return ip
-    except (socket.gaierror, OSError, IndexError):
+    except (socket.gaierror, OSError, IndexError, asyncio.TimeoutError):
         _dns_cache.pop(hostname, None)
         return None
 
@@ -56,20 +62,20 @@ SHELLY_UNITS = {
         "installed": True,
         "est_watts": 0,    # unknown load
     },
-    # "maxxfan": {
-    #     "ip": None,
-    #     "label": "Maxxfan",
-    #     "channel": 0,
-    #     "installed": False,
-    #     "est_watts": 30,
-    # },
-    # "lights": {
-    #     "ip": None,
-    #     "label": "Ceiling Lights",
-    #     "channel": 0,
-    #     "installed": False,
-    #     "est_watts": 15,
-    # },
+    "ps-input-2": {
+        "ip": "shelly1g4-48f6eed0a89c.local",
+        "label": "PS Input 2",
+        "channel": 0,
+        "installed": True,
+        "est_watts": 0,
+    },
+    "ps-input-1": {
+        "ip": None,
+        "label": "PS Input 1",
+        "channel": 0,
+        "installed": False,
+        "est_watts": 0,
+    },
 }
 
 class ShellyStatus(BaseModel):

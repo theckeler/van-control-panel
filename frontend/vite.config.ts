@@ -6,14 +6,15 @@ export default defineConfig(({ mode }) => {
   // stays server-side in this config and never reaches the client bundle.
   const env = loadEnv(mode, process.cwd(), '')
 
-  // Defaults to the Pi over Tailscale — works regardless of which network it
-  // is on, since it prefers Starlink (192.168.4.x) and falls back to OHeck
-  // (192.168.1.x) so its LAN address is not stable.
+  // Defaults to the Pi over mDNS — works from any device on the same LAN as
+  // the Pi (both Starlink and OHeck networks).
   //
-  // Set VAN_API_TARGET=http://localhost:8000 to develop against a backend
-  // running on this machine instead. The VS Code "Dev: full stack (local)"
-  // task does that for you.
-  const target = env.VAN_API_TARGET || 'http://100.123.186.63:8000'
+  // Override with VAN_API_TARGET when you need a different target:
+  //   VAN_API_TARGET=http://localhost:8000       local backend on this machine
+  //   VAN_API_TARGET=http://100.x.x.x:8000       Pi over Tailscale (if active)
+  //
+  // The VS Code "Dev: full stack (local)" task sets VAN_API_TARGET=localhost.
+  const target = env.VAN_API_TARGET || 'http://van-pi.local:8000'
   const isLocal = target.includes('localhost') || target.includes('127.0.0.1')
 
   return {

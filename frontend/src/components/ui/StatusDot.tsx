@@ -4,7 +4,7 @@ type Tone = "accent" | "success";
 
 const ON: Record<Tone, string> = {
   accent: "bg-accent",
-  success: "bg-green-500",
+  success: "bg-lime-400",
 };
 
 export function StatusDot({
@@ -20,8 +20,8 @@ export function StatusDot({
     <span
       aria-hidden="true"
       className={clsx(
-        "w-2 h-2 rounded-full flex-shrink-0",
-        on ? ON[tone] : "bg-zinc-700",
+        "min-w-[0.5rem] min-h-[0.5rem] rounded-full flex-shrink-0",
+        on ? ON[tone] : tone === "accent" ? "bg-accent" : "bg-gray-300",
         className,
       )}
     />

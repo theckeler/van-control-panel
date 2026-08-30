@@ -4,7 +4,9 @@ import time
 
 # iwconfig lives in /usr/sbin, which is not on PATH for non-login shells.
 IWCONFIG = "/usr/sbin/iwconfig"
-IFACE = "wlan0"
+# wlan0 is the TwitchWiFi hotspot (AP mode, 10.42.0.1) — it has no upstream
+# association to report. wlan1 is the uplink: Starlink primary, OHeck fallback.
+IFACE = "wlan1"
 
 # Association changes rarely, but /system/ is polled every 5s. Without a cache
 # that is two subprocess spawns per poll, ~1,400 an hour, for an answer that
@@ -55,7 +57,7 @@ async def get_wifi() -> dict:
 
     iw = await _run(IWCONFIG, IFACE)
     if iw:
-        # ESSID:"Sir Salettelot" — off/any when not associated
+        # ESSID:"Starlink" or "OHeckNo" — off/any when not associated
         if m := re.search(r'ESSID[:=]"([^"]*)"', iw):
             result["ssid"] = m.group(1) or None
         if m := re.search(r"Frequency[:=]([\d.]+)\s*GHz", iw):
