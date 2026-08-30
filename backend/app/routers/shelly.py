@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 import asyncio
+import concurrent.futures
 import socket
 import time
 import httpx
@@ -20,6 +21,10 @@ router = APIRouter()
 _dns_cache: dict[str, tuple[str, float]] = {}
 DNS_TTL = 300.0
 
+# BLE and Starlink tasks saturate the default thread pool executor. A
+# dedicated 2-thread pool keeps DNS resolution from queuing behind them.
+_dns_executor = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="shelly-dns")
+
 
 async def _resolve(hostname: str) -> str | None:
     """Resolve a .local name to an IP, cached for DNS_TTL seconds."""
@@ -29,12 +34,14 @@ async def _resolve(hostname: str) -> str | None:
         return hit[0]
     try:
         loop = asyncio.get_running_loop()
-        # wait_for is critical: getaddrinfo runs in the thread pool executor.
-        # When the pool is saturated (BLE + Starlink tasks compete for threads)
-        # the query queues indefinitely, hanging the entire /shelly/ endpoint.
+        # Use a dedicated executor so BLE/Starlink tasks can't starve DNS.
+        # wait_for catches the case where even the dedicated pool is busy.
         info = await asyncio.wait_for(
-            loop.getaddrinfo(hostname, None, family=socket.AF_INET),
-            timeout=2.0,
+            loop.run_in_executor(
+                _dns_executor,
+                lambda: socket.getaddrinfo(hostname, None, family=socket.AF_INET),
+            ),
+            timeout=5.0,
         )
         ip = info[0][4][0]
         _dns_cache[hostname] = (ip, now)
