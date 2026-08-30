@@ -69,18 +69,18 @@ SHELLY_UNITS = {
         "installed": True,
         "est_watts": 0,    # unknown load
     },
+    "ps-input-1": {
+        "ip": "shelly1g4-98a31677ca34.local",
+        "label": "PS Input 1",
+        "channel": 0,
+        "installed": True,
+        "est_watts": 0,
+    },
     "ps-input-2": {
         "ip": "shelly1g4-48f6eed0a89c.local",
         "label": "PS Input 2",
         "channel": 0,
         "installed": True,
-        "est_watts": 0,
-    },
-    "ps-input-1": {
-        "ip": None,
-        "label": "PS Input 1",
-        "channel": 0,
-        "installed": False,
         "est_watts": 0,
     },
 }

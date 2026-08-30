@@ -46,7 +46,7 @@ cd frontend && VITE_DEMO=true npm run dev
 | **Fridge** — Dometic CFX5 35                | Temp, set point, compressor, door, power source via an ESP32 BLE bridge |
 | **Starlink Mini**                           | Latency, throughput, obstruction, and measured power draw over local gRPC |
 | **EcoFlow River 2 Max**                     | Battery % decoded from the raw BLE advertisement — no auth, no cloud |
-| **Smart relays** — 2× Shelly 1 Gen4         | USB outlets and garage circuit, local HTTP, no cloud             |
+| **Smart relays** — 3× Shelly 1 Gen4 installed | USB outlets, garage, PS Input 2 — all on TwitchWiFi AP (10.42.0.x), local HTTP, no cloud |
 | **History** — SQLite, four tiers            | Raw → hourly → daily → monthly, automatic rollup and pruning     |
 | **Operating modes**                         | Storage / Camp / Trail / In Town, persisted across restarts      |
 | **Pi health**                               | CPU temp, load, memory, disk, uptime, undervoltage flags         |
@@ -67,7 +67,7 @@ than one admitting the gaps.
 | **DC-DC charger**       | Orion-Tr 12/12-18 is non-smart. Static config only                     |
 | **Fridge control**      | Reading works. Writing (set temp, on/off) is supported by the component but not wired up |
 | **Garmin PowerSwitch**  | BlueZ can't connect. Protocol is undocumented — see 2026-08-27 review |
-| **Maxxfan relay**       | Tested and rejected — it defaults open on power loss                   |
+| **Maxxfan relay**       | Tested and rejected — defaults open on power loss, no network path |
 | **Applying modes**      | The selection persists, but nothing is driven by it yet                |
 
 ---
@@ -124,7 +124,7 @@ self-hosted GitHub Actions runner that deploys on push.
 Open in VS Code and press **Cmd+Shift+B**, or:
 
 ```bash
-# frontend — proxies to the Pi over Tailscale
+# frontend — proxies to van-pi.local:8000 by default (override with VAN_API_TARGET)
 cd frontend && npm install --include=dev && npm run dev
 
 # backend

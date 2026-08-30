@@ -38,7 +38,8 @@ ssh todd@van-pi.local 'sudo shutdown now'
 
 Or if on Tailscale:
 ```bash
-ssh todd@100.123.186.63 'sudo shutdown now'
+ssh todd@van-pi 'sudo shutdown now'
+# (Currently registered as van-pi-2 — see Tailscale hostname entry below)
 ```
 
 **Step 2 — Flip the Nilight 50A house main disconnect OFF**
@@ -88,15 +89,17 @@ Usually a DNS resolution issue — `van-pi.local` times out on some Mac setups b
 > **Distinguishing from the WiFi-signal issue below:** DNS timeout adds a consistent ~5s delay per request, everything else is fast. WiFi signal issues make *everything* crawl, including SSH sessions, not just the browser.
 
 ### Fix
-Add the Pi's IP to your Mac's hosts file:
+Find the Pi's current IP and try a direct connection:
 ```bash
-echo "192.168.1.99 van-pi.local" | sudo tee -a /etc/hosts
+ping van-pi.local    # get the IP
 ```
 
-Find the correct IP first if it's changed:
-```bash
-ping van-pi.local
-```
+If mDNS resolution itself is failing, see the "mDNS: van-pi.local does not
+resolve" section below.
+
+**Do not pin `van-pi.local` in `/etc/hosts`.** The Pi's IP changes between
+Starlink (192.168.4.x) and OHeck (192.168.1.x). A stale entry silently breaks
+SSH and the dev proxy.
 
 ---
 
@@ -112,19 +115,22 @@ ping van-pi.local
 Weak or congested WiFi link between the Pi and the router, not an app or auth issue. Check the radio stats:
 ```bash
 ssh todd@van-pi.local
-iwconfig wlan0
+iwconfig wlan1
 ```
 Look at:
 - **Tx excessive retries** — climbing into the hundreds means the link is struggling
 - **Signal level** — below about -65 dBm is marginal
 - **Bit Rate** — the radio falls back to a low rate (e.g. 13-14 Mb/s) when the link is unstable
 
+*(wlan1 is the uplink client radio — the USB dongle. wlan0 runs the TwitchWiFi
+AP and won't show client signal stats.)*
+
 ### Fix
 **Switch to 5GHz if the router supports it.** 2.4GHz is more congested and shorter-range-tolerant but noisier. Reconnecting the Pi to a 5GHz SSID (same network, different band) has resolved this outright — retries dropped from 300+ to 0 and bit rate roughly doubled.
 
 If power management is on, turn it off too (can cause latency spikes independent of signal strength):
 ```bash
-sudo iwconfig wlan0 power off
+sudo iwconfig wlan1 power off
 ```
 Note: this resets on reboot/reconnect unless made persistent (see below).
 
@@ -290,17 +296,17 @@ it's just not useful.
 
 ### Check
 ```bash
-ssh todd@100.123.186.63
-ip -4 addr show wlan0 | grep inet      # which network is the Pi on?
+ssh todd@van-pi.local
+ip -4 addr show wlan1 | grep inet      # which uplink network is the Pi on?
 getent hosts dometic-bridge.local      # can it even resolve the ESP32?
 ```
 
 ### Fix
 Put them back on the same network. Fastest lever, no reflash needed:
 ```bash
-curl -s -X POST http://localhost:8000/system/wifi/switch/netplan-wlan0-OHeck
+curl -s -X POST http://localhost:8000/system/wifi/switch/oheck-wlan1
 # or
-curl -s -X POST http://localhost:8000/system/wifi/switch/starlink
+curl -s -X POST http://localhost:8000/system/wifi/switch/starlink-wlan1
 ```
 
 Note this drifts back apart on its own — the ESP32 now has an explicit WiFi
@@ -448,6 +454,6 @@ ssh todd@van-pi.local 'sudo journalctl -u van-api -f'
 # Check SQLite data
 ssh todd@van-pi.local 'sqlite3 ~/van-control-panel/backend/van_power.db "SELECT COUNT(*), source FROM readings_raw GROUP BY source;"'
 
-# Tailscale IP (if mDNS not working)
-ssh todd@100.123.186.63 'echo connected'
+# Tailscale IP (if mDNS not working — currently van-pi-2 until ghost nodes cleaned up)
+ssh todd@van-pi 'echo connected'
 ```

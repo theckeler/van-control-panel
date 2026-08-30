@@ -42,7 +42,7 @@ Budget about an hour, most of it waiting on installs.
 |---|---|
 | Hostname | `van-pi` |
 | User | `todd` |
-| Tailscale IP | `100.123.186.63` |
+| Tailscale IP | Changes on each rebuild — run `tailscale ip -4` after step 4 |
 | Python | 3.13.5 |
 | Node | v20.20.2 |
 | OS | Debian Trixie (arm64), Raspberry Pi OS |
@@ -78,7 +78,7 @@ Pi has a fresh host key that doesn't match the old one saved in
 
 ```bash
 ssh-keygen -R van-pi.local
-ssh-keygen -R 100.87.126.98   # if the Tailscale IP is reused too
+ssh-keygen -R <old-tailscale-ip>   # if the Tailscale IP is reused too
 ```
 
 Only after that will `ssh-copy-id` actually work — run it *after* clearing
@@ -155,7 +155,8 @@ sudo nmcli connection modify <oheck-profile> connection.autoconnect-priority 50
 sudo nmcli connection modify <oheck-profile> 802-11-wireless.powersave 2
 ```
 
-Verify:
+Verify (note: on initial setup with no USB dongle, wlan0 is still the client;
+after the USB dongle is added, use `wlan1` instead):
 
 ```bash
 nmcli -f NAME,AUTOCONNECT-PRIORITY connection show
@@ -190,7 +191,7 @@ not roam back to Starlink on its own after an outage.
 
 ```bash
 curl -fsSL https://tailscale.com/install.sh | sh
-sudo tailscale up
+sudo tailscale up --hostname=van-pi
 ```
 
 Follow the printed URL to authenticate. Confirm the address:
@@ -202,18 +203,13 @@ tailscale ip -4
 **Do not expect this to match the old address, even with the hostname
 reused.** Confirmed 2026-08-28: a fresh OS install gets a genuinely new
 Tailscale node identity, not a reused one, so it lands on a new IP from the
-pool regardless of hostname. Current value is `100.123.186.63` — check the
-Reference table above stays accurate whenever this changes again, and update
-every place listed below.
+pool regardless of hostname. `--hostname=van-pi` pins the *name* but not the
+IP. Delete the old ghost nodes at
+[login.tailscale.com/admin/machines](https://login.tailscale.com/admin/machines)
+after the new node is registered — otherwise hostname collision gives the new
+node a suffix (van-pi-2, etc.).
 
-If the IP differs, every hardcoded reference needs updating — confirmed
-2026-08-28 this is more than just `vite.config.ts`:
-
-```bash
-grep -rl "100\.87\.126\.98" --include="*.ts" --include="*.md" --include="*.json" .
-# currently: frontend/vite.config.ts, docs/TROUBLESHOOTING.md,
-# docs/SETUP.md, docs/CLAUDE.md, .vscode/tasks.json
-```
+After registering, note the new IP and update the Reference table above.
 
 **If `curl | sh` dies partway through** (a TLS error, a dropped connection —
 more likely on Starlink, see the note at the top of this doc), the `apt-get`
@@ -322,7 +318,7 @@ Skip this and the logger starts a fresh history. To keep the old readings:
 On the Mac:
 
 ```bash
-scp ~/van-backups/van_power-<date>.db.gz todd@100.123.186.63:~/
+scp ~/van-backups/van_power-<date>.db.gz todd@van-pi.local:~/
 ```
 
 On the Pi:

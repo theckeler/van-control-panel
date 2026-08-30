@@ -39,16 +39,21 @@ A self-hosted IoT monitoring and control dashboard for a converted 2023 Mercedes
 
 ### Shelly Control
 
-Two Shelly 1 Gen4 units installed, two planned. Uses `.local` mDNS hostnames (NOT hardcoded IPs):
-- `shelly1g4-d885acec6aac.local` → USB outlets
-- `shelly1g4-d885acf36a28.local` → Garage
+Three Shelly 1 Gen4 units installed, one placeholder. All installed units are
+on TwitchWiFi (10.42.0.1/24). Uses `.local` mDNS hostnames (NOT hardcoded IPs):
+- `shelly1g4-d885acec6aac.local` → USB Outlets (10.42.0.102)
+- `shelly1g4-d885acf36a28.local` → Garage (10.42.0.215)
+- `shelly1g4-48f6eed0a89c.local` → PS Input 2 (10.42.0.26)
+- PS Input 1 — not yet installed (`ip: None`, `installed: False`, hidden in UI)
 
-Control via httpx async HTTP to Shelly local REST API. Both units have home WiFi + Starlink configured as dual-WiFi profiles.
+Control via httpx async HTTP to Shelly local REST API. The Shellys are on
+TwitchWiFi — the Pi's own hotspot AP — so they're reachable as long as the Pi
+is running, independent of Starlink/OHeck state.
 
 ### Frontend Server
 
-Served by **Express** (`frontend/server.mjs`) on port 80. NOT nginx. Express:
-- Serves the built React SPA from `/var/www/van` (production) or `dist/` (dev)
+Served by **nginx** (port 80), which proxies to **Express** (`frontend/server.mjs`) on port 3000. Express:
+- Serves the built React SPA from `dist/`
 - Proxies `/api/*` to uvicorn at `localhost:8000`
 - Optional basic auth via `VAN_PASSWORD` in `.env`
 
@@ -199,7 +204,7 @@ WiFi. Generate one rather than leaving it blank.
 `server.mjs`:
 
 ```
-VAN_PORT=80
+VAN_PORT=3000
 VAN_PASSWORD=<dashboard password>
 VAN_SESSION_SECRET=<32-byte hex — changing it logs everyone out>
 ```
@@ -367,7 +372,8 @@ filter, so verify rather than assume.
 
 ```
 van-api          FastAPI backend (uvicorn :8000)
-van-frontend     Express frontend (:80)
+van-frontend     Express frontend (:3000, behind nginx :80)
+nginx            Reverse proxy (:80 → Express :3000)
 van-backup       Daily van_power.db snapshot to the Mac (oneshot + timer)
 actions-runner   GitHub Actions self-hosted runner
 bluetooth        BLE adapter
@@ -435,7 +441,7 @@ MAC addresses are in these docs.
 
 Two independent layers.
 
-**Express (`server.mjs`, port 80)** gates the dashboard with `VAN_PASSWORD`.
+**Express (`server.mjs`, port 3000, behind nginx on port 80)** gates the dashboard with `VAN_PASSWORD`.
 A signed cookie carries its own expiry — HMAC-SHA256 over the timestamp,
 constant-time compare, no server state. It was previously `express-session`
 with the default MemoryStore, which meant every `van-frontend` restart wiped
@@ -475,30 +481,24 @@ Starlink with the home network as fallback.
 | Starlink | `Sir Salettelot` | Preferred. Dual band, associate on ch 40 (5GHz) |
 | Home | `OHeck` | Fallback. Prefer its 5GHz band |
 
-**Pi priority** is set in NetworkManager and survives reboots:
+**Pi priority** is set in NetworkManager on `wlan1` (the uplink radio):
 
 ```bash
 nmcli -f NAME,AUTOCONNECT-PRIORITY connection show
-# starlink            100
-# netplan-wlan0-OHeck  50
+# starlink-wlan1       100
+# oheck-wlan1           50
 ```
 
-Note the OHeck profile is named `netplan-wlan0-OHeck` because netplan created
-it. The `nmcli` priority has been verified to survive a reboot, so it does not
-need to move into the netplan YAML.
+`wlan0` profiles (`starlink`, `netplan-wlan0-OHeck`) still exist but have
+`autoconnect: no` — they're disabled so the hotspot owns that radio.
 
-**Shelly priority** uses the Gen4 two-slot scheme, `sta` tried first then
-`sta1`. Both units have `sta` = Starlink, `sta1` = OHeck. Set via:
+**Shelly network:** All three installed units are on TwitchWiFi (10.42.0.1/24).
+To configure a Shelly's WiFi:
 
 ```bash
 curl -s "http://<ip>/rpc/WiFi.SetConfig" -H 'Content-Type: application/json' \
-  -d '{"config":{"sta":{"ssid":"Sir Salettelot","pass":"...","enable":true},
-                 "sta1":{"ssid":"OHeck","pass":"...","enable":true}}}'
+  -d '{"config":{"sta":{"ssid":"TwitchWiFi","pass":"...","enable":true}}}'
 ```
-
-Add the fallback to the empty slot *first*, then swap, so there is never a
-moment with only one untested network configured. There is no out-of-band way
-to reach a Shelly that fails to join anything except a physical reset.
 
 ### Subnets
 
@@ -558,54 +558,64 @@ sudo nmcli connection up starlink
 ### Diagnosing a split
 
 ```bash
-ip -4 addr show wlan0 | grep inet     # 192.168.4.x = Starlink, 192.168.1.x = OHeck
-iwconfig wlan0 | grep ESSID
+ip -4 addr show wlan1 | grep inet     # 192.168.4.x = Starlink, 192.168.1.x = OHeck
+ip -4 addr show wlan0 | grep inet     # should always show 10.42.0.1 (TwitchWiFi AP)
+iwconfig wlan1 | grep ESSID
 avahi-browse -art | grep -i "_shelly._tcp" | sort -u
 ```
 
-Symptoms: dashboard loads but circuits show unreachable, `avahi-browse` returns
-no Shellys, `*.local` pings fail with "Name or service not known" from the Pi
-while resolving fine from a Mac on the other network.
+Symptoms: circuits show unreachable but the Shellys are not moving networks —
+they're on TwitchWiFi (the Pi's own AP, always 10.42.0.1/24). If circuits are
+unreachable, the most likely cause is a stale DNS cache entry in van-api from
+a previous network state. Restart van-api.
 
 **The DNS cache makes this outlast the split.** `shelly.py` caches `.local`
-resolutions for `DNS_TTL` seconds to avoid paying ~105ms of mDNS per call. When
-the Shellys move networks, that cache still holds their *old* IPs, so the
-Shellys can be fully back and reachable while the API keeps timing out against
-stale addresses. Confirmed 2026-08-28: `avahi-browse` listed both units, a
-direct `curl` to the new IP returned `200`, and `/shelly/` still reported both
-unreachable until `van-api` was restarted.
+resolutions for `DNS_TTL` seconds to avoid paying ~105ms of mDNS per call.
+When a Shelly moves networks (or after van-api restarts with a fresh empty
+cache), the cache holds the stale IP, so the Shellys can be fully reachable
+while the API keeps timing out. Restart van-api to flush it.
+
+**Thread pool starvation.** The default asyncio thread pool is shared by BLE
+(bleak) and Starlink (gRPC) tasks. If all threads are busy, `getaddrinfo()`
+queues indefinitely. `shelly.py` uses a dedicated 2-thread executor
+(`_dns_executor`) for DNS so it never competes with BLE/Starlink.
 
 ```bash
 sudo systemctl restart van-api    # clears the resolution cache
 ```
 
-Restarting is the fast path. Waiting out the TTL also works.
 
-**Do not factory-reset the Shellys for this.** They have a two-slot WiFi config
-(`sta` = Starlink, `sta1` = OHeck) and fall back on their own, exactly as
-designed. A unit sitting on `192.168.1.60` when the code expects
-`192.168.4.x` is the fallback working, not a misconfiguration. The Shelly app
-shows this directly under Wi-Fi 2 — "Device is connected, SSID: OHeck".
-
-
-Sweep the current subnet without nmap (which is not installed):
+Sweep the current uplink subnet without nmap (which is not installed):
 
 ```bash
+# TwitchWiFi (Shellys live here)
+for i in $(seq 1 254); do (ping -c 1 -W 1 10.42.0.$i >/dev/null 2>&1 &) ; done
+sleep 5; ip neigh | grep -v FAILED
+
+# Starlink (if wlan1 is on Starlink)
 for i in $(seq 1 254); do (ping -c 1 -W 1 192.168.4.$i >/dev/null 2>&1 &) ; done
 sleep 5; ip neigh | grep -v FAILED
 ```
 
 ### Development access
 
-`vite.config.ts` proxies `/api` to the Tailscale address `100.123.186.63:8000`
-rather than a LAN address, because the Pi's LAN IP changes with the network it
-joins. Tailscale works regardless of which one that is.
+`vite.config.ts` proxies `/api` to `http://van-pi.local:8000` by default.
+mDNS resolves correctly from any device on the same LAN as the Pi (Starlink,
+OHeck, or TwitchWiFi). Override with `VAN_API_TARGET` when needed:
 
-`ssh todd@van-pi.local` only works when the Mac and Pi are on the same network,
-since mDNS does not cross. `ssh todd@100.123.186.63` always works.
+- `VAN_API_TARGET=http://localhost:8000` — local backend on the Mac
+- `VAN_API_TARGET=http://100.x.x.x:8000` — Pi over Tailscale (when active)
 
-Do not pin `van-pi.local` in the Mac's `/etc/hosts` — the Pi's LAN IP is not
-stable, and a stale entry silently breaks SSH.
+The VS Code "Dev: full stack (local backend)" task sets `VAN_API_TARGET=localhost`.
+
+`ssh todd@van-pi.local` works when the Mac and Pi are on the same LAN. Tailscale
+SSH: `ssh todd@van-pi` — note the Pi currently shows as `van-pi-2` until the
+ghost nodes (`van-pi`, `van-pi-1`) are deleted at
+[login.tailscale.com/admin/machines](https://login.tailscale.com/admin/machines).
+
+Do not pin `van-pi.local` in the Mac's `/etc/hosts` — the Pi's LAN IP changes
+between Starlink (192.168.4.x) and OHeck (192.168.1.x), and a stale entry
+silently breaks SSH.
 
 ### Power management
 
@@ -613,14 +623,14 @@ stable, and a stale entry silently breaks SSH.
 persistently per-connection in NetworkManager:
 
 ```bash
-sudo nmcli connection modify starlink 802-11-wireless.powersave 2
-sudo nmcli connection modify netplan-wlan0-OHeck 802-11-wireless.powersave 2
+sudo nmcli connection modify starlink-wlan1 802-11-wireless.powersave 2
+sudo nmcli connection modify oheck-wlan1 802-11-wireless.powersave 2
 ```
 
 Note the syntax is `<setting>.<property>` — `802-11-wireless.powersave`, with a
 dot, not a hyphen. `2` is the enum for disable (`3` is enable, `0` is default).
 
-Applied and verified: `iwconfig wlan0` reports `Power Management:off`.
+Applied and verified: `iwconfig wlan1` reports `Power Management:off`.
 
 ### Signal quality — the onboard radio is the real ceiling
 
@@ -639,6 +649,10 @@ symptoms looked like DNS and were not.
 | Pi → router | 10% loss, 2-75ms | 0%, <10ms |
 | Interface errors (`ip -s link`) | 0 RX, 0 TX | 0 |
 
+*(Note: these stats were from the Pi's onboard radio before the USB dongle was
+added. wlan1 now handles the uplink. The onboard radio on wlan0 runs the
+TwitchWiFi AP and is not a client.)*
+
 Zero interface errors with heavy packet loss means the hardware and driver are
 fine. It is purely RF: the signal is too weak to sustain a reliable link.
 
@@ -656,8 +670,8 @@ correct IP the whole time. Check loss before suspecting resolution:
 
 ```bash
 ping -c15 <pi-ip>          # from the Mac
-ssh ... 'cat /proc/net/wireless'   # signal, quality, retries
-ssh ... 'ip -s link show wlan0'    # errors/dropped — should be 0
+ssh ... 'cat /proc/net/wireless'   # signal, quality, retries (wlan1 = uplink)
+ssh ... 'ip -s link show wlan1'    # errors/dropped — should be 0
 ```
 
 **Nothing in software fixes this.** Powersave was already disabled, priorities
@@ -698,7 +712,7 @@ Known-good in the Pi community: Alfa AWUS036ACM (MT7612U, detachable antenna,
 in-tree driver). Panda Wireless PAU0D is the same chipset, cheaper, fixed
 antenna.
 
-**Not yet purchased or tested.**
+**Installed and working — see below.**
 
 ### Installed and working, 2026-08-28
 
@@ -730,12 +744,11 @@ Verify: `ip -4 addr show wlan1` should show a `192.168.4.x` address once
 Starlink is up; `nmcli -f NAME,DEVICE,AUTOCONNECT-PRIORITY connection show`
 should list both `-wlan1` profiles with the right priorities.
 
-**Not yet done — the `90-prefer-starlink` dispatcher only reasons about
-`wlan0`.** Now that `wlan0` is a dedicated AP (see below) rather than a
-client, this is likely moot for `wlan0` specifically — nothing for the
-dispatcher to do there anymore. Whether `wlan1` needs its own equivalent
-logic (it already has static priority via `autoconnect-priority`, just not
-an active-follow dispatcher) is still open.
+**wlan0 is now the dedicated AP, not a client.** The `90-prefer-starlink`
+dispatcher only reasons about `wlan0`. Now that `wlan0` is the TwitchWiFi AP,
+the dispatcher logic is irrelevant for wlan0 — it never switches away from the
+hotspot. Whether `wlan1` needs its own equivalent dispatcher (it already has
+static priority via `autoconnect-priority`) is still open.
 
 ### Local AP, 2026-08-28 — `wlan0` is not a client anymore
 
@@ -745,13 +758,13 @@ above. `wlan0` (onboard, weaker antenna) stopped being a client entirely and
 now runs as a plain local access point — connect straight to the Pi with zero
 upstream network required.
 
-**SSID:** `VanControlPanel` · **Password:** `jack2008` · confirmed live via
-`nmcli -s connection show Hotspot`, not assumed from what was typed.
+**SSID:** `TwitchWiFi` · **Password:** see Pi's `frontend/.env` · confirmed live via
+`nmcli -s connection show TwitchWiFi`, not assumed from what was typed.
 
 ```bash
 sudo nmcli connection modify starlink connection.autoconnect no
 sudo nmcli connection modify netplan-wlan0-OHeck connection.autoconnect no
-sudo nmcli device wifi hotspot ifname wlan0 ssid "VanControlPanel" password "jack2008"
+sudo nmcli device wifi hotspot ifname wlan0 ssid "TwitchWiFi" password "<password>"
 ```
 
 Autoconnect disabled rather than deleted on the old `wlan0` client profiles
@@ -764,10 +777,11 @@ internet access, just reach the Pi's own services.
 **This is not the public-WiFi-bridge project.** That's still the separate,
 unbuilt thing described below — NAT, an inbound firewall rule on `wlan1`, the
 `VAN_API_KEY` check. This AP has no route to the internet at all by design;
-it's a direct line to the Pi, nothing more.
+it is a direct line to the Pi's services. Connected devices can reach nginx
+:80, the API, and the Shellys on 10.42.0.x — nothing beyond the Pi.
 
 **Deliberately not done: sharing that internet connection out over the AP** —
-right now `VanControlPanel` has zero route to the internet by design, on
+right now `TwitchWiFi` has zero route to the internet by design, on
 purpose, for safety (see below). Turning it into a real travel router means:
 
 - `wlan1` (already the client radio, unchanged) as the internet source
@@ -796,7 +810,7 @@ this one.
 - **Orion-Tr** is non-smart, returns static config — upgrade to Orion XS 50A planned
 - **History charts** — `HistoryCard` is wired up and rendering. SOC 24h and Solar 30d tabs both work. Daily solar only populates after a midnight rollup, so a fresh install shows the raw-derived fallback.
 - **CORS** is `allow_origins=["*"]` — fine for local/Tailscale, tighten if Funnel is used long-term
-- **Maxxfan and Ceiling Lights** Shellys not yet installed — show as `installed: false` in API
+- **PS Input 1** Shelly not yet installed — shows as `installed: false` in API, filtered out of the UI. Three units are live on TwitchWiFi: USB Outlets, Garage, PS Input 2.
 - **`loads` breakdown in system.py is unconditional** — claims Starlink 22W and Fridge 40W regardless of actual state. Latent only: the frontend never reads it. See "system.py load estimation" below. **Partly solvable as of 2026-08-27:** the Starlink integration exposes real `power_w` from the dish, so the 22W guess can be replaced with a measurement (or dropped when the dish is unreachable, which is itself the signal that it's drawing nothing).
 - **Vercel demo build** — built and deployed. See "Vercel Demo Mode" below.
 - **Dometic CFX5 fridge — LIVE, 2026-08-27.** Multi-day blocker resolved.
@@ -885,7 +899,7 @@ this one.
   tool) before it's worth scoping as its own project.
 - **Starlink Mini — validated live, 2026-08-27.** Was "untested against the
   dish"; no longer. Static route added
-  (`sudo ip route add 192.168.100.0/24 via 192.168.4.1 dev wlan0`), and
+  (`sudo ip route add 192.168.100.0/24 via 192.168.4.1 dev wlan1`), and
   `/starlink/` returned real telemetry: `state: CONNECTED`, 34ms latency,
   12.3% obstruction, and — genuinely useful — `power_w: 18.6`, a measured
   draw that directly replaces the hardcoded 22W guess in `system.py`'s
@@ -927,16 +941,11 @@ this one.
   times looked healthy afterward; worth a longer-term check if it recurs.
 - **Seven API calls per poll cycle** — `fetchAll` hits battery, mppt, shore, orion, shelly, system and mode/current separately every 5s. A `/snapshot` endpoint was considered and **rejected after measuring**: six of the seven return in ~3ms, so collapsing them saves ~18ms of round trips, while a single blocking call would make the one slow endpoint (shelly) stall the whole dashboard. `Promise.allSettled` currently isolates it. Revisit only if the fast endpoints stop being fast. **Now nine as of 2026-08-27** (ecoflow, starlink). Starlink is the second genuinely slow one — a gRPC call that can take up to 10s when the dish is unreachable — which reinforces the original decision rather than changing it.
 - **Mode persistence** — done. Persisted to `backend/mode.json`, written atomically. Note this saves the *selection* only; actually applying a mode (camera intervals, Shelly schedules) is still unimplemented.
-- **Shelly latency is ~200ms and variable, and that is the floor.** Both units
-  are on Starlink's 2.4GHz radio (BSSID `72:52:a8:29:1d:7c`, channel varies —
-  the router picks automatically). Signal is strong (-46 and -57 dBm), so this
-  is band congestion, not range. Shelly Gen4 is 2.4GHz only, so they cannot be
-  moved to the 5GHz radio the Pi uses. Consecutive identical requests have
-  measured 156ms to 795ms.
-
-  Already fixed and not worth revisiting: the 6.1s figure was two 3s timeouts
-  from a network split; units were fetched sequentially rather than
-  concurrently; and each call paid ~105ms of mDNS resolution, now cached.
+- **Shelly latency is ~200ms and variable, and that is the floor.** The installed
+  units are on TwitchWiFi (the Pi's own 2.4GHz hotspot via the onboard radio).
+  Signal is strong at close range, so this is normal 2.4GHz congestion plus
+  mDNS overhead (~105ms, now cached with a 300s TTL). Consecutive identical
+  requests have measured 156ms to 795ms.
 - **Event log** — done. `events` table written from every mutation path, read at `/system/events`. Correlating it against hourly readings is what would replace the guessed `ALWAYS_ON_WATTS` figures with measurements; that analysis is not written yet.
 - **Siri / Apple Home for the Shellys** (tabled). Shelly Gen4 supports Matter natively — `Shelly.GetStatus` reports `matter: {num_fabrics: 0, commissionable: false}`, so the capability is there but nothing is commissioned. Commissioning them into the Home app is phone-side setup, no code, and would keep working even with the Pi down. Fallback if that fights: an Apple Shortcut that POSTs to `/shelly/{id}/toggle` with the API key — works for any endpoint, not just relays, but needs the phone to reach the Pi (Tailscale, currently offline on the iPhone).
 - **AI insight panel** (tabled, cost). One button summarising power state by correlating the event log against hourly readings — "SOC fell 22% overnight, and you switched the garage circuit on at 19:40". Would have to be a backend endpoint so the key stays off the client. Roughly $0.001/call with Haiku, cached 15 min. Tabled because it would be the first cloud dependency in an otherwise fully local system, and it would be dead exactly when parked without Starlink.
@@ -1217,7 +1226,14 @@ Set `VITE_DEMO=true` in Vercel's environment variables. The Pi build never sets 
 
 **No VE.Direct.** Early planning docs mention VE.Direct cables and the `vedirect` Python library. These were never used. All Victron data comes via BLE (`victron-ble` library). Do not suggest VE.Direct-based solutions.
 
-**No nginx.** nginx was briefly used and replaced by the Express server (`server.mjs`). Do not suggest nginx.
+**nginx is the public-facing server.** nginx listens on :80 and reverse-proxies
+to Express on :3000. Express proxies `/api/*` to uvicorn on :8000. Do not
+suggest bypassing nginx or having Express listen on :80 directly.
+
+**nginx config:** `/etc/nginx/sites-enabled/van-control-panel` — proxies all
+traffic to `127.0.0.1:3000` with `proxy_read_timeout 10s`. The static photos
+path (`/static/photos/`) is served directly by nginx from
+`/home/todd/van-control-panel/backend/photos/`.
 
 **Commit via osascript.** Git push works via osascript using the macOS keychain credential helper. The remote is HTTPS with `git config credential.helper osxkeychain`. SSH key for GitHub is not set up on the Mac.
 

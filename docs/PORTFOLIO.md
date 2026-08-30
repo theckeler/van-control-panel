@@ -75,7 +75,7 @@ The software monitors hardware that had to be designed and wired first:
 
 **BlueZ InProgress error on restart.** Every van-api restart hit `[org.bluez.Error.InProgress]` immediately because the previous session's BLE operation hadn't cleared from BlueZ. Fix: 5-second startup delay in the BMS service to let BlueZ settle.
 
-**mDNS resolution adding 5 seconds to every request.** `van-pi.local` was timing out on DNS before falling back to mDNS, adding ~5 seconds to every API call. The frontend poll fires every 5 seconds so requests piled up faster than they completed. Fix: add `192.168.1.99 van-pi.local` to `/etc/hosts` on dev machines, and use the Pi's Tailscale IP in the Vite dev proxy config.
+**mDNS resolution adding 5 seconds to every request.** `van-pi.local` was timing out on DNS before falling back to mDNS, adding ~5 seconds to every API call. The frontend poll fires every 5 seconds so requests piled up faster than they completed. Fix: the Vite dev proxy now targets `http://van-pi.local:8000` by default (overridable with `VAN_API_TARGET`), which resolves correctly from any LAN the Pi is on.
 
 ---
 

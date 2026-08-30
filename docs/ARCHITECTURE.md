@@ -7,17 +7,20 @@ The system has three physical layers: the van's 12V electrical hardware, a Raspb
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                      USER DEVICES                        │
-│  iPhone / iPad / Mac browser → http://van-pi.local:8000 │
-│  or via Tailscale → https://{tailscale-ip}:8000         │
+│  iPhone / iPad / Mac browser → http://van-pi.local      │
+│  or via Tailscale → http://van-pi.tailba93b9.ts.net     │
 └──────────────────────────┬──────────────────────────────┘
-                           │ HTTP / WebSocket
+                           │ HTTP
 ┌──────────────────────────▼──────────────────────────────┐
 │                  RASPBERRY PI 4B 1GB                     │
 │                                                          │
 │  ┌─────────────────────────────────────────────────┐    │
-│  │              FastAPI (uvicorn)                  │    │
-│  │  /battery  /mppt  /shore  /orion                │    │
-│  │  /shelly   /photos  /mode  /system              │    │
+│  │  nginx :80 (reverse proxy)                      │    │
+│  │    → Express server.mjs :3000 (auth + SPA)      │    │
+│  │    → FastAPI uvicorn :8000 (/api/*)              │    │
+│  │       /battery  /mppt  /shore  /orion            │    │
+│  │       /shelly   /photos  /mode  /system          │    │
+│  │       /dometic  /starlink  /ecoflow              │    │
 │  └──────┬──────────┬──────────┬───────────┬────────┘    │
 │         │BLE       │VE.Direct │REST API   │Camera       │
 │  ┌──────▼──┐ ┌─────▼──┐ ┌────▼────┐ ┌───▼──────────┐  │
@@ -40,8 +43,9 @@ The system has three physical layers: the van's 12V electrical hardware, a Raspb
 │  (VE.Direct)                                            │
 │                                                          │
 │  Shelly 1 Gen4 x4      Pi Camera Module 3 Wide          │
-│  (Maxxfan, lights,     (CSI — interior)                 │
-│   USB, spare)                                           │
+│  (USB outlets,         (CSI — interior)                 │
+│   Garage, PS Input 2,                                   │
+│   PS Input 1 pending)                                   │
 │                        Logitech C270                    │
 │  Garmin PowerSwitch    (USB — exterior)                 │
 │  (Starlink, EcoFlow,                                    │
@@ -73,7 +77,9 @@ src/
 │   ├── BatteryCard        SOC % large display, color coded, bar, stats
 │   ├── ChargeSourcesCard  Solar / Shore / Orion status rows
 │   ├── ShellyPanel        Per-circuit toggle buttons
-│   └── ModeSelector       4 mode buttons with icons
+│   ├── ModeSelector       4 mode buttons with icons
+│   ├── WifiBadge          Header SSID + signal, amber/red on weak/unassociated
+│   └── Toaster            Toast notification queue
 │
 └── pages/
     ├── Dashboard          Composes all components, mounts usePolling
@@ -105,6 +111,9 @@ app/
     ├── shore.py           → always returns disconnected (no VE.Direct cable)
     ├── orion.py           → static config + in-memory toggle (non-smart unit)
     ├── shelly.py          → httpx async calls to Shelly local REST API (.local mDNS)
+    ├── dometic.py         → polls ESP32 bridge for CFX5 fridge data
+    ├── starlink.py        → gRPC to dish at 192.168.100.1:9200 (local, no internet)
+    ├── ecoflow.py         → passive BLE advertisement scan (battery % only)
     ├── camera.py          → not yet implemented (awaiting hardware)
     ├── mode.py            → in-memory mode state (resets on restart)
     └── system.py          → real math from BMS + MPPT caches
@@ -158,30 +167,43 @@ SUBSYSTEM=="video4linux", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="0825", SYM
 ## Network Architecture
 
 ```
-┌─────────────────────────────────────────────┐
-│              VAN LOCAL NETWORK               │
-│                                              │
-│  Starlink Mini (192.168.1.1)                │
-│      │                                      │
-│      ├── Raspberry Pi 4B  (192.168.1.10)   │
-│      ├── Shelly Maxxfan   (192.168.1.101)  │
-│      ├── Shelly Lights    (192.168.1.102)  │
-│      ├── Shelly USB       (192.168.1.103)  │
-│      ├── Shelly Spare     (192.168.1.104)  │
-│      └── iPhone/iPad      (DHCP)           │
-│                                              │
-│  Pi also runs: Tailscale (100.x.x.x)       │
-└─────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                         VAN NETWORK                           │
+│                                                               │
+│  wlan0 (onboard radio) — TwitchWiFi hotspot AP               │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │  Raspberry Pi 4B  (10.42.0.1)                         │  │
+│  │  ├── Shelly USB Outlets  shelly1g4-d885acec6aac.local  │  │
+│  │  │                       10.42.0.102                   │  │
+│  │  ├── Shelly Garage       shelly1g4-d885acf36a28.local  │  │
+│  │  │                       10.42.0.215                   │  │
+│  │  ├── Shelly PS Input 2   shelly1g4-48f6eed0a89c.local  │  │
+│  │  │                       10.42.0.26                    │  │
+│  │  └── Phones / iPads      DHCP 10.42.0.x                │  │
+│  └────────────────────────────────────────────────────────┘  │
+│                                                               │
+│  wlan1 (USB dongle, external antenna) — uplink client         │
+│  Primary:  Starlink "Sir Salettelot"  (Pi gets 192.168.4.x)  │
+│  Fallback: OHeck                      (Pi gets 192.168.1.x)  │
+│                                                               │
+│  Pi also runs: Tailscale (van-pi, 100.x.x.x)                │
+└──────────────────────────────────────────────────────────────┘
 
-Remote access path (when Starlink has WAN):
-  Phone → Tailscale DERP → Pi Tailscale IP → FastAPI :8000
+Remote access:
+  Phone/Mac → Tailscale DERP → Pi → nginx :80
 ```
 
-**Offline fallback:**
-When Starlink is off, Pi can run its own WiFi hotspot. Shellys and phone connect to Pi hotspot. Local control works identically.
+**TwitchWiFi has no internet route by design** — a direct link to the Pi's
+services only. Phones and iPads connected to TwitchWiFi reach the dashboard;
+internet browsing still comes from their own uplinks.
 
-**Shelly Bluetooth fallback:**
-Shelly BLU RC Button 4 communicates directly to Shelly Gen4 units via BLE. No network required. Works anywhere in or near the van.
+**wlan0 is not a client.** The old Starlink and OHeck client profiles on wlan0
+have `autoconnect: no`. Only the TwitchWiFi hotspot runs on wlan0.
+
+**Shellys are on TwitchWiFi.** Because TwitchWiFi is the Pi's own AP, the
+Shellys are reachable as long as the Pi is running, regardless of whether
+Starlink or OHeck is active. If they show `reachable: false`, the most likely
+cause is a stale DNS cache entry — restart van-api to clear it.
 
 ---
 
@@ -208,7 +230,7 @@ POST /mode/{mode_name}
 ## Security Model
 
 - **No public exposure** — Pi is not port-forwarded. All remote access via Tailscale encrypted tunnel
-- **Local network only** — FastAPI CORS allows all origins but the server only binds to the van's local network
+- **Local network only** — FastAPI binds `0.0.0.0:8000` but is behind nginx/Express auth on the standard port. The `VAN_API_KEY` gates direct access to port 8000
 - **Tailscale ACLs** — Only Todd's devices on the Tailnet can reach the Pi
 - **No credentials stored** — Shelly local REST API requires no auth on local network (Shelly default)
 - **Read-only BLE** — pq_bms_bluetooth reads BMS data only, cannot modify BMS settings
@@ -224,9 +246,9 @@ POST /mode/{mode_name}
 ssh todd@van-pi.local
 
 # Install dependencies
-sudo apt update && sudo apt install -y python3-pip python3-venv nginx
+sudo apt update && sudo apt install -y python3-pip python3-venv
 curl -fsSL https://tailscale.com/install.sh | sh
-sudo tailscale up
+sudo tailscale up --hostname=van-pi
 
 # Clone project
 git clone https://github.com/toddheckeler/van-control-panel ~/van-control-panel
@@ -235,11 +257,11 @@ pip install -r requirements.txt
 
 # Build frontend
 cd ~/van-control-panel/frontend
-npm install && npm run build
+npm install --include=dev && npm run build
 
 # Set up systemd services
 sudo cp systemd/*.service /etc/systemd/system/
-sudo systemctl enable --now van-api van-ble van-vedirect
+sudo systemctl enable --now van-api van-frontend
 ```
 
 ### Pi update workflow
