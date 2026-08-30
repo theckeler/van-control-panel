@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'frontend/**'
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -19,18 +20,11 @@ jobs:
 
       - name: Install Node dependencies
         working-directory: /home/todd/van-control-panel/frontend
-        run: npm ci --prefer-offline
+        run: npm install --include=dev --prefer-offline
 
       - name: Build
         working-directory: /home/todd/van-control-panel/frontend
         run: npm run build
-
-      - name: Deploy to web root
-        run: |
-          sudo rm -rf /var/www/van
-          sudo mkdir -p /var/www/van
-          sudo cp -r /home/todd/van-control-panel/frontend/dist/. /var/www/van/
-          echo "Frontend deployed"
 
       - name: Restart frontend service
         run: sudo systemctl restart van-frontend
