@@ -698,11 +698,64 @@ Known-good in the Pi community: Alfa AWUS036ACM (MT7612U, detachable antenna,
 in-tree driver). Panda Wireless PAU0D is the same chipset, cheaper, fixed
 antenna.
 
-**Not yet purchased or tested.** When one arrives it becomes `wlan1`, and the
-existing NetworkManager profiles stay on `wlan0` — plan on either moving them
-or binding them to the new interface explicitly. The AP-mode side is a
-separate build (`hostapd` + `dnsmasq`, or NetworkManager's own AP mode) and is
-not scoped yet.
+**Not yet purchased or tested.**
+
+### Installed and working, 2026-08-28
+
+Chipset confirmed live via `lsusb`: `0e8d:7612 MediaTek Inc. MT7612U` —
+matches the decision above exactly, not a substitute.
+
+Comes up as `wlan1`, exactly as anticipated. Given a second radio, the setup
+mirrors `wlan0` rather than replacing it: two new connection profiles bound
+explicitly to `wlan1` via `ifname` at creation time, so they can't compete
+with `wlan0`'s existing profiles for the same SSID.
+
+```bash
+sudo nmcli connection add type wifi con-name starlink-wlan1 ifname wlan1 ssid "Sir Salettelot"
+sudo nmcli connection modify starlink-wlan1 wifi-sec.key-mgmt wpa-psk
+sudo nmcli connection modify starlink-wlan1 wifi-sec.psk "<password>"
+sudo nmcli connection modify starlink-wlan1 connection.autoconnect-priority 100
+sudo nmcli connection modify starlink-wlan1 802-11-wireless.powersave 2
+
+sudo nmcli connection add type wifi con-name oheck-wlan1 ifname wlan1 ssid "OHeck"
+sudo nmcli connection modify oheck-wlan1 wifi-sec.key-mgmt wpa-psk
+sudo nmcli connection modify oheck-wlan1 wifi-sec.psk "<password>"
+sudo nmcli connection modify oheck-wlan1 connection.autoconnect-priority 50
+sudo nmcli connection modify oheck-wlan1 802-11-wireless.powersave 2
+
+sudo nmcli connection up starlink-wlan1
+```
+
+Verify: `ip -4 addr show wlan1` should show a `192.168.4.x` address once
+Starlink is up; `nmcli -f NAME,DEVICE,AUTOCONNECT-PRIORITY connection show`
+should list both `-wlan1` profiles with the right priorities.
+
+**Not yet done — the `90-prefer-starlink` dispatcher only reasons about
+`wlan0`.** With two independent WiFi radios now, it's an open question
+whether the dispatcher needs to become interface-aware, or whether `wlan1`
+existing purely as the AP-mode / range radio makes that moot. Not resolved
+this round; flagging so it isn't quietly assumed to already work.
+
+**Deliberately not done this round: bridging to public WiFi (McDonald's,
+parks, etc.) as a shared network for every device in the van.** Real
+architecture for it, not built yet:
+
+- `wlan1` (external antenna, the range radio) as the client connecting out
+  to whatever public network is in range
+- `wlan0` running its own AP, so phones/laptops/the ESP32 connect to one
+  stable local network regardless of what's upstream
+- NAT between them (`nftables` or similar) so downstream devices are
+  invisible to the public network by default — this is what actually makes
+  it safe, not an afterthought
+- An explicit inbound-block rule on `wlan1` specifically, since `van-api`
+  binds `0.0.0.0` and fails open if `VAN_API_KEY` is unset — confirm that
+  key is set before ever doing this
+- Captive portals aren't solved by anything above; expect one click-through
+  per network, from any device on the local AP, same as any travel router
+
+This is a real, scoped project (`hostapd` + `dnsmasq`, or NetworkManager's
+own AP mode), not a config toggle — worth its own session, not squeezed into
+this one.
 
 ---
 
