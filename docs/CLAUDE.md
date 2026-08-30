@@ -731,19 +731,48 @@ Starlink is up; `nmcli -f NAME,DEVICE,AUTOCONNECT-PRIORITY connection show`
 should list both `-wlan1` profiles with the right priorities.
 
 **Not yet done — the `90-prefer-starlink` dispatcher only reasons about
-`wlan0`.** With two independent WiFi radios now, it's an open question
-whether the dispatcher needs to become interface-aware, or whether `wlan1`
-existing purely as the AP-mode / range radio makes that moot. Not resolved
-this round; flagging so it isn't quietly assumed to already work.
+`wlan0`.** Now that `wlan0` is a dedicated AP (see below) rather than a
+client, this is likely moot for `wlan0` specifically — nothing for the
+dispatcher to do there anymore. Whether `wlan1` needs its own equivalent
+logic (it already has static priority via `autoconnect-priority`, just not
+an active-follow dispatcher) is still open.
 
-**Deliberately not done this round: bridging to public WiFi (McDonald's,
-parks, etc.) as a shared network for every device in the van.** Real
-architecture for it, not built yet:
+### Local AP, 2026-08-28 — `wlan0` is not a client anymore
 
-- `wlan1` (external antenna, the range radio) as the client connecting out
-  to whatever public network is in range
-- `wlan0` running its own AP, so phones/laptops/the ESP32 connect to one
-  stable local network regardless of what's upstream
+Split by radio, not by feature: `wlan1` (external antenna, better range) does
+all internet uplink — Starlink primary, OHeck fallback, exactly as set up
+above. `wlan0` (onboard, weaker antenna) stopped being a client entirely and
+now runs as a plain local access point — connect straight to the Pi with zero
+upstream network required.
+
+**SSID:** `VanControlPanel` · **Password:** `jack2008` · confirmed live via
+`nmcli -s connection show Hotspot`, not assumed from what was typed.
+
+```bash
+sudo nmcli connection modify starlink connection.autoconnect no
+sudo nmcli connection modify netplan-wlan0-OHeck connection.autoconnect no
+sudo nmcli device wifi hotspot ifname wlan0 ssid "VanControlPanel" password "jack2008"
+```
+
+Autoconnect disabled rather than deleted on the old `wlan0` client profiles
+(`starlink`, `netplan-wlan0-OHeck`) — reversible if `wlan0` is ever needed as
+a client again, but won't compete with the hotspot for the radio.
+NetworkManager's built-in hotspot (`10.42.0.1/24`, its own DHCP) was enough
+for this — no `hostapd`/`dnsmasq` needed, since this AP doesn't need to share
+internet access, just reach the Pi's own services.
+
+**This is not the public-WiFi-bridge project.** That's still the separate,
+unbuilt thing described below — NAT, an inbound firewall rule on `wlan1`, the
+`VAN_API_KEY` check. This AP has no route to the internet at all by design;
+it's a direct line to the Pi, nothing more.
+
+**Deliberately not done: sharing that internet connection out over the AP** —
+right now `VanControlPanel` has zero route to the internet by design, on
+purpose, for safety (see below). Turning it into a real travel router means:
+
+- `wlan1` (already the client radio, unchanged) as the internet source
+- `wlan0`'s existing hotspot gets a route to `wlan1`'s connection instead of
+  staying isolated
 - NAT between them (`nftables` or similar) so downstream devices are
   invisible to the public network by default — this is what actually makes
   it safe, not an afterthought
