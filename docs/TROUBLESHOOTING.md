@@ -387,6 +387,43 @@ separate setup that has not been done.
 
 ---
 
+## van-pi.local doesn't resolve when connected to TwitchWiFi
+
+### Symptoms
+- `http://van-pi.local` fails to load on a phone or laptop connected to TwitchWiFi
+- The Pi is reachable by its IP (`10.42.0.1`) but not by hostname
+
+### Cause
+NM's hotspot runs dnsmasq for DHCP and DNS on TwitchWiFi clients. dnsmasq
+treats `.local` as a special mDNS domain and returns NXDOMAIN even with an
+explicit `address=` directive — it never looks up `.local` names in its own
+address table. The fix requires a static conf file in `conf-dir` that loads at
+dnsmasq startup.
+
+This is a different path from Avahi mDNS — dnsmasq on the hotspot serves DNS
+via DHCP, so clients never send an mDNS multicast. Avahi works fine from other
+LANs; this is hotspot-only.
+
+### Fix
+Create the conf file on the Pi:
+
+```bash
+sudo tee /etc/NetworkManager/dnsmasq-shared.d/van-pi.conf > /dev/null <<'EOF'
+address=/van-pi.local/10.42.0.1
+EOF
+```
+
+Restart the hotspot to force a dnsmasq restart (SIGHUP only clears the cache;
+conf-dir files are only read at startup):
+
+```bash
+sudo nmcli connection down TwitchWiFi && sudo nmcli connection up TwitchWiFi
+```
+
+This is persistent — the file survives reboots and the hotspot loads it every time.
+
+---
+
 ## mDNS: van-pi.local does not resolve
 
 ### Symptoms

@@ -273,10 +273,11 @@ VICTRON_KEY=<32-char hex, VictronConnect → SmartSolar → Product info>
 VAN_API_KEY=<generate, see below>
 ```
 
-**`VAN_API_KEY` is not optional in practice.** uvicorn binds `0.0.0.0:8000`,
-so an empty key leaves the API open to anyone on the same WiFi — including
-`/system/shutdown`. It fails open deliberately so a bad deploy cannot lock you
-out, which means an empty value silently gives you no protection.
+**`VAN_API_KEY` is not optional in practice.** It gates the dev proxy path
+(Mac → Tailscale → Pi:8000) and any direct curl calls from the Pi itself.
+uvicorn binds `127.0.0.1:8000` so port 8000 is not reachable from the network,
+but an empty key still fails open — meaning anyone with SSH to the Pi or using
+the dev proxy gets unrestricted access including `/system/shutdown`. Set it.
 
 ```bash
 python3 - <<'EOF'
@@ -347,7 +348,7 @@ After=network.target bluetooth.target
 Type=simple
 User=todd
 WorkingDirectory=/home/todd/van-control-panel/backend
-ExecStart=/home/todd/van-control-panel/backend/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+ExecStart=/home/todd/van-control-panel/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 Restart=on-failure
 RestartSec=5
 
@@ -485,7 +486,51 @@ during development.
 **A push to `backend/**` restarts `van-api` on the live van. There is no
 staging environment.**
 
-## 11. Verify
+## 11. TwitchWiFi: fix van-pi.local DNS
+
+By default, dnsmasq (NM's hotspot DNS server) returns NXDOMAIN for `.local`
+queries — it treats `.local` as a special mDNS domain and refuses to answer
+it even with a static `address=` directive. This means clients on TwitchWiFi
+can't reach the dashboard by hostname.
+
+Fix: add a static address record that loads on dnsmasq startup, not reload:
+
+```bash
+sudo tee /etc/NetworkManager/dnsmasq-shared.d/van-pi.conf > /dev/null <<'EOF'
+address=/van-pi.local/10.42.0.1
+EOF
+```
+
+Then bounce the hotspot so dnsmasq restarts and reads the new file
+(SIGHUP only clears the cache; conf-dir files are only parsed at startup):
+
+```bash
+sudo nmcli connection down TwitchWiFi && sudo nmcli connection up TwitchWiFi
+```
+
+Verify from the Pi:
+
+```bash
+python3 -c "
+import socket, struct
+def q(srv, name):
+    hdr = struct.pack('>HHHHHH',1,0x0100,1,0,0,0)
+    enc = b''.join(bytes([len(p)])+p.encode() for p in name.split('.')) + b'\\x00'
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.settimeout(2)
+    s.sendto(hdr+enc+struct.pack('>HH',1,1),(srv,53))
+    r = s.recvfrom(512)[0]; cnt = struct.unpack('>H',r[6:8])[0]
+    pos = 12+len(enc)+4
+    for _ in range(cnt):
+        rdlen=struct.unpack('>H',r[pos+10:pos+12])[0]; d=r[pos+12:pos+12+rdlen]; pos+=12+rdlen
+        if struct.unpack('>H',r[pos-rdlen-2:pos-rdlen])[0]==1 and rdlen==4: print(socket.inet_ntoa(d))
+q('10.42.0.1','van-pi.local')
+"
+```
+
+Should print `10.42.0.1`. The conf file persists across reboots; the hotspot
+loads it on every start automatically.
+
+## 12. Verify
 
 ```bash
 systemctl status van-api van-frontend --no-pager | grep Active

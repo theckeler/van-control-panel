@@ -104,6 +104,95 @@ async def list_profiles() -> list[dict]:
     return profiles
 
 
+async def scan_networks() -> list[dict]:
+    """
+    Return available WiFi networks on the uplink interface.
+
+    Uses --rescan auto so NM returns its cached results immediately.
+    --rescan yes forces a fresh scan that takes ~10s and exceeds the
+    nginx proxy_read_timeout, killing the request before it completes.
+    NM rescans in the background on its own schedule, so cached results
+    are already fresh enough for a UI picker.
+    Deduplicates SSIDs, sorts by signal descending.
+    """
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "nmcli", "-f", "SSID,SIGNAL,SECURITY", "-m", "multiline",
+            "device", "wifi", "list", "ifname", IFACE, "--rescan", "auto",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        out, _ = await asyncio.wait_for(proc.communicate(), timeout=5.0)
+        text = out.decode(errors="replace")
+    except (OSError, asyncio.TimeoutError):
+        return []
+
+    networks: list[dict] = []
+    seen: set[str] = set()
+    current: dict = {}
+
+    def _flush() -> None:
+        ssid = current.get("ssid", "").strip()
+        if ssid and ssid != "--" and ssid not in seen:
+            seen.add(ssid)
+            networks.append({
+                "ssid": ssid,
+                "signal": current.get("signal"),
+                "security": current.get("security"),
+            })
+
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        key, _, value = line.partition(":")
+        value = value.strip()
+        k = key.strip().lower()
+        if k == "ssid":
+            _flush()   # save previous record before starting a new one
+            current = {"ssid": value}
+        elif k == "signal":
+            current["signal"] = int(value) if value.isdigit() else None
+        elif k == "security":
+            current["security"] = value if value and value != "--" else None
+
+    _flush()  # save the last record
+
+    return sorted(networks, key=lambda n: n.get("signal") or 0, reverse=True)
+
+
+async def connect_network(ssid: str, password: str) -> tuple[bool, str]:
+    """
+    Connect wlan1 to a WiFi network, creating a new profile for it.
+
+    Like switch_profile, this writes an override marker so the
+    prefer-starlink dispatcher doesn't immediately undo the change.
+    The SSID and password are passed as argv, never through a shell.
+    """
+    global _cache
+
+    try:
+        with open(_OVERRIDE_FILE, "w") as f:
+            f.write(str(int(time.time()) + _OVERRIDE_SECONDS))
+    except OSError:
+        pass
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "sudo", "nmcli", "device", "wifi", "connect", ssid,
+            "password", password, "ifname", IFACE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        out, _ = await asyncio.wait_for(proc.communicate(), timeout=30.0)
+    except (OSError, asyncio.TimeoutError):
+        _cache = None
+        return False, "Timed out connecting"
+
+    _cache = None
+    return proc.returncode == 0, out.decode(errors="replace").strip()
+
+
 async def switch_profile(name: str) -> tuple[bool, str]:
     """
     Bring up a WiFi profile by name.

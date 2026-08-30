@@ -49,6 +49,37 @@ class WifiSwitchResult(BaseModel):
     message: str
 
 
+class WifiNetwork(BaseModel):
+    ssid: str
+    signal: int | None = None
+    security: str | None = None
+
+
+class WifiConnectRequest(BaseModel):
+    ssid: str
+    password: str
+
+
+@router.get("/wifi/scan", response_model=list[WifiNetwork])
+async def scan_wifi():
+    """Scan for available WiFi networks on the uplink interface."""
+    results = await network.scan_networks()
+    return [WifiNetwork(**n) for n in results]
+
+
+@router.post("/wifi/connect", response_model=WifiSwitchResult)
+async def connect_wifi(body: WifiConnectRequest):
+    """
+    Connect the Pi to a new WiFi network.
+
+    Creates a new nmcli profile for the SSID and brings it up.
+    The caller loses its LAN connection while this happens; Tailscale survives.
+    """
+    ok, message = await network.connect_network(body.ssid, body.password)
+    db.log_event("wifi", body.ssid, "connected" if ok else "connect_failed", message[:200] if message else None)
+    return WifiSwitchResult(ok=ok, message=message or ("connected" if ok else "failed"))
+
+
 @router.get("/wifi/profiles", response_model=list[WifiProfile])
 async def get_wifi_profiles():
     """Known WiFi profiles and which is currently up."""

@@ -78,6 +78,8 @@ src/
 │   ├── ChargeSourcesCard  Solar / Shore / Orion status rows
 │   ├── ShellyPanel        Per-circuit toggle buttons
 │   ├── ModeSelector       4 mode buttons with icons
+│   ├── SettingsDrawer     Pi health, network detail, WiFi scan/connect, BMS release, power options
+│   ├── WifiScanDrawer     Second-layer drawer — scan wlan1, select, connect with password
 │   ├── WifiBadge          Header SSID + signal, amber/red on weak/unassociated
 │   └── Toaster            Toast notification queue
 │
@@ -197,6 +199,10 @@ Remote access:
 services only. Phones and iPads connected to TwitchWiFi reach the dashboard;
 internet browsing still comes from their own uplinks.
 
+**`van-pi.local` resolves on TwitchWiFi** via a static address record in
+`/etc/NetworkManager/dnsmasq-shared.d/van-pi.conf`. NM's hotspot dnsmasq
+treats `.local` as a special mDNS domain otherwise and returns NXDOMAIN.
+
 **wlan0 is not a client.** The old Starlink and OHeck client profiles on wlan0
 have `autoconnect: no`. Only the TwitchWiFi hotspot runs on wlan0.
 
@@ -230,7 +236,7 @@ POST /mode/{mode_name}
 ## Security Model
 
 - **No public exposure** — Pi is not port-forwarded. All remote access via Tailscale encrypted tunnel
-- **Local network only** — FastAPI binds `0.0.0.0:8000` but is behind nginx/Express auth on the standard port. The `VAN_API_KEY` gates direct access to port 8000
+- **Local network only** — FastAPI binds `127.0.0.1:8000` (loopback only, not reachable from the network). All inbound traffic goes through nginx → Express, which enforces `VAN_PASSWORD`. `VAN_API_KEY` gates the few paths that hit uvicorn directly (dev proxy, curl from the Pi)
 - **Tailscale ACLs** — Only Todd's devices on the Tailnet can reach the Pi
 - **No credentials stored** — Shelly local REST API requires no auth on local network (Shelly default)
 - **Read-only BLE** — pq_bms_bluetooth reads BMS data only, cannot modify BMS settings
