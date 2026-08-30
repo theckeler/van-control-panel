@@ -221,6 +221,49 @@ Camera system not yet implemented — returns 404. Awaiting USB webcam hardware.
 
 ---
 
+## WiFi
+
+### `GET /system/wifi/scan`
+Scan for available networks on the uplink interface (`wlan1`). Returns NM's
+cached scan results immediately — does not trigger a fresh scan, which takes
+~10s and would exceed the nginx proxy timeout.
+
+```json
+[
+  { "ssid": "Sir Salettelot", "signal": 88, "security": "WPA2" },
+  { "ssid": "OHeck",          "signal": 61, "security": "WPA2" },
+  { "ssid": "CoffeeShop",     "signal": 34, "security": null   }
+]
+```
+
+Sorted by signal descending. Hidden networks (`--` SSID) are excluded.
+Duplicate SSIDs (same network visible on two bands) are deduplicated to the
+strongest reading.
+
+### `POST /system/wifi/connect`
+Connect `wlan1` to a new network, creating an nmcli profile for it.
+
+```json
+{ "ssid": "CoffeeShop", "password": "hunter2" }
+```
+
+Returns:
+
+```json
+{ "ok": true,  "message": "Device 'wlan1' successfully activated..." }
+{ "ok": false, "message": "Error: No network with SSID 'CoffeeShop' found." }
+```
+
+Connecting drops the Pi's LAN address for the new network's subnet. Tailscale
+survives the switch. On the LAN you may need to rejoin the new network to
+continue reaching the dashboard.
+
+Writes an override file (`/tmp/prefer-starlink.override`) to pause the
+`90-prefer-starlink` dispatcher for 30 minutes, so a manual network choice
+isn't immediately undone.
+
+---
+
 ## Health
 
 ### `GET /health`

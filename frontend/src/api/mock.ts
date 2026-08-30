@@ -12,7 +12,7 @@
 import type {
   BatteryData, MpptData, EcoflowData, ShoreData, OrionData,
   ShellyUnit, Photo, ModeResponse, ModeName, SystemData, StarlinkData, DometicData,
-  RawReading, HourlyReading, DailyReading,
+  RawReading, HourlyReading, DailyReading, WifiNetwork,
 } from '../types'
 
 // --- System constants (match the real van) ---
@@ -461,6 +461,13 @@ export const mockApi = {
     ]),
     switchWifi: (name: string) =>
       delay({ ok: false, message: `Switching to ${name} is disabled in demo mode` }),
+    wifiScan: (): Promise<WifiNetwork[]> => delay([
+      { ssid: 'VanNet', signal: 92, security: 'WPA2' },
+      { ssid: 'Sir Salettelot', signal: 74, security: 'WPA2' },
+      { ssid: 'OHeck', signal: 61, security: 'WPA2' },
+    ]),
+    wifiConnect: (_ssid: string, _password: string) =>
+      delay({ ok: false, message: 'Connect disabled in demo mode' }),
     // Destructive controls are inert in demo mode.
     shutdown: () => delay({ status: 'demo', message: 'Shutdown disabled in demo mode' }),
     reboot:   () => delay({ status: 'demo', message: 'Reboot disabled in demo mode' }),

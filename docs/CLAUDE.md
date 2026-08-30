@@ -135,9 +135,9 @@ backend/app/
     data_logger.py       Writes readings to SQLite, triggers rollups
     db.py                SQLite schema, write, rollup, prune, query functions
                          query_raw bucket-averages server-side (max_points=300)
-    network.py           WiFi status by parsing iwconfig, profile list, and
-                         switching. Cached 15s. iwgetid is not installed, so
-                         SSID comes from the ESSID field
+    network.py           WiFi status by parsing iwconfig, profile list,
+                         switching, scan (--rescan auto, cached NM results),
+                         and connect (creates new nmcli profile). Cached 15s.
     health.py            Pi vitals — temp, load, memory, disk, uptime, and
                          throttle flags via vcgencmd. Cached 10s
     pq_battery.py        Vendored: pq_bms_bluetooth parse logic
@@ -172,8 +172,10 @@ frontend/
       ShellyPanel.tsx    Per-unit toggles. Shows "unreachable" distinctly from off
       ModeSelector.tsx   Storage / Camp / Trail / In Town
       HistoryCard.tsx    Recharts SOC 24h + Solar 30d
-      SettingsDrawer.tsx Gear icon → Pi health, network detail and switcher,
-                         BMS release, power options, theme
+      SettingsDrawer.tsx Gear icon → Pi health, network detail, WiFi scan/connect
+                         button, BMS release, power options, theme
+      WifiScanDrawer.tsx Second-layer drawer (z-60) over SettingsDrawer. Scan
+                         wlan1 for networks, select one, connect with password
       WifiBadge.tsx      Header SSID + band. Amber below -70dBm, red if unassociated
       Toaster.tsx        Renders the toast queue
     pages/
@@ -449,14 +451,15 @@ all sessions; CI/CD restarts on each frontend push, so a deploy logged you out
 regardless of the cookie's stated lifetime. Now 365 days and survives
 redeploys. Changing `VAN_SESSION_SECRET` invalidates all cookies.
 
-**van-api (uvicorn, port 8000)** binds `0.0.0.0`, so it is reachable by anyone
-on the same WiFi. `VAN_API_KEY` in `backend/.env` gates it:
+**van-api (uvicorn, port 8000)** binds `127.0.0.1` only — not reachable from
+the network, loopback only. The Express proxy (already behind `VAN_PASSWORD`)
+is the only caller in production. `VAN_API_KEY` in `backend/.env` gates it for
+any path that reaches uvicorn directly (dev proxy, curl from the Pi itself):
 
 - loopback is trusted — that is the Express proxy, already password-checked
 - `/health` is open for the CI/CD liveness check and the reboot poller
 - everything else needs an `X-API-Key` header
-- an unset key fails open, matching `VAN_PASSWORD`, so a bad deploy cannot
-  lock you out of the van
+- an unset key fails open so a bad deploy cannot lock you out of the van
 
 Rejections log the source IP: `sudo journalctl -u van-api | grep rejected`.
 
@@ -790,9 +793,10 @@ purpose, for safety (see below). Turning it into a real travel router means:
 - NAT between them (`nftables` or similar) so downstream devices are
   invisible to the public network by default — this is what actually makes
   it safe, not an afterthought
-- An explicit inbound-block rule on `wlan1` specifically, since `van-api`
-  binds `0.0.0.0` and fails open if `VAN_API_KEY` is unset — confirm that
-  key is set before ever doing this
+- An explicit inbound-block rule on `wlan1` specifically if nginx is ever
+  moved to a public port — van-api already binds 127.0.0.1 so port 8000 is
+  not the risk. Port 80 (nginx → Express → password wall) is the remaining
+  exposure.
 - Captive portals aren't solved by anything above; expect one click-through
   per network, from any device on the local AP, same as any travel router
 

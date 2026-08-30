@@ -4,9 +4,10 @@ import { api } from "../api/client";
 import { useModalBehavior } from "../hooks/useModalBehavior";
 import { toast } from "../store/toast";
 import { useVanStore } from "../store/van";
-import type { BackupStatus, PiHealth, WifiProfile } from "../types";
+import type { BackupStatus, PiHealth } from "../types";
 import { ThemeToggle } from "./ThemeToggle";
 import { Button, Label } from "./ui";
+import { WifiScanDrawer } from "./WifiScanDrawer";
 
 function fmtUptime(s: number) {
   const d = Math.floor(s / 86400);
@@ -54,10 +55,9 @@ export function SettingsDrawer({
 }) {
   const panelRef = useModalBehavior(open, onClose);
   const [health, setHealth] = useState<PiHealth | null>(null);
-  const [profiles, setProfiles] = useState<WifiProfile[]>([]);
-  const [switching, setSwitching] = useState<string | null>(null);
   const [backup, setBackup] = useState<BackupStatus | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [wifiScanOpen, setWifiScanOpen] = useState(false);
 
   async function doDownload() {
     setDownloading(true);
@@ -91,27 +91,6 @@ export function SettingsDrawer({
   const releaseBms = useVanStore((s) => s.releaseBms);
   const connectBms = useVanStore((s) => s.connectBms);
   const system = useVanStore((s) => s.system);
-  const fetchAll = useVanStore((s) => s.fetchAll);
-
-  async function doSwitch(name: string) {
-    setSwitching(name);
-    try {
-      const res = await api.system.switchWifi(name);
-      toast[res.ok ? "success" : "error"](
-        res.ok ? `Switched to ${name}` : res.message,
-      );
-    } catch {
-      toast.info("Switch sent — the Pi is changing networks");
-    } finally {
-      setSwitching(null);
-      refreshNetwork();
-      fetchAll();
-    }
-  }
-
-  function refreshNetwork() {
-    api.system.wifiProfiles().then(setProfiles, () => setProfiles([]));
-  }
 
   useEffect(() => {
     if (!open) return;
@@ -121,10 +100,6 @@ export function SettingsDrawer({
       api.system.health().then(
         (h) => !cancelled && setHealth(h),
         () => !cancelled && setHealth(null),
-      );
-      api.system.wifiProfiles().then(
-        (p) => !cancelled && setProfiles(p),
-        () => !cancelled && setProfiles([]),
       );
       api.system.backupStatus().then(
         (b) => !cancelled && setBackup(b),
@@ -292,34 +267,16 @@ export function SettingsDrawer({
           />
           <Row label="IP" value={system?.wifi_ip ?? "—"} />
 
-          {profiles.length > 1 && (
-            <div className="mt-3 flex flex-col gap-1.5">
-              {profiles.map((p) => (
-                <button
-                  key={p.name}
-                  type="button"
-                  disabled={p.active || switching !== null}
-                  onClick={() => doSwitch(p.name)}
-                  className={clsx(
-                    "w-full text-[11px] font-mono px-3 py-2 rounded border text-left transition-colors",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface",
-                    "disabled:cursor-not-allowed",
-                    p.active
-                      ? "bg-accent border-accent text-zinc-100"
-                      : "border-panel-border text-zinc-400 hover:border-zinc-500 hover:text-zinc-200 disabled:opacity-50",
-                  )}
-                >
-                  {switching === p.name ? "switching…" : p.name}
-                  {p.active && <span className="float-right">active</span>}
-                </button>
-              ))}
-              <p className="text-[10px] font-mono text-zinc-600 leading-relaxed mt-1">
-                Switching drops the Pi's LAN address. The dashboard reconnects
-                over Tailscale; on the LAN you may need to rejoin the same
-                network. Automatic Starlink preference pauses for 30 minutes.
-              </p>
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={() => setWifiScanOpen(true)}
+            className="mt-3 w-full text-xs font-mono px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+          >
+            Connect to new WiFi
+            <span className="block text-[10px] text-zinc-600 mt-0.5">
+              Scan for and join a new network
+            </span>
+          </button>
         </section>
 
         <section>
@@ -403,6 +360,8 @@ export function SettingsDrawer({
           </div>
         </section>
       </div>
+
+      <WifiScanDrawer open={wifiScanOpen} onClose={() => setWifiScanOpen(false)} />
     </div>
   );
 }

@@ -180,6 +180,12 @@ export interface WifiProfile {
   active: boolean
 }
 
+export interface WifiNetwork {
+  ssid: string
+  signal: number | null
+  security: string | null
+}
+
 export interface SystemData {
   net_power_w: number
   estimated_runtime_hrs: number | null
