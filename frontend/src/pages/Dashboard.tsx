@@ -28,7 +28,7 @@ export function Dashboard() {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
-    <Stack className="min-h-screen bg-panel-bg text-zinc-100 max-w-2xl mx-auto items-stretch">
+    <Stack className="min-h-screen bg-panel-bg text-zinc-100 max-w-2xl mx-auto items-stretch last:mb-8">
       <PowerModal open={powerOpen} onClose={() => setPowerOpen(false)} />
       <Toaster />
 
