@@ -348,7 +348,16 @@ After=network.target bluetooth.target
 Type=simple
 User=todd
 WorkingDirectory=/home/todd/van-control-panel/backend
-ExecStart=/home/todd/van-control-panel/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+# --no-proxy-headers matters once VAN_API_KEY is set: uvicorn trusts
+# X-Forwarded-For from 127.0.0.1 by default, which rewrites request.client
+# to the original browser IP (set by nginx, forwarded by Express) instead
+# of the real TCP peer. That breaks main.py's LOCAL_HOSTS bypass for every
+# legitimately-proxied request — confirmed live 2026-08-31, VAN_API_KEY
+# restored after being missing post-reimage, every /api/* call 401'd until
+# this flag was added. Without it, request.client.host is always the true
+# peer (127.0.0.1 for anything coming through the Express proxy), which is
+# what that check actually needs.
+ExecStart=/home/todd/van-control-panel/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-proxy-headers
 Restart=on-failure
 RestartSec=5
 

@@ -365,6 +365,53 @@ someone's in here.
 
 ---
 
+## Every `/api/*` call returns `{"detail":"unauthorized"}` after setting `VAN_API_KEY`
+
+### Symptoms
+
+- Dashboard shows every card as "no data"/offline simultaneously
+- Backend logs: `rejected GET /battery/ from <some public/Tailscale IP>` for
+  every request, including ones from a legitimately logged-in browser
+- `curl http://localhost:8000/battery/` from the Pi itself works fine
+
+### Cause
+
+`uvicorn` trusts `X-Forwarded-For` from `127.0.0.1` **by default**, with no
+`--proxy-headers` flag needed to turn it on. nginx sets that header to the
+real client IP, and Express's proxy forwards it along unchanged. uvicorn
+then rewrites `request.client.host` to that original browser IP instead of
+the true TCP peer (Express, connecting over loopback) — which is exactly
+what `main.py`'s `require_api_key` middleware checks against `LOCAL_HOSTS`
+to decide "this came through the trusted Express proxy, no API key needed."
+With the rewrite happening, that check fails for every single proxied
+request, once `VAN_API_KEY` is non-empty (it fails open when empty, so this
+was invisible the whole time `VAN_API_KEY` happened to be unset).
+
+Confirmed live 2026-08-31: `VAN_API_KEY` was missing from this Pi's `.env`
+(likely lost in the same reimage that lost `ffmpeg` and the camera udev
+rule). Restoring it from the Mac's local `.env` immediately broke every
+`/api/*` call for exactly this reason.
+
+### Fix
+
+Add `--no-proxy-headers` to the `van-api.service` `ExecStart` line (see
+`SETUP.md` \u00a78) and restart:
+
+```bash
+sudo sed -i 's/--port 8000$/--port 8000 --no-proxy-headers/' /etc/systemd/system/van-api.service
+sudo systemctl daemon-reload
+sudo systemctl restart van-api
+```
+
+Verify with a spoofed header — should succeed once fixed, since uvicorn no
+longer trusts it:
+
+```bash
+curl -s -H "X-Forwarded-For: 1.2.3.4" http://localhost:8000/mppt/
+```
+
+---
+
 ## Fridge card shows offline / no data, ESP32 seems fine otherwise
 
 ### Symptoms
