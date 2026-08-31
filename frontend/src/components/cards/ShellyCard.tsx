@@ -23,7 +23,7 @@ export function ShellyCard({ className }: { className?: string }) {
                 selected={unit.on}
                 disabled={offline}
                 onClick={() => toggleShelly(unit.id, !unit.on)}
-                className="bg-gradient-to-r from-gray-200 to-gray-100 disabled:bg-gray-200 p-4 rounded flex flex-col gap-1 aria-pressed:bg-gradient-to-r aria-pressed:from-lime-600 aria-pressed:to-lime-700"
+                className="bg-gradient-to-r from-gray-100 to-gray-50 disabled:bg-gray-200 p-4 rounded flex flex-col gap-1 aria-pressed:bg-gradient-to-r aria-pressed:from-lime-600 aria-pressed:to-lime-700"
               >
                 <div className="flex items-center justify-between">
                   <Label

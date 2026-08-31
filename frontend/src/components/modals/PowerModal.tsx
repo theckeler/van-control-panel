@@ -150,28 +150,28 @@ export function PowerModal({ open, onClose }: PowerModalProps) {
             <h2 className="text-sm  font-semibold text-zinc-100 mb-1">
               Power options
             </h2>
-            <p className="text-xs  text-zinc-500 mb-5">
+            <p className="text-gray-800 mb-5">
               Choose an action for the Raspberry Pi.
             </p>
             <div className="flex flex-col gap-2">
               <button
                 type="button"
                 onClick={() => handleAction("reboot")}
-                className="w-full text-xs  px-4 py-3 rounded-lg border border-amber-800 bg-amber-900/40 text-amber-300 hover:bg-amber-800/50 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+                className="w-full px-4 py-3 rounded border border-gray-900 text-gray-900"
               >
                 ↺ Reboot
               </button>
               <button
                 type="button"
                 onClick={() => handleAction("shutdown")}
-                className="w-full text-xs  px-4 py-3 rounded-lg border border-red-800 bg-red-900/40 text-red-300 hover:bg-red-800/50 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+                className="w-full px-4 py-3 rounded bg-red-900 text-red-100"
               >
                 ⏻ Shut Down
               </button>
               <button
                 type="button"
                 onClick={handleClose}
-                className="w-full text-xs  px-4 py-3 rounded-lg border border-panel-border text-zinc-400 hover:text-zinc-200 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+                className="w-full px-4 py-3 rounded border border-gray-800 text-gray-800"
               >
                 Cancel
               </button>
@@ -192,7 +192,7 @@ export function PowerModal({ open, onClose }: PowerModalProps) {
               <button
                 type="button"
                 onClick={() => setPhase("pick")}
-                className="text-xs  px-4 py-2 rounded-lg border border-panel-border text-zinc-400 hover:text-zinc-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+                className="text-xs  px-4 py-2 rounded border border-panel-border text-zinc-400 hover:text-zinc-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
               >
                 Back
               </button>
@@ -200,7 +200,7 @@ export function PowerModal({ open, onClose }: PowerModalProps) {
                 type="button"
                 onClick={handleConfirm}
                 className={clsx(
-                  "text-xs  px-4 py-2 rounded-lg border transition-colors",
+                  "text-xs  px-4 py-2 rounded border transition-colors",
                   action === "shutdown"
                     ? "bg-red-900/60 hover:bg-red-800/60 text-red-300 border-red-800"
                     : "bg-amber-900/60 hover:bg-amber-800/60 text-amber-300 border-amber-800",
@@ -242,7 +242,7 @@ export function PowerModal({ open, onClose }: PowerModalProps) {
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="text-xs  px-4 py-2 rounded-lg border border-panel-border text-zinc-400 hover:text-zinc-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+                  className="text-xs  px-4 py-2 rounded border border-panel-border text-zinc-400 hover:text-zinc-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
                 >
                   Close
                 </button>
@@ -255,7 +255,7 @@ export function PowerModal({ open, onClose }: PowerModalProps) {
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="text-xs  px-4 py-2 rounded-lg border border-panel-border text-zinc-400 hover:text-zinc-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+                  className="text-xs  px-4 py-2 rounded border border-panel-border text-zinc-400 hover:text-zinc-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
                 >
                   Close
                 </button>

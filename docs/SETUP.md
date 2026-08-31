@@ -19,7 +19,7 @@ chmod +x pi-setup.sh && ./pi-setup.sh
 Steps 3 (WiFi/Starlink), 9 (backups — mostly automated by the script, one
 manual trust step), 10 (GitHub Actions runner) still need you directly — the
 script prints exactly which ones and why when it finishes. This walkthrough
-stays the reference for understanding *why* each step exists, debugging when
+stays the reference for understanding _why_ each step exists, debugging when
 something's genuinely different from a normal rebuild, or running any single
 step in isolation.
 
@@ -38,15 +38,15 @@ Budget about an hour, most of it waiting on installs.
 
 ## Reference
 
-| Thing | Value |
-|---|---|
-| Hostname | `van-pi` |
-| User | `todd` |
+| Thing        | Value                                                        |
+| ------------ | ------------------------------------------------------------ |
+| Hostname     | `van-pi`                                                     |
+| User         | `todd`                                                       |
 | Tailscale IP | Changes on each rebuild — run `tailscale ip -4` after step 4 |
-| Python | 3.13.5 |
-| Node | v20.20.2 |
-| OS | Debian Trixie (arm64), Raspberry Pi OS |
-| Repo | `https://github.com/theckeler/van-control-panel` |
+| Python       | 3.13.5                                                       |
+| Node         | v20.20.2                                                     |
+| OS           | Debian Trixie (arm64), Raspberry Pi OS                       |
+| Repo         | `https://github.com/theckeler/van-control-panel`             |
 
 ---
 
@@ -81,7 +81,7 @@ ssh-keygen -R van-pi.local
 ssh-keygen -R <old-tailscale-ip>   # if the Tailscale IP is reused too
 ```
 
-Only after that will `ssh-copy-id` actually work — run it *after* clearing
+Only after that will `ssh-copy-id` actually work — run it _after_ clearing
 the old key, not before. Running it while the old key is still saved fails
 with the same host-key-changed error and silently does **not** install your
 key, which is easy to miss since password auth still works fine on its own
@@ -203,7 +203,7 @@ tailscale ip -4
 **Do not expect this to match the old address, even with the hostname
 reused.** Confirmed 2026-08-28: a fresh OS install gets a genuinely new
 Tailscale node identity, not a reused one, so it lands on a new IP from the
-pool regardless of hostname. `--hostname=van-pi` pins the *name* but not the
+pool regardless of hostname. `--hostname=van-pi` pins the _name_ but not the
 IP. Delete the old ghost nodes at
 [login.tailscale.com/admin/machines](https://login.tailscale.com/admin/machines)
 after the new node is registered — otherwise hostname collision gives the new
@@ -492,8 +492,8 @@ The deploy workflow uses `git fetch && git reset --hard origin/main` rather
 than `git pull`, because the Pi may have locally modified files from rsync
 during development.
 
-**A push to `backend/**` restarts `van-api` on the live van. There is no
-staging environment.**
+**A push to `backend/**`restarts`van-api` on the live van. There is no
+staging environment.\*\*
 
 ## 11. TwitchWiFi: fix van-pi.local DNS
 

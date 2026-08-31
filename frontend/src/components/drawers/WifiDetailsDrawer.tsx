@@ -16,7 +16,7 @@ function Row({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-1.5 border-b border-panel-border/50 last:border-0">
-      <span className="text-[11px]  text-zinc-500">{label}</span>
+      <span className="text-[11px]  text-gray-800">{label}</span>
       <span
         className={clsx(
           "text-[11px]  tabular-nums",

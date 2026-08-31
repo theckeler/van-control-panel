@@ -211,7 +211,7 @@ function Stat({
         className={clsx("text-center text-sm  font-semibold", {
           "text-charge-solar": highlight === "charge",
           "text-soc-low": highlight === "draw",
-          "text-zinc-200": !highlight,
+          "text-gray-800": !highlight,
         })}
       >
         {value}
@@ -223,7 +223,7 @@ function Stat({
 function CardSkeleton() {
   return (
     <div className="bg-panel-surface border border-panel-border rounded-xl p-5 animate-pulse">
-      <div className="text-xs  text-black uppercase tracking-widest mb-4">
+      <div className="text-xs text-black uppercase tracking-widest mb-4">
         Battery
       </div>
       <div className="h-16 bg-panel-bg rounded-lg" />

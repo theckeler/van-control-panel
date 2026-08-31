@@ -27,7 +27,7 @@ function Row({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-1.5 border-b border-panel-border/50 last:border-0">
-      <span className="text-[11px]  text-zinc-500">{label}</span>
+      <span className="text-[11px]  text-gray-800">{label}</span>
       <span
         className={clsx(
           "text-[11px]  tabular-nums",
@@ -35,7 +35,7 @@ function Row({
             ? "text-red-400"
             : tone === "warn"
               ? "text-amber-400"
-              : "text-zinc-300",
+              : "text-black",
         )}
       >
         {value}
@@ -314,7 +314,7 @@ export function SettingsDrawer({
           <button
             type="button"
             onClick={() => setWifiDetailsOpen(true)}
-            className="mt-3 w-full text-xs  px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+            className="mt-3 w-full text-xs  px-4 py-3 rounded border border-gray-800 text-gray-900"
           >
             WiFi settings
             <span className="block text-[10px] text-black mt-0.5">
@@ -360,7 +360,7 @@ export function SettingsDrawer({
             type="button"
             disabled={downloading}
             onClick={doDownload}
-            className="mt-3 w-full text-xs  px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+            className="mt-3 w-full text-xs  px-4 py-3 rounded border border-gray-800 text-gray-900"
           >
             {downloading ? "Preparing…" : "Download database"}
             <span className="block text-[10px] text-black mt-0.5">
@@ -398,12 +398,12 @@ export function SettingsDrawer({
             type="button"
             disabled={imageBusy || imageStatus?.state === "running"}
             onClick={doCreateImage}
-            className="mt-3 w-full text-xs  px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+            className="mt-3 w-full text-xs  px-4 py-3 rounded border border-gray-800 text-gray-900"
           >
             {imageStatus?.state === "running"
               ? "Creating image…"
               : "Create SD image"}
-            <span className="block text-[10px] text-black mt-0.5">
+            <span className="block text-[11px] text-black mt-0.5">
               Full SD card snapshot · ~1–2 GB gzipped · ~45 min
             </span>
           </button>
@@ -415,7 +415,7 @@ export function SettingsDrawer({
               className="mt-2 block w-full text-xs  px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
             >
               Download image
-              <span className="block text-[10px] text-black mt-0.5">
+              <span className="block text-[11px] text-black mt-0.5">
                 {imageStatus.filename ?? "van-pi.img.gz"}
               </span>
             </a>
@@ -427,10 +427,10 @@ export function SettingsDrawer({
               type="button"
               disabled={imageBusy}
               onClick={doCancelImage}
-              className="mt-1 w-full text-xs  px-4 py-2 rounded border border-panel-border text-zinc-500 hover:text-red-400 hover:border-red-800 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+              className="mt-1 w-full text-xs  px-4 py-2 rounded border border-panel-border text-gray-800 hover:text-red-400 hover:border-red-800 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
             >
               {imageStatus.state === "running" ? "Cancel" : "Delete image"}
-              <span className="block text-[10px] text-black mt-0.5">
+              <span className="block text-[11px] text-black mt-0.5">
                 {imageStatus.state === "running"
                   ? "Stops dd and removes the partial file"
                   : "Frees space on the Pi"}
@@ -447,10 +447,10 @@ export function SettingsDrawer({
           <button
             type="button"
             onClick={() => (released ? connectBms() : releaseBms())}
-            className="w-full text-xs  px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+            className="w-full text-xs  px-4 py-3 rounded border border-gray-800 text-gray-900"
           >
             {released ? "Reconnect BMS" : "Release BMS"}
-            <span className="block text-[10px] text-black mt-0.5">
+            <span className="block text-[11px] text-black mt-0.5">
               {released
                 ? "Resume monitoring from the Pi"
                 : "Free the Bluetooth link for the Power Queen app"}
@@ -460,17 +460,14 @@ export function SettingsDrawer({
           <button
             type="button"
             onClick={onPower}
-            className="w-full text-xs  px-4 py-3 rounded border border-amber-800 bg-accent text-white text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+            className="w-full text-xs  px-4 py-3 rounded border border-amber-800 bg-amber-400 text-black font-bold"
           >
             Power options
-            <span className="block text-[10px] text-amber-300/50 mt-0.5">
-              Reboot or shut down the Pi
-            </span>
           </button>
 
           {/* <div className="flex items-center justify-between pt-1">
-            <span className="text-[11px]  text-zinc-500">Theme</span>
-            <ThemeToggle className="rounded p-1.5 border border-panel-border text-zinc-500 hover:border-zinc-500 hover:text-zinc-300 transition-colors" />
+            <span className="text-[11px]  text-gray-800">Theme</span>
+            <ThemeToggle className="rounded p-1.5 border border-panel-border text-gray-800 hover:border-zinc-500 hover:text-zinc-300 transition-colors" />
           </div> */}
         </section>
 

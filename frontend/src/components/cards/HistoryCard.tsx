@@ -111,7 +111,7 @@ export function HistoryCard({ className }: { className?: string }) {
   return (
     <Panel className={className}>
       <div className="flex items-center justify-between mb-4">
-        <span className="text-xs  text-zinc-500 uppercase tracking-widest">
+        <span className="text-xs  text-gray-800 uppercase tracking-widest">
           History
         </span>
         <div className="flex gap-1">
@@ -123,7 +123,7 @@ export function HistoryCard({ className }: { className?: string }) {
                 "text-xs  px-3 py-1 rounded-md transition-colors",
                 tab === t
                   ? "bg-zinc-700 text-zinc-100"
-                  : "text-zinc-500 hover:text-zinc-300",
+                  : "text-gray-800 hover:text-zinc-300",
               )}
             >
               {t === "soc"

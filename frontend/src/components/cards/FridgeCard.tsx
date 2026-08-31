@@ -17,14 +17,29 @@ export function FridgeCard({ className }: { className?: string }) {
   const reachable = fridge.reachable;
   const hasCache = fridge.temp_f != null || fridge.battery_voltage != null;
   const doorOpen = fridge.door_open === true;
+  // const coolerOn = fridge.cooler_on === true;
 
   return (
     <Panel className={clsx(className, !reachable && "opacity-60")}>
-      <div className="flex items-center justify-between rounded-lg p-3 border bg-panel-bg border-panel-border">
+      <div
+        className={clsx(
+          "flex items-center justify-between rounded-lg p-3 border",
+          doorOpen
+            ? "bg-orange-100 border-panel-border"
+            : "bg-panel-bg border-panel-border",
+        )}
+      >
         <div className="flex items-center gap-3">
           <StatusDot on={reachable} tone="success" />
           <div>
-            <div className="text-sm font-semibold text-charge-dc">Fridge</div>
+            <div
+              className={clsx(
+                "text-sm font-semibold",
+                reachable ? "text-charge-dc" : "text-gray-800",
+              )}
+            >
+              Fridge
+            </div>
             <div className="text-xs text-black">
               {reachable
                 ? fridge.power_source
@@ -40,7 +55,7 @@ export function FridgeCard({ className }: { className?: string }) {
           <div
             className={clsx(
               "text-sm  font-semibold",
-              reachable ? "text-lime-700" : "text-zinc-500",
+              reachable ? "text-charge-dc" : "text-gray-800",
             )}
           >
             {fridge.temp_f != null ? `${fridge.temp_f.toFixed(1)}°F` : "—"}
@@ -62,7 +77,11 @@ export function FridgeCard({ className }: { className?: string }) {
               {fridge.cooler_on ? "compressor running" : "idle"}
             </div>
           )}
-          {doorOpen && <div className="text-xs  text-amber-600">door open</div>}
+          {doorOpen && (
+            <div className="text-xs font-bold text-amber-800 uppercase">
+              door open
+            </div>
+          )}
         </div>
       </div>
     </Panel>

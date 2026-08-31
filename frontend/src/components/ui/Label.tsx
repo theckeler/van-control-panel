@@ -13,7 +13,7 @@ export function Label({
   return (
     <Tag
       className={clsx(
-        "text-xs  text-zinc-500 uppercase tracking-widest",
+        "text-xs  text-gray-800 uppercase tracking-widest",
         className,
       )}
     >

@@ -428,7 +428,7 @@ export const mockApi = {
         temp_f: 39.6,
         set_temp_f: 39.2,
         battery_voltage: 12.6,
-        cooler_on: true,
+        cooler_on: false,
         door_open: false,
         power_source: "DC",
         reachable: true,

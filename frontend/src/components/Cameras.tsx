@@ -81,7 +81,7 @@ function CameraPane({ label, photo }: { label?: string; photo: Photo | null }) {
     <div className="bg-panel-surface border border-panel-border rounded-xl overflow-hidden">
       <div className="flex items-center justify-between border-b border-panel-border">
         {label && (
-          <span className="text-xs  text-zinc-500 uppercase tracking-widest">
+          <span className="text-xs  text-gray-800 uppercase tracking-widest">
             {label}
           </span>
         )}

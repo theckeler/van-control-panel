@@ -89,11 +89,13 @@ export function StarlinkCard({ className }: { className?: string }) {
         <div className="flex items-center gap-3">
           <StatusDot on={online} tone="success" />
           <div>
-            <div className="text-sm  font-semibold text-charge-dc">
+            <div
+              className={`text-sm font-semibold ${online ? "text-charge-dc" : "text-gray-300"}`}
+            >
               Starlink
             </div>
             {starlink?.power_w != null && (
-              <div className="text-xs  text-black">
+              <div className="text-xs text-gray-400">
                 {starlink.power_w.toFixed(0)}W
               </div>
             )}
@@ -102,19 +104,19 @@ export function StarlinkCard({ className }: { className?: string }) {
         <div className="text-right">
           <div
             className={clsx(
-              "text-sm  font-semibold",
+              "text-sm font-semibold",
               online
                 ? "text-lime-700"
                 : reachable
                   ? "text-amber-500"
-                  : "text-black",
+                  : "text-gray-400",
             )}
           >
             {primary}
           </div>
-          <div className="text-xs  text-black">{detail}</div>
+          <div className="text-xs text-gray-600">{detail}</div>
           {(obstructed || (starlink?.alerts.length ?? 0) > 0) && (
-            <div className="text-xs  text-amber-600">
+            <div className="text-xs text-amber-600">
               {obstructed ? "obstructed" : `${starlink!.alerts.length} alert`}
             </div>
           )}

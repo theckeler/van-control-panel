@@ -21,7 +21,7 @@ export function WifiBadge({ className }: { className?: string }) {
     <span
       className={clsx(
         "text-[10px]  truncate max-w-[9rem]",
-        !ssid ? "text-red-400" : weak ? "text-amber-400" : "text-zinc-500",
+        !ssid ? "text-red-400" : weak ? "text-amber-400" : "text-gray-800",
         className,
       )}
       title={
