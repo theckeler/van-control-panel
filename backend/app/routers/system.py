@@ -214,6 +214,31 @@ async def get_wifi():
     """Which network the Pi is currently on, and how good the link is."""
     return WifiStatus(**await network.get_wifi())
 
+
+class HotspotStatus(BaseModel):
+    active: bool
+    ssid: str | None = None
+
+
+@router.get("/wifi/hotspot", response_model=HotspotStatus)
+async def get_hotspot():
+    """wlan0 TwitchWiFi hotspot status \u2014 is it up, and what it's broadcasting."""
+    return HotspotStatus(**await network.get_hotspot())
+
+
+@router.post("/wifi/hotspot/{state}", response_model=WifiSwitchResult)
+async def set_hotspot(state: str):
+    """
+    Turn the wlan0 hotspot on or off.
+
+    Turning it off drops any client currently connected over TwitchWiFi.
+    """
+    if state not in ("on", "off"):
+        raise HTTPException(status_code=400, detail="state must be 'on' or 'off'")
+    ok, message = await network.set_hotspot(state == "on")
+    db.log_event("wifi", "TwitchWiFi", "ok" if ok else "failed", message[:200] if message else None)
+    return WifiSwitchResult(ok=ok, message=message or ("ok" if ok else "failed"))
+
 # Always-on baseline loads (Pi + Starlink + Fridge average)
 ALWAYS_ON_WATTS = {
     "Pi": 5,

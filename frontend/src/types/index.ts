@@ -180,6 +180,11 @@ export interface WifiProfile {
   active: boolean
 }
 
+export interface HotspotStatus {
+  active: boolean
+  ssid: string | null
+}
+
 export interface WifiNetwork {
   ssid: string
   signal: number | null

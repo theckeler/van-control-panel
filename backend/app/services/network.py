@@ -7,6 +7,8 @@ IWCONFIG = "/usr/sbin/iwconfig"
 # wlan0 is the TwitchWiFi hotspot (AP mode, 10.42.0.1) — it has no upstream
 # association to report. wlan1 is the uplink: Starlink primary, OHeck fallback.
 IFACE = "wlan1"
+HOTSPOT_IFACE = "wlan0"
+HOTSPOT_CONNECTION = "TwitchWiFi"
 
 # Association changes rarely, but /system/ is polled every 5s. Without a cache
 # that is two subprocess spawns per poll, ~1,400 an hour, for an answer that
@@ -76,6 +78,52 @@ async def get_wifi() -> dict:
 
     _cache = (result, now)
     return result
+
+
+async def get_hotspot() -> dict:
+    """
+    wlan0 hotspot status — active state and the SSID it's broadcasting.
+
+    Reads the connection's configured SSID rather than assuming
+    'TwitchWiFi' — the profile name and the broadcast SSID aren't
+    guaranteed to match, even though they do today.
+    """
+    out = await _run("nmcli", "-t", "-f", "NAME,DEVICE", "connection", "show", "--active")
+    active = False
+    for line in out.splitlines():
+        name, _, dev = line.rpartition(":")
+        if name == HOTSPOT_CONNECTION and dev == HOTSPOT_IFACE:
+            active = True
+
+    ssid = None
+    if active:
+        raw = await _run("nmcli", "-t", "-f", "802-11-wireless.ssid", "connection", "show", HOTSPOT_CONNECTION)
+        _, _, value = raw.strip().partition(":")
+        ssid = value or HOTSPOT_CONNECTION
+
+    return {"active": active, "ssid": ssid}
+
+
+async def set_hotspot(on: bool) -> tuple[bool, str]:
+    """
+    Bring the TwitchWiFi hotspot up or down on wlan0.
+
+    Turning it off drops any client currently connected over TwitchWiFi
+    (including a phone viewing this dashboard on that network) — Tailscale
+    and an OHeck/Starlink-connected client are unaffected. Needs sudo, same
+    as the wlan1 switch endpoints.
+    """
+    action = "up" if on else "down"
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "sudo", "nmcli", "connection", action, HOTSPOT_CONNECTION,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        out, _ = await asyncio.wait_for(proc.communicate(), timeout=15.0)
+    except (OSError, asyncio.TimeoutError):
+        return False, "Timed out"
+    return proc.returncode == 0, out.decode(errors="replace").strip()
 
 
 # /run is root-only and van-api runs as todd, so the marker lives in /tmp.

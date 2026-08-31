@@ -468,6 +468,9 @@ export const mockApi = {
     ]),
     wifiConnect: (_ssid: string, _password: string) =>
       delay({ ok: false, message: 'Connect disabled in demo mode' }),
+    hotspot: () => delay({ active: true, ssid: 'TwitchWiFi' }),
+    setHotspot: (_on: boolean) =>
+      delay({ ok: false, message: 'Hotspot toggle disabled in demo mode' }),
     // Destructive controls are inert in demo mode.
     shutdown: () => delay({ status: 'demo', message: 'Shutdown disabled in demo mode' }),
     reboot:   () => delay({ status: 'demo', message: 'Reboot disabled in demo mode' }),

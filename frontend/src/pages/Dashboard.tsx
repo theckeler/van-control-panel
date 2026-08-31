@@ -12,6 +12,7 @@ import { ShellyPanel } from "../components/ShellyPanel";
 import { StarlinkCard } from "../components/StarlinkCard";
 import { Toaster } from "../components/Toaster";
 import { WifiBadge } from "../components/WifiBadge";
+import { WifiPanel } from "../components/WifiPanel";
 import { Button, Stack } from "../components/ui";
 import { usePolling } from "../hooks/usePolling";
 import { useSettingsStore } from "../store/settings";
@@ -83,6 +84,7 @@ export function Dashboard() {
       </header>
 
       <ShellyPanel />
+      <WifiPanel />
       <BatteryCard />
       <ChargeSourcesCard />
       <EcoflowCard />

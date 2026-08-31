@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type {
   BatteryData, MpptData, EcoflowData, ShoreData, OrionData,
   ShellyUnit, SystemData, ModeResponse, StarlinkData, DometicData,
-  RawReading, HourlyReading, DailyReading,
+  RawReading, HourlyReading, DailyReading, HotspotStatus,
 } from '../types'
 import { api } from '../api/client'
 import { toast } from './toast'
@@ -35,6 +35,7 @@ interface VanStore {
   orion: OrionData | null
   shellys: ShellyUnit[]
   system: SystemData | null
+  hotspot: HotspotStatus | null
   mode: ModeResponse | null
   loading: boolean
   lastUpdated: Date | null
@@ -54,6 +55,7 @@ interface VanStore {
   setMode: (mode: string) => Promise<void>
   releaseBms: () => Promise<void>
   connectBms: () => Promise<void>
+  toggleHotspot: (on: boolean) => Promise<void>
 }
 
 export const useVanStore = create<VanStore>((set, get) => ({
@@ -66,6 +68,7 @@ export const useVanStore = create<VanStore>((set, get) => ({
   orion: null,
   shellys: [],
   system: null,
+  hotspot: null,
   mode: null,
   loading: false,
   lastUpdated: null,
@@ -80,7 +83,7 @@ export const useVanStore = create<VanStore>((set, get) => ({
   fetchAll: async () => {
     set({ loading: true, error: null })
     try {
-      const [battery, mppt, ecoflow, shore, orion, shellys, system, mode, starlink, dometic] = await Promise.allSettled([
+      const [battery, mppt, ecoflow, shore, orion, shellys, system, mode, starlink, dometic, hotspot] = await Promise.allSettled([
         api.battery.get(),
         api.mppt.get(),
         api.ecoflow.get(),
@@ -94,6 +97,7 @@ export const useVanStore = create<VanStore>((set, get) => ({
         // what keeps that from stalling the other eight.
         api.starlink.get(),
         api.dometic.get(),
+        api.system.hotspot(),
       ])
 
       set({
@@ -106,6 +110,7 @@ export const useVanStore = create<VanStore>((set, get) => ({
         orion: orion.status === 'fulfilled' ? orion.value : get().orion,
         shellys: shellys.status === 'fulfilled' ? shellys.value : get().shellys,
         system: system.status === 'fulfilled' ? system.value : get().system,
+        hotspot: hotspot.status === 'fulfilled' ? hotspot.value : get().hotspot,
         mode: mode.status === 'fulfilled' ? mode.value : get().mode,
         loading: false,
         lastUpdated: new Date(),
@@ -182,6 +187,20 @@ export const useVanStore = create<VanStore>((set, get) => ({
       toast.info('Reconnecting to BMS — this can take up to 35s')
     } catch (err) {
       toast.error(`Reconnect failed — ${describe(err)}`)
+    }
+  },
+
+  toggleHotspot: async (on: boolean) => {
+    try {
+      const result = await api.system.setHotspot(on)
+      if (!result.ok) {
+        toast.error(`Couldn't turn hotspot ${on ? 'on' : 'off'} — ${result.message}`)
+        return
+      }
+      set({ hotspot: { active: on, ssid: on ? 'TwitchWiFi' : null } })
+      toast.success(`Hotspot ${on ? 'on' : 'off'}`)
+    } catch (err) {
+      toast.error(`Couldn't turn hotspot ${on ? 'on' : 'off'} — ${describe(err)}`)
     }
   },
 }))
