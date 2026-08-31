@@ -1,9 +1,11 @@
+import asyncio
 import subprocess
-from fastapi import APIRouter
+from pathlib import Path
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 from pydantic import BaseModel
-from app.services import battery_ble, victron_ble, network, health, db, backup
+from app.services import battery_ble, victron_ble, network, health, db, backup, disk_image
 from app.routers import mode as mode_router
 from app.routers import orion as orion_router
 from app.routers.shelly import SHELLY_UNITS
@@ -144,6 +146,67 @@ async def download_backup():
         filename=filename,
         background=BackgroundTask(backup.cleanup, path),
     )
+
+
+class DiskImageStatus(BaseModel):
+    state: str | None = None
+    bytes_written: int | None = None
+    filename: str | None = None
+    error: str | None = None
+
+
+class DiskImageStartResult(BaseModel):
+    ok: bool
+    message: str
+
+
+@router.post("/disk-image/start", response_model=DiskImageStartResult)
+async def start_disk_image():
+    """
+    Start creating a gzipped SD card image on the Pi.
+
+    Returns immediately. Poll /system/disk-image/status for progress.
+    Takes ~45 minutes; final file ~1-2 GB. State resets on van-api restart.
+    """
+    status = disk_image.get_status()
+    if status["state"] == "running":
+        return DiskImageStartResult(ok=False, message="image creation already in progress")
+    asyncio.create_task(disk_image.start_job())
+    return DiskImageStartResult(ok=True, message="started")
+
+
+@router.get("/disk-image/status", response_model=DiskImageStatus)
+async def get_disk_image_status():
+    """Poll image creation progress. bytes_written is the compressed file size so far."""
+    return DiskImageStatus(**disk_image.get_status())
+
+
+@router.get("/disk-image/download")
+async def download_disk_image():
+    """
+    Download the completed gzipped SD card image.
+
+    Only available when state is 'done'. File is deleted from the Pi after download.
+    """
+    status = disk_image.get_status()
+    if status["state"] != "done":
+        raise HTTPException(status_code=404, detail="no completed image available")
+    path = disk_image.OUTPUT
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="image file missing")
+    return FileResponse(
+        path,
+        media_type="application/gzip",
+        filename=status["filename"] or "van-pi.img.gz",
+        background=BackgroundTask(disk_image.cleanup, path),
+    )
+
+
+@router.delete("/disk-image")
+async def cancel_disk_image():
+    """Cancel an in-progress image creation or delete a completed image file."""
+    await disk_image.cancel()
+    return {"ok": True}
 
 
 @router.get("/wifi", response_model=WifiStatus)

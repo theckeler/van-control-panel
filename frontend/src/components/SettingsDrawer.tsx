@@ -4,7 +4,7 @@ import { api } from "../api/client";
 import { useModalBehavior } from "../hooks/useModalBehavior";
 import { toast } from "../store/toast";
 import { useVanStore } from "../store/van";
-import type { BackupStatus, PiHealth } from "../types";
+import type { BackupStatus, DiskImageStatus, PiHealth } from "../types";
 import { ThemeToggle } from "./ThemeToggle";
 import { Button, Label } from "./ui";
 import { WifiScanDrawer } from "./WifiScanDrawer";
@@ -58,6 +58,8 @@ export function SettingsDrawer({
   const [backup, setBackup] = useState<BackupStatus | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [wifiScanOpen, setWifiScanOpen] = useState(false);
+  const [imageStatus, setImageStatus] = useState<DiskImageStatus | null>(null);
+  const [imageBusy, setImageBusy] = useState(false);
 
   async function doDownload() {
     setDownloading(true);
@@ -87,6 +89,34 @@ export function SettingsDrawer({
     }
   }
 
+  async function doCreateImage() {
+    setImageBusy(true);
+    try {
+      const r = await api.system.diskImageStart();
+      if (!r.ok) {
+        toast.error(r.message);
+      } else {
+        setImageStatus({ state: "running", bytes_written: 0, filename: null, error: null });
+      }
+    } catch (err) {
+      toast.error(`Failed to start — ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setImageBusy(false);
+    }
+  }
+
+  async function doCancelImage() {
+    setImageBusy(true);
+    try {
+      await api.system.diskImageCancel();
+      setImageStatus(null);
+    } catch (err) {
+      toast.error(`Cancel failed — ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setImageBusy(false);
+    }
+  }
+
   const battery = useVanStore((s) => s.battery);
   const releaseBms = useVanStore((s) => s.releaseBms);
   const connectBms = useVanStore((s) => s.connectBms);
@@ -105,6 +135,10 @@ export function SettingsDrawer({
         (b) => !cancelled && setBackup(b),
         () => !cancelled && setBackup(null),
       );
+      api.system.diskImageStatus().then(
+        (s) => !cancelled && setImageStatus(s),
+        () => {},
+      );
     };
 
     load();
@@ -114,6 +148,22 @@ export function SettingsDrawer({
       clearInterval(t);
     };
   }, [open]);
+
+  // Faster poll while image creation is in progress
+  useEffect(() => {
+    if (!open || imageStatus?.state !== "running") return;
+    let cancelled = false;
+    const t = setInterval(() => {
+      api.system.diskImageStatus().then(
+        (s) => !cancelled && setImageStatus(s),
+        () => {},
+      );
+    }, 3_000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [open, imageStatus?.state]);
 
   if (!open) return null;
 
@@ -323,6 +373,72 @@ export function SettingsDrawer({
               Gzipped snapshot. Readings only, no credentials
             </span>
           </button>
+        </section>
+
+        <section>
+          <Label as="h3" className="block mb-2">
+            SD Image
+          </Label>
+          <Row
+            label="Status"
+            value={
+              !imageStatus?.state
+                ? "No image"
+                : imageStatus.state === "running"
+                  ? "Creating…"
+                  : imageStatus.state === "done"
+                    ? "Ready to download"
+                    : `Error: ${imageStatus.error ?? "unknown"}`
+            }
+            tone={imageStatus?.state === "error" ? "warn" : undefined}
+          />
+          {imageStatus?.bytes_written != null && imageStatus.bytes_written > 0 && (
+            <Row
+              label="Written"
+              value={`${(imageStatus.bytes_written / 1024 / 1024 / 1024).toFixed(2)} GB`}
+            />
+          )}
+
+          <button
+            type="button"
+            disabled={imageBusy || imageStatus?.state === "running"}
+            onClick={doCreateImage}
+            className="mt-3 w-full text-xs font-mono px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+          >
+            {imageStatus?.state === "running" ? "Creating image…" : "Create SD image"}
+            <span className="block text-[10px] text-zinc-600 mt-0.5">
+              Full SD card snapshot · ~1–2 GB gzipped · ~45 min
+            </span>
+          </button>
+
+          {imageStatus?.state === "done" && (
+            <a
+              href={api.system.diskImageUrl()}
+              download={imageStatus.filename ?? "van-pi.img.gz"}
+              className="mt-2 block w-full text-xs font-mono px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+            >
+              Download image
+              <span className="block text-[10px] text-zinc-600 mt-0.5">
+                {imageStatus.filename ?? "van-pi.img.gz"}
+              </span>
+            </a>
+          )}
+
+          {(imageStatus?.state === "running" || imageStatus?.state === "done") && (
+            <button
+              type="button"
+              disabled={imageBusy}
+              onClick={doCancelImage}
+              className="mt-1 w-full text-xs font-mono px-4 py-2 rounded border border-panel-border text-zinc-500 hover:text-red-400 hover:border-red-800 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+            >
+              {imageStatus.state === "running" ? "Cancel" : "Delete image"}
+              <span className="block text-[10px] text-zinc-600 mt-0.5">
+                {imageStatus.state === "running"
+                  ? "Stops dd and removes the partial file"
+                  : "Frees space on the Pi"}
+              </span>
+            </button>
+          )}
         </section>
 
         <section className="flex flex-col gap-2 mt-auto">

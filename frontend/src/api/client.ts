@@ -2,6 +2,7 @@ import type {
   BatteryData, MpptData, EcoflowData, ShoreData, OrionData, DometicData,
   ShellyUnit, Photo, ModeResponse, SystemData, StarlinkData,
   RawReading, HourlyReading, DailyReading, PiHealth, WifiProfile, WifiNetwork, BackupStatus,
+  DiskImageStatus,
 } from '../types'
 import { mockApi } from './mock'
 
@@ -19,6 +20,12 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
     headers: body ? { 'Content-Type': 'application/json' } : {},
     body: body ? JSON.stringify(body) : undefined,
   })
+  if (!res.ok) throw new Error(`API error ${res.status}: ${path}`)
+  return res.json()
+}
+
+async function del_<T>(path: string): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, { method: 'DELETE' })
   if (!res.ok) throw new Error(`API error ${res.status}: ${path}`)
   return res.json()
 }
@@ -87,6 +94,10 @@ const realApi = {
       post<{ ok: boolean; message: string }>(`/system/wifi/switch/${encodeURIComponent(name)}`),
     shutdown: () => post<{ status: string; message: string }>('/system/shutdown'),
     reboot:   () => post<{ status: string; message: string }>('/system/reboot'),
+    diskImageStart:  () => post<{ ok: boolean; message: string }>('/system/disk-image/start'),
+    diskImageStatus: () => get<DiskImageStatus>('/system/disk-image/status'),
+    diskImageUrl:    () => `${BASE}/system/disk-image/download`,
+    diskImageCancel: () => del_<{ ok: boolean }>('/system/disk-image'),
   },
 }
 

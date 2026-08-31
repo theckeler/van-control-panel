@@ -264,6 +264,46 @@ isn't immediately undone.
 
 ---
 
+## Disk Image
+
+### `POST /system/disk-image/start`
+Start creating a gzipped SD card image. Returns immediately; creation runs in the background (~45 min for a 29GB card).
+
+```json
+{ "ok": true, "message": "started" }
+{ "ok": false, "message": "image creation already in progress" }
+```
+
+State resets on van-api restart. If a restart occurs mid-image, `sudo pkill -f "dd if=/dev/mmcblk0"` on the Pi cleans up the process.
+
+### `GET /system/disk-image/status`
+Poll progress while creation is running.
+
+```json
+{ "state": "running", "bytes_written": 524288000, "filename": null, "error": null }
+{ "state": "done",    "bytes_written": 1610612736, "filename": "van-pi-2026-08-30.img.gz", "error": null }
+{ "state": "error",   "bytes_written": null, "filename": null, "error": "dd exited with code 1" }
+{ "state": null,      "bytes_written": null, "filename": null, "error": null }
+```
+
+| Field | Notes |
+|---|---|
+| `state` | `null` = never started, `running`, `done`, `error` |
+| `bytes_written` | Compressed output file size on the Pi (grows during creation) |
+| `filename` | Set when done, e.g. `van-pi-2026-08-30.img.gz` |
+
+### `GET /system/disk-image/download`
+Download the completed image. Returns 404 if state is not `done`. File is deleted from the Pi after transfer. Use with Balena Etcher or `gunzip -c van-pi-*.img.gz | sudo dd of=/dev/diskN bs=4M`.
+
+### `DELETE /system/disk-image`
+Cancel an in-progress image creation or delete a completed image file.
+
+```json
+{ "ok": true }
+```
+
+---
+
 ## Health
 
 ### `GET /health`

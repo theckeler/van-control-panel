@@ -142,6 +142,9 @@ backend/app/
                          throttle flags via vcgencmd. Cached 10s
     pq_battery.py        Vendored: pq_bms_bluetooth parse logic
     pq_request.py        Vendored: pq_bms_bluetooth BLE request
+    disk_image.py        SD card image creation — module-level _job state, asyncio
+                         background task running dd|gzip. State resets on van-api
+                         restart; in-flight dd becomes an orphan (pkill to clean up).
 
 frontend/
   server.mjs             Express — serves dist/, proxies /api/*, signed-cookie auth
@@ -173,7 +176,8 @@ frontend/
       ModeSelector.tsx   Storage / Camp / Trail / In Town
       HistoryCard.tsx    Recharts SOC 24h + Solar 30d
       SettingsDrawer.tsx Gear icon → Pi health, network detail, WiFi scan/connect
-                         button, BMS release, power options, theme
+                         button, backup download, SD image creation (start/poll/download/cancel),
+                         BMS release, power options, theme
       WifiScanDrawer.tsx Second-layer drawer (z-60) over SettingsDrawer. Scan
                          wlan1 for networks, select one, connect with password
       WifiBadge.tsx      Header SSID + band. Amber below -70dBm, red if unassociated
