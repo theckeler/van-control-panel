@@ -5,7 +5,6 @@ import { useModalBehavior } from "../hooks/useModalBehavior";
 import { toast } from "../store/toast";
 import { useVanStore } from "../store/van";
 import type { BackupStatus, DiskImageStatus, PiHealth } from "../types";
-import { ThemeToggle } from "./ThemeToggle";
 import { Button, Label } from "./ui";
 import { WifiScanDrawer } from "./WifiScanDrawer";
 
@@ -96,10 +95,17 @@ export function SettingsDrawer({
       if (!r.ok) {
         toast.error(r.message);
       } else {
-        setImageStatus({ state: "running", bytes_written: 0, filename: null, error: null });
+        setImageStatus({
+          state: "running",
+          bytes_written: 0,
+          filename: null,
+          error: null,
+        });
       }
     } catch (err) {
-      toast.error(`Failed to start — ${err instanceof Error ? err.message : String(err)}`);
+      toast.error(
+        `Failed to start — ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       setImageBusy(false);
     }
@@ -111,7 +117,9 @@ export function SettingsDrawer({
       await api.system.diskImageCancel();
       setImageStatus(null);
     } catch (err) {
-      toast.error(`Cancel failed — ${err instanceof Error ? err.message : String(err)}`);
+      toast.error(
+        `Cancel failed — ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       setImageBusy(false);
     }
@@ -392,12 +400,13 @@ export function SettingsDrawer({
             }
             tone={imageStatus?.state === "error" ? "warn" : undefined}
           />
-          {imageStatus?.bytes_written != null && imageStatus.bytes_written > 0 && (
-            <Row
-              label="Written"
-              value={`${(imageStatus.bytes_written / 1024 / 1024 / 1024).toFixed(2)} GB`}
-            />
-          )}
+          {imageStatus?.bytes_written != null &&
+            imageStatus.bytes_written > 0 && (
+              <Row
+                label="Written"
+                value={`${(imageStatus.bytes_written / 1024 / 1024 / 1024).toFixed(2)} GB`}
+              />
+            )}
 
           <button
             type="button"
@@ -405,7 +414,9 @@ export function SettingsDrawer({
             onClick={doCreateImage}
             className="mt-3 w-full text-xs font-mono px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
           >
-            {imageStatus?.state === "running" ? "Creating image…" : "Create SD image"}
+            {imageStatus?.state === "running"
+              ? "Creating image…"
+              : "Create SD image"}
             <span className="block text-[10px] text-zinc-600 mt-0.5">
               Full SD card snapshot · ~1–2 GB gzipped · ~45 min
             </span>
@@ -424,7 +435,8 @@ export function SettingsDrawer({
             </a>
           )}
 
-          {(imageStatus?.state === "running" || imageStatus?.state === "done") && (
+          {(imageStatus?.state === "running" ||
+            imageStatus?.state === "done") && (
             <button
               type="button"
               disabled={imageBusy}
@@ -470,14 +482,17 @@ export function SettingsDrawer({
             </span>
           </button>
 
-          <div className="flex items-center justify-between pt-1">
+          {/* <div className="flex items-center justify-between pt-1">
             <span className="text-[11px] font-mono text-zinc-500">Theme</span>
             <ThemeToggle className="rounded p-1.5 border border-panel-border text-zinc-500 hover:border-zinc-500 hover:text-zinc-300 transition-colors" />
-          </div>
+          </div> */}
         </section>
       </div>
 
-      <WifiScanDrawer open={wifiScanOpen} onClose={() => setWifiScanOpen(false)} />
+      <WifiScanDrawer
+        open={wifiScanOpen}
+        onClose={() => setWifiScanOpen(false)}
+      />
     </div>
   );
 }

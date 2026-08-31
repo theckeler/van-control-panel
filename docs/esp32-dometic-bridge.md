@@ -23,13 +23,13 @@ hardware.
 That patch was necessary but not sufficient. `537a03xx` and `537a04xx` are not
 the same protocol at two addresses — they are different generations:
 
-| | DDM1 | DDM2 |
-|---|---|---|
-| Service base | `537a03xx` | `537a04xx` |
-| Models | CFX3 | CFX5, CFX2 (`MC1`, `MC2`, `MC3`) |
-| Opcodes | PUB `0x00`, SUB `0x01`, PING `0x02` | PUB `0x10`, SET `0x11`, SUB `0x12` |
-| Handshake | PING → ACK → HELLO → ACK, then subscribe | subscribe directly |
-| Values | one byte per switch/enum | 32-bit little-endian |
+|              | DDM1                                     | DDM2                               |
+| ------------ | ---------------------------------------- | ---------------------------------- |
+| Service base | `537a03xx`                               | `537a04xx`                         |
+| Models       | CFX3                                     | CFX5, CFX2 (`MC1`, `MC2`, `MC3`)   |
+| Opcodes      | PUB `0x00`, SUB `0x01`, PING `0x02`      | PUB `0x10`, SET `0x11`, SUB `0x12` |
+| Handshake    | PING → ACK → HELLO → ACK, then subscribe | subscribe directly                 |
+| Values       | one byte per switch/enum                 | 32-bit little-endian               |
 
 Our fridge advertises as `MC1_8d87f4`, so it is DDM2. The patched component
 was writing DDM1 frames to a DDM2 device.
@@ -97,10 +97,16 @@ Note the device path that shows up (e.g. `/dev/tty.usbmodem14201`).
 `secrets.yaml`, which is gitignored. Create it alongside the YAML:
 
 ```yaml
-wifi_ssid: "YOUR_SSID"
-wifi_password: "YOUR_PASSWORD"
+twitchwifi_ssid: "TwitchWiFi"
+twitchwifi_password: "YOUR_PASSWORD"
+starlink_ssid: "YOUR_STARLINK_SSID"
+starlink_password: "YOUR_STARLINK_PASSWORD"
 fallback_ap_password: "something-long"
 ```
+
+The board joins `TwitchWiFi` \u2014 the Pi's own always-on hotspot AP (`wlan0`,
+10.42.0.1), same as the Shellys \u2014 as its primary network, with Starlink kept
+as a lower-priority fallback for flashing/testing away from the van.
 
 The `api:` encryption key is already in the YAML and is not a WiFi secret.
 

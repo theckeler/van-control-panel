@@ -8,69 +8,22 @@ esp32:
     type: esp-idf
 
 wifi:
-  # Was a single OHeck-only network. The Pi's own dispatcher actively prefers
-  # Starlink and doesn't stay put — it drops back to Starlink roughly every
-  # 30 minutes once its manual-override window expires, at which point the
-  # Pi and this board end up on different networks and the fridge card goes
-  # unreachable, even though nothing is actually wrong. Listing both networks
-  # here lets the ESP32 join whichever the Pi is currently on, same as the
-  # Pi's own Starlink-primary/OHeck-fallback setup.
-  # Explicit priority, not list order — checked ESPHome's own wifi_component
-  # source (WIFI_NETWORK_STA schema, priority: -128..127, default 0, higher
-  # tried first during a scan-based reconnect). Without it, selection between
-  # two equally-fresh networks falls through to RSSI, which is not the same
-  # as "always prefer Starlink". This makes it deterministic.
+  # wlan0/TwitchWiFi is the Pi's own always-on hotspot AP (10.42.0.1) — the
+  # same network the Shellys are on. Joining it means the ESP32 is reachable
+  # any time the Pi is powered, independent of which WAN uplink wlan1 has
+  # (Starlink vs OHeck), so it no longer needs to chase the Pi around
+  # between networks. Starlink stays listed as a lower-priority fallback for
+  # flashing/testing away from the van, not for normal operation.
   networks:
+    - ssid: !secret twitchwifi_ssid
+      password: !secret twitchwifi_password
+      priority: 1
     - ssid: !secret starlink_ssid
       password: !secret starlink_password
-      priority: 1
-    - ssid: !secret wifi_ssid
-      password: !secret wifi_password
-  # fast_connect was true. It has a "reconnect to the BSSID from the
-  # previous boot" shortcut that can bypass priority-based scan sorting
-  # entirely — suspected root cause, 2026-08-28, of a fresh flash landing
-  # back on OHeck even with Starlink confirmed broadcasting at full signal.
-  # That flash only touched the interval: logic, not this wifi: block, so
-  # the cached OHeck BSSID from moments earlier likely survived and won
-  # before priority was ever consulted. Disabled to force a genuine
-  # scan-and-sort on every reconnect — slower, but this only matters for
-  # the rare case (interval below, or an actual disconnect), where
-  # correctness matters far more than a few seconds of boot speed.
-  fast_connect: false
 
   ap:
     ssid: "Dometic-Bridge-Fallback"
     password: !secret fallback_ap_password
-
-# Closes the gap the priority: fix above doesn't: ESPHome only re-evaluates
-# the network list on an actual disconnect, never proactively while already
-# connected — confirmed by direct test 2026-08-27, switching the Pi to
-# Starlink and watching this board sit on OHeck for 60+ seconds doing
-# nothing. Mirrors the Pi's own 90-prefer-starlink dispatcher, but ESPHome
-# has no "network came into range" event to hook, so this polls instead.
-#
-# Only acts when NOT already on Starlink, so the common case (already on the
-# preferred network) never touches WiFi at all.
-#
-# First attempt used wifi.disable + wifi.enable — logically reasonable, but
-# proven wrong by direct test 2026-08-28: with Starlink confirmed broadcasting
-# at full strength (verified independently via the Pi's own scan, signal 97),
-# the interval fired correctly (watched the log line print live) but landed
-# right back on OHeck anyway. disable/enable doesn't force the same
-# priority-sorted scan a real boot does — some faster reconnect-to-last-known
-# path wins instead. A genuine reboot is the only mechanism actually verified
-# (twice, independently) to respect priority correctly, so this uses that —
-# heavier per-occurrence, but it only fires when already stuck on the
-# fallback network, which should be rare in steady state.
-interval:
-  - interval: 5min
-    then:
-      - if:
-          condition:
-            lambda: 'return id(current_ssid).state != "Sir Salettelot";'
-          then:
-            - logger.log: "Not on Starlink — rebooting to force a priority-sorted reconnect"
-            - lambda: 'App.safe_reboot();'
 
 logger:
   level: VERBOSE
@@ -124,7 +77,8 @@ external_components:
     components: [dometic_cfx_ble]
 
 esp32_ble:
-  io_capability: none # Just Works — matches what the phone app presents.
+  io_capability:
+    none # Just Works — matches what the phone app presents.
     # This is already the ESPHome default; it is set explicitly so a future
     # reader doesn't "fix" it, since bonding depends on it.
 
@@ -139,20 +93,21 @@ dometic_cfx_ble:
   # component) — it always reports native Celsius. F/C conversion happens
   # server-side in services/dometic.py instead. See git history for the
   # attempt at a firmware-level option; reverted, invalid config key.
-  product_type: SZ # CFX5 35 is single-zone, no icemaker — SZ is the
-                    # semantically correct choice.
-                    #
-                    # All three product types (SZ, SZI, DZ) were tested
-                    # 2026-08-27 against the old DDM1 component with identical
-                    # results: connects, discovers both characteristics,
-                    # registers for notifications, writes the subscribe payload
-                    # successfully at the BLE layer (ESP_GATTC_WRITE_CHAR_EVT
-                    # x3 every time) — then zero RX frames, ever.
-                    #
-                    # That experiment correctly ruled out product_type. It is
-                    # now understood to have been testing a field inside a
-                    # DDM1 frame the fridge never parsed, on an unencrypted
-                    # link it would not have answered anyway.
+  product_type:
+    SZ # CFX5 35 is single-zone, no icemaker — SZ is the
+    # semantically correct choice.
+    #
+    # All three product types (SZ, SZI, DZ) were tested
+    # 2026-08-27 against the old DDM1 component with identical
+    # results: connects, discovers both characteristics,
+    # registers for notifications, writes the subscribe payload
+    # successfully at the BLE layer (ESP_GATTC_WRITE_CHAR_EVT
+    # x3 every time) — then zero RX frames, ever.
+    #
+    # That experiment correctly ruled out product_type. It is
+    # now understood to have been testing a field inside a
+    # DDM1 frame the fridge never parsed, on an unencrypted
+    # link it would not have answered anyway.
 
 # ESPHome's built-in JSON API — GET /sensor/<id>, /binary_sensor/<id>,
 # /text_sensor/<id> each return JSON. van-api polls these exactly like it
@@ -200,10 +155,3 @@ text_sensor:
     type: POWER_SOURCE
     name: "Fridge Power Source"
     id: fridge_power_source
-  # Used by the network-follow interval below to know which network the
-  # board is currently on, without any custom C++ — a real, documented
-  # ESPHome platform (checked wifi_info/text_sensor.py before using it).
-  - platform: wifi_info
-    ssid:
-      name: "Current SSID"
-      id: current_ssid

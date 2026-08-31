@@ -48,7 +48,7 @@ export function Dashboard() {
       <PowerModal open={powerOpen} onClose={() => setPowerOpen(false)} />
       <Toaster />
 
-      <header className="flex items-center justify-between">
+      <header className="flex items-center justify-between pt-6">
         <h1 className="text-lg font-mono font-bold text-zinc-600 tracking-tight">
           {(isDemo && "Demo Van") || vanName}
           {isDemo && (

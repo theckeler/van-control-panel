@@ -41,6 +41,7 @@ A self-hosted IoT monitoring and control dashboard for a converted 2023 Mercedes
 
 Three Shelly 1 Gen4 units installed, one placeholder. All installed units are
 on TwitchWiFi (10.42.0.1/24). Uses `.local` mDNS hostnames (NOT hardcoded IPs):
+
 - `shelly1g4-d885acec6aac.local` → USB Outlets (10.42.0.102)
 - `shelly1g4-d885acf36a28.local` → Garage (10.42.0.215)
 - `shelly1g4-48f6eed0a89c.local` → PS Input 2 (10.42.0.26)
@@ -53,6 +54,7 @@ is running, independent of Starlink/OHeck state.
 ### Frontend Server
 
 Served by **nginx** (port 80), which proxies to **Express** (`frontend/server.mjs`) on port 3000. Express:
+
 - Serves the built React SPA from `dist/`
 - Proxies `/api/*` to uvicorn at `localhost:8000`
 - Optional basic auth via `VAN_PASSWORD` in `.env`
@@ -60,6 +62,7 @@ Served by **nginx** (port 80), which proxies to **Express** (`frontend/server.mj
 ### Data Logging
 
 SQLite database at `backend/van_power.db`. Four-tier time-series storage:
+
 - `readings_raw` — every reading, 30-day retention
 - `readings_hourly` — avg/min/max per hour, 1-year retention
 - `readings_daily` — daily summaries, forever
@@ -69,10 +72,10 @@ Rollups happen automatically at hour/day/month boundaries in `app/services/data_
 
 ### Access
 
-| Method | URL |
-|---|---|
-| Local | `http://van-pi.local` |
-| Tailscale | `http://van-pi.tailba93b9.ts.net` |
+| Method          | URL                                                                       |
+| --------------- | ------------------------------------------------------------------------- |
+| Local           | `http://van-pi.local`                                                     |
+| Tailscale       | `http://van-pi.tailba93b9.ts.net`                                         |
 | Public (Funnel) | `https://van-pi.tailba93b9.ts.net` (run: `sudo tailscale funnel --bg 80`) |
 
 ### CI/CD
@@ -86,6 +89,7 @@ Deploy workflow uses `git fetch && git reset --hard origin/main` (not `git pull`
 ## Tech Stack
 
 ### Frontend
+
 - Vite + React 18 + TypeScript
 - Tailwind CSS with custom design tokens
 - Zustand (`src/store/van.ts`) — `Promise.allSettled` so partial API failures don't break the UI
@@ -96,6 +100,7 @@ Deploy workflow uses `git fetch && git reset --hard origin/main` (not `git pull`
   and rejected as ~90kB gzipped of Material Design fighting a monospace terminal aesthetic
 
 ### Backend
+
 - FastAPI + uvicorn on port 8000
 - Python 3.13 on Debian Trixie (arm64)
 - `victron-ble` + `bleak` — MPPT passive BLE scan
@@ -105,6 +110,7 @@ Deploy workflow uses `git fetch && git reset --hard origin/main` (not `git pull`
 - SQLite (stdlib `sqlite3`) — time-series logging
 
 ### Infrastructure
+
 - Raspberry Pi (arm64, Debian Trixie)
 - Tailscale — VPN + Funnel
 - Starlink Mini — primary WiFi, home WiFi as secondary DHCP profile
@@ -226,18 +232,18 @@ VAN_API_KEY=<same value as the Pi's backend/.env>
 
 ## Key Constants
 
-| Constant | File | Value | Notes |
-|---|---|---|---|
-| `RECONNECT_IN` | battery_ble.py | 300s | BMS reconnect cooldown |
-| `STARTUP_DELAY` | battery_ble.py | 5s | Clears BlueZ InProgress on restart |
-| `READ_EVERY` | battery_ble.py | 30s | BMS read interval |
-| `VICTRON_INTERVAL` | ble_orchestrator.py | 30s | MPPT scan interval |
-| `LOG_INTERVAL` | data_logger.py | 30s | SQLite write interval |
-| `RAW_RETAIN_DAYS` | db.py | 30 | Days to keep raw readings |
-| `HOURLY_RETAIN_DAYS` | db.py | 365 | Days to keep hourly rollups |
-| `STALE_AFTER` (BMS) | battery_ble.py | 120s | Seconds before BMS cache is stale |
-| `STALE_AFTER` (MPPT) | victron_ble.py | 120s | Seconds before MPPT cache is stale |
-| `max_points` | db.py `query_raw` | 300 | Bucket-averages raw history server-side. Was shipping ~2,880 rows per source per request; charts render ~900px wide. Pass 0 for every row |
+| Constant             | File                | Value | Notes                                                                                                                                     |
+| -------------------- | ------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `RECONNECT_IN`       | battery_ble.py      | 300s  | BMS reconnect cooldown                                                                                                                    |
+| `STARTUP_DELAY`      | battery_ble.py      | 5s    | Clears BlueZ InProgress on restart                                                                                                        |
+| `READ_EVERY`         | battery_ble.py      | 30s   | BMS read interval                                                                                                                         |
+| `VICTRON_INTERVAL`   | ble_orchestrator.py | 30s   | MPPT scan interval                                                                                                                        |
+| `LOG_INTERVAL`       | data_logger.py      | 30s   | SQLite write interval                                                                                                                     |
+| `RAW_RETAIN_DAYS`    | db.py               | 30    | Days to keep raw readings                                                                                                                 |
+| `HOURLY_RETAIN_DAYS` | db.py               | 365   | Days to keep hourly rollups                                                                                                               |
+| `STALE_AFTER` (BMS)  | battery_ble.py      | 120s  | Seconds before BMS cache is stale                                                                                                         |
+| `STALE_AFTER` (MPPT) | victron_ble.py      | 120s  | Seconds before MPPT cache is stale                                                                                                        |
+| `max_points`         | db.py `query_raw`   | 300   | Bucket-averages raw history server-side. Was shipping ~2,880 rows per source per request; charts render ~900px wide. Pass 0 for every row |
 
 ---
 
@@ -245,17 +251,17 @@ VAN_API_KEY=<same value as the Pi's backend/.env>
 
 Open the repo in VS Code and press **Cmd+Shift+B**, or Cmd+Shift+P → "Run Task".
 
-| Task | What it does |
-|---|---|
-| **Dev: full stack (local backend)** | Vite + local uvicorn in parallel. Default build task |
-| **Dev: frontend against the Pi** | Vite only, proxies to van-api over Tailscale. Real data |
-| **Dev: frontend with demo data** | `VITE_DEMO=true`, mock API. No Pi, no Bluetooth needed |
-| **Build / Typecheck: frontend** | `npm run build` / `tsc --noEmit` |
-| **Install: frontend deps (incl. dev)** | Use this, not plain `npm install` — see below |
-| **Pi: status** | Service state, WiFi, Shelly reachability |
-| **Pi: tail van-api log** | Live journal |
-| **Pi: recent events** | Last 48h of state changes from the event log |
-| **Pi: shell** | SSH over Tailscale |
+| Task                                   | What it does                                            |
+| -------------------------------------- | ------------------------------------------------------- |
+| **Dev: full stack (local backend)**    | Vite + local uvicorn in parallel. Default build task    |
+| **Dev: frontend against the Pi**       | Vite only, proxies to van-api over Tailscale. Real data |
+| **Dev: frontend with demo data**       | `VITE_DEMO=true`, mock API. No Pi, no Bluetooth needed  |
+| **Build / Typecheck: frontend**        | `npm run build` / `tsc --noEmit`                        |
+| **Install: frontend deps (incl. dev)** | Use this, not plain `npm install` — see below           |
+| **Pi: status**                         | Service state, WiFi, Shelly reachability                |
+| **Pi: tail van-api log**               | Live journal                                            |
+| **Pi: recent events**                  | Last 48h of state changes from the event log            |
+| **Pi: shell**                          | SSH over Tailscale                                      |
 
 A **local backend** starts fine but the BLE services find nothing — the BMS and
 Victron are not in Bluetooth range of the Mac — so the battery and solar cards
@@ -307,7 +313,7 @@ of work — not per fragment, not bundled across unrelated fixes.
      "Dev: full stack (local backend)" VS Code task — never overwrite what's
      actually running on the Pi's `van-api`/`van-frontend` services mid-task.
    - **ESP32 firmware:** there is no separate "dev" build of a physical
-     board — flashing *is* the test. Live hardware iteration happens freely
+     board — flashing _is_ the test. Live hardware iteration happens freely
      during the branch; this is expected, not a workflow violation.
 4. Confirm a clean build (`npm run build`, `py_compile`) and real behavior
    before opening anything.
@@ -362,15 +368,15 @@ filter, so verify rather than assume.
 
 ### What exists only on the Pi
 
-| Thing | Recoverable? |
-|---|---|
-| `van_power.db` | Nightly snapshot to the Mac, plus on-demand download from the settings drawer |
-| `backend/.env` | Copy on the Mac at `backend/.env`. Put the values in a password manager too |
-| `frontend/.env` | No — but the session secret is regenerable and the password is yours |
-| `mode.json` | No — defaults to `camp`, one click to fix |
-| NetworkManager profiles | Documented in SETUP.md §3 |
-| systemd units | In SETUP.md §8, verbatim |
-| Actions runner registration | Needs a fresh token, SETUP.md §10 |
+| Thing                       | Recoverable?                                                                  |
+| --------------------------- | ----------------------------------------------------------------------------- |
+| `van_power.db`              | Nightly snapshot to the Mac, plus on-demand download from the settings drawer |
+| `backend/.env`              | Copy on the Mac at `backend/.env`. Put the values in a password manager too   |
+| `frontend/.env`             | No — but the session secret is regenerable and the password is yours          |
+| `mode.json`                 | No — defaults to `camp`, one click to fix                                     |
+| NetworkManager profiles     | Documented in SETUP.md §3                                                     |
+| systemd units               | In SETUP.md §8, verbatim                                                      |
+| Actions runner registration | Needs a fresh token, SETUP.md §10                                             |
 
 ---
 
@@ -483,10 +489,10 @@ threat, not the shell threat.
 The van has two WiFi networks available at home, and everything prefers
 Starlink with the home network as fallback.
 
-| Network | SSID | Notes |
-|---|---|---|
+| Network  | SSID             | Notes                                           |
+| -------- | ---------------- | ----------------------------------------------- |
 | Starlink | `Sir Salettelot` | Preferred. Dual band, associate on ch 40 (5GHz) |
-| Home | `OHeck` | Fallback. Prefer its 5GHz band |
+| Home     | `OHeck`          | Fallback. Prefer its 5GHz band                  |
 
 **Pi priority** is set in NetworkManager on `wlan1` (the uplink radio):
 
@@ -509,10 +515,10 @@ curl -s "http://<ip>/rpc/WiFi.SetConfig" -H 'Content-Type: application/json' \
 
 ### Subnets
 
-| Network | Range | Router |
-|---|---|---|
+| Network  | Range            | Router        |
+| -------- | ---------------- | ------------- |
 | Starlink | `192.168.4.0/24` | `192.168.4.1` |
-| OHeck | `192.168.1.0/24` | `192.168.1.1` |
+| OHeck    | `192.168.1.0/24` | `192.168.1.1` |
 
 Starlink was renumbered off `192.168.1.0/24` in Aug 2026 because both routers
 were handing out the same range, which made an IP meaningless as an identifier.
@@ -533,7 +539,7 @@ after a disconnect. It will **not** leave a working connection when a
 higher-priority network reappears.
 
 So a Starlink outage drops the Pi to OHeck, and the Pi stays there after
-Starlink returns. The Shellys *do* return on their own, so the two end up
+Starlink returns. The Shellys _do_ return on their own, so the two end up
 split, with the dashboard loading fine but circuits showing unreachable.
 
 **Fixed** by `scripts/90-prefer-starlink`, a NetworkManager dispatcher script.
@@ -591,7 +597,6 @@ queues indefinitely. `shelly.py` uses a dedicated 2-thread executor
 sudo systemctl restart van-api    # clears the resolution cache
 ```
 
-
 Sweep the current uplink subnet without nmap (which is not installed):
 
 ```bash
@@ -647,24 +652,24 @@ symptoms looked like DNS and were not.
 
 **What the numbers actually were:**
 
-| Measurement | Value | Healthy would be |
-|---|---|---|
-| Pi signal (OHeck, ch 7, 2.4GHz) | `-65 dBm`, quality 45/70 | above `-60 dBm` |
-| Retries (`/proc/net/wireless`) | 111 | low tens |
-| Mac → router | 0% loss, 3-8ms | same |
-| Mac → Pi | **80% loss**, 10-634ms | 0%, <10ms |
-| Pi → router | 10% loss, 2-75ms | 0%, <10ms |
-| Interface errors (`ip -s link`) | 0 RX, 0 TX | 0 |
+| Measurement                     | Value                    | Healthy would be |
+| ------------------------------- | ------------------------ | ---------------- |
+| Pi signal (OHeck, ch 7, 2.4GHz) | `-65 dBm`, quality 45/70 | above `-60 dBm`  |
+| Retries (`/proc/net/wireless`)  | 111                      | low tens         |
+| Mac → router                    | 0% loss, 3-8ms           | same             |
+| Mac → Pi                        | **80% loss**, 10-634ms   | 0%, <10ms        |
+| Pi → router                     | 10% loss, 2-75ms         | 0%, <10ms        |
+| Interface errors (`ip -s link`) | 0 RX, 0 TX               | 0                |
 
-*(Note: these stats were from the Pi's onboard radio before the USB dongle was
+_(Note: these stats were from the Pi's onboard radio before the USB dongle was
 added. wlan1 now handles the uplink. The onboard radio on wlan0 runs the
-TwitchWiFi AP and is not a client.)*
+TwitchWiFi AP and is not a client.)_
 
 Zero interface errors with heavy packet loss means the hardware and driver are
 fine. It is purely RF: the signal is too weak to sustain a reliable link.
 
 **The 5GHz clue.** The Mac was associated to OHeck on channel 48 (5GHz) with a
-perfect link. The Pi could not see OHeck's 5GHz radio *at all* — a rescan
+perfect link. The Pi could not see OHeck's 5GHz radio _at all_ — a rescan
 returned only `OHeck 55 ch 7 2442 MHz`. 5GHz has shorter range than 2.4GHz, so
 "can't see the 5GHz SSID that other devices are using fine" is a direct
 distance signal, not a config problem.
@@ -697,7 +702,7 @@ A USB adapter with an external antenna helps in two distinct ways:
 1. **Range.** A real antenna on a marginal link is the difference between
    `-65 dBm` and something workable. This is the fix for the problem above.
 2. **Simultaneous AP + client.** A second radio means the Pi can stay joined
-   to Starlink/OHeck *and* run its own access point at the same time, so the
+   to Starlink/OHeck _and_ run its own access point at the same time, so the
    dashboard is reachable from a phone with no upstream network at all —
    parked in the woods, Starlink stowed. The onboard radio alone cannot do
    both reliably; sharing one radio between AP and client modes is possible
@@ -712,7 +717,7 @@ A USB adapter with an external antenna helps in two distinct ways:
 - **External antenna**, ideally detachable RP-SMA so it can be upgraded or
   relocated. This is the entire point.
 - **AP mode support** — verify with `iw list | grep -A10 "Supported interface
-  modes"` after plugging in; look for `AP` in the list.
+modes"` after plugging in; look for `AP` in the list.
 - **Dual band.** 5GHz is what the Mac is already using successfully on OHeck.
 
 Known-good in the Pi community: Alfa AWUS036ACM (MT7612U, detachable antenna,
@@ -874,26 +879,34 @@ this one.
   **Fixed 2026-08-27, later same day: WiFi priority.** ESPHome's
   `wifi_component` supports an explicit per-network `priority:` (`-128..127`,
   default `0`, higher tried first — checked the source, not list order as
-  first assumed). Starlink is now `priority: 1` over OHeck's default `0`.
-  Confirmed live: the board picked Starlink correctly on a fresh boot with
-  both networks visible. This makes *connection-time* selection
-  deterministic — it does not make the board proactively abandon an
-  already-working OHeck connection, same sticky-network behavior as
-  NetworkManager on the Pi before its own dispatcher fix. No ESP32-side
-  dispatcher exists yet; the Pi's own WiFi switch endpoint is still the
-  manual lever when the two drift apart.
+  first assumed). Starlink was given `priority: 1` over OHeck's default `0`,
+  and a 5-minute watchdog rebooted the board if it wasn't on Starlink, to try
+  to keep it on whichever WAN network the Pi's `wlan1` uplink was using.
+
+  **Superseded 2026-08-31: joined TwitchWiFi instead of chasing wlan1.** The
+  real fix wasn't a better priority/watchdog scheme — it was not needing one.
+  `wlan0`/TwitchWiFi is the Pi's own always-on hotspot (10.42.0.1), the same
+  network the Shellys are already on. The ESP32 now joins TwitchWiFi as its
+  primary network (`priority: 1`), with Starlink kept as a lower-priority
+  fallback for flashing/testing away from the van. Since TwitchWiFi is up any
+  time the Pi is powered, regardless of which WAN network `wlan1` is on, mDNS
+  resolution between the Pi and the ESP32 no longer depends on both boards
+  picking the same uplink — the 5-min reboot watchdog and OHeck fallback
+  network were removed as no longer needed. Secrets renamed
+  `twitchwifi_ssid`/`twitchwifi_password` in `secrets.yaml` (gitignored).
 
   **Not yet built:** writing to the fridge (set temperature, on/off). The
   fork genuinely supports it — confirmed `ACTION_SET = 0x11` is the real
   opcode, not stubbed, and `number.py` exists with min/max/step — but adding
-  a *write* control while the connection was actively unstable felt like the
+  a _write_ control while the connection was actively unstable felt like the
   wrong moment to add risk to a live, running fridge. Revisit once the
   connection has been stable for a real stretch.
+
 - **EcoFlow River 2 Max** — live. Battery % decoded from an unencrypted byte
   in the BLE advertisement (manufacturer ID `0xB5B5`, offset 17, right after
   a 16-byte ASCII serial), confirmed against the unit's own screen. No
   connection, no auth, same passive-scan pattern as Victron. `services/
-  ecoflow_ble.py`, `/ecoflow/`, `EcoflowCard.tsx`. Only battery % — charging
+ecoflow_ble.py`, `/ecoflow/`, `EcoflowCard.tsx`. Only battery % — charging
   state and watts live in EcoFlow's encrypted protocol, out of reach of
   passive scanning. See the User ID / full-telemetry note below.
   **Updated 2026-08-27 — see `rubber-duck-review-2026-08-27.md`.** The
@@ -948,7 +961,7 @@ this one.
   to 1100ms/30ms, logger back to sane levels. Pi's load average and response
   times looked healthy afterward; worth a longer-term check if it recurs.
 - **Seven API calls per poll cycle** — `fetchAll` hits battery, mppt, shore, orion, shelly, system and mode/current separately every 5s. A `/snapshot` endpoint was considered and **rejected after measuring**: six of the seven return in ~3ms, so collapsing them saves ~18ms of round trips, while a single blocking call would make the one slow endpoint (shelly) stall the whole dashboard. `Promise.allSettled` currently isolates it. Revisit only if the fast endpoints stop being fast. **Now nine as of 2026-08-27** (ecoflow, starlink). Starlink is the second genuinely slow one — a gRPC call that can take up to 10s when the dish is unreachable — which reinforces the original decision rather than changing it.
-- **Mode persistence** — done. Persisted to `backend/mode.json`, written atomically. Note this saves the *selection* only; actually applying a mode (camera intervals, Shelly schedules) is still unimplemented.
+- **Mode persistence** — done. Persisted to `backend/mode.json`, written atomically. Note this saves the _selection_ only; actually applying a mode (camera intervals, Shelly schedules) is still unimplemented.
 - **Shelly latency is ~200ms and variable, and that is the floor.** The installed
   units are on TwitchWiFi (the Pi's own 2.4GHz hotspot via the onboard radio).
   Signal is strong at close range, so this is normal 2.4GHz congestion plus
@@ -988,6 +1001,7 @@ this one.
   its own dashboard row ("Rear Door: Open") rather than a generic on/off tile,
   since the semantics differ even though the underlying mechanism is identical
   to every other Shelly-fed circuit.
+
 - **Maxxfan will not get a Shelly** — tested and rejected. It defaults open on power loss and closes on power-up, which is exactly wrong for a switched circuit. Its remote is IR, so there is no network path either.
 - **Govee H6199 rock lights** — candidate for on/off and basic colour over BLE. Protocol varies by firmware generation; older units accept unencrypted writes, newer added encryption. Needs a probe before it can be scoped.
 - **EcoFlow (`EF-R10314`)** — confirmed as Todd's, seen in BLE scans at -20 to -44 dBm. Official developer API exists over HTTP and MQTT, needs an API key. Community BLE work also exists.
@@ -998,12 +1012,12 @@ this one.
 
 Devices seen on `hci0`, including ones not integrated.
 
-| Device | MAC | Adv name | Status |
-|---|---|---|---|
-| Power Queen BMS | `C8:47:80:5D:08:6F` | `P-12100BNNA70-B00793` | Integrated |
-| Victron SmartSolar | `E8:18:52:D1:81:B7` | `SmartSolar HQ2218GMEKM` | Integrated |
-| Dometic CFX5 35 | `88:13:BF:8D:87:F6` | `MC1_8d87f4` | Blocked — BlueZ incompatible |
-| Garmin PowerSwitch | `F0:53:20:C3:99:B4` | `PowerSwitch-99B4` | Blocked — 4 attempts, always `le-connection-abort-by-local`, including with van-api stopped. Same BlueZ incompatibility as the Dometic, not a bonding refusal (2026-08-27). Controls Starlink and the EcoFlow charge toggle as well as lighting — see safety note |
+| Device             | MAC                 | Adv name                 | Status                                                                                                                                                                                                                                                            |
+| ------------------ | ------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Power Queen BMS    | `C8:47:80:5D:08:6F` | `P-12100BNNA70-B00793`   | Integrated                                                                                                                                                                                                                                                        |
+| Victron SmartSolar | `E8:18:52:D1:81:B7` | `SmartSolar HQ2218GMEKM` | Integrated                                                                                                                                                                                                                                                        |
+| Dometic CFX5 35    | `88:13:BF:8D:87:F6` | `MC1_8d87f4`             | Blocked — BlueZ incompatible                                                                                                                                                                                                                                      |
+| Garmin PowerSwitch | `F0:53:20:C3:99:B4` | `PowerSwitch-99B4`       | Blocked — 4 attempts, always `le-connection-abort-by-local`, including with van-api stopped. Same BlueZ incompatibility as the Dometic, not a bonding refusal (2026-08-27). Controls Starlink and the EcoFlow charge toggle as well as lighting — see safety note |
 
 The Dometic is a rare advertiser. Expect to wait through several scan cycles before it appears.
 
@@ -1063,7 +1077,7 @@ breakdown claims them whether or not they're powered.
 **Severity: latent, not live.** Nothing in the frontend reads `loads`,
 `load_watts`, `solar_watts`, or `power_state`. The backend computes and
 serialises all of it on every 5-second poll and it is discarded. Fix this
-*before* wiring up any load-breakdown panel.
+_before_ wiring up any load-breakdown panel.
 
 ### Genuinely real issue 2 — the clamp hides shore charging
 
@@ -1085,7 +1099,7 @@ Load is derived from one equation:
 load = solar_in - battery_flow
 ```
 
-That is only solvable when solar is the *only* charge source. Add shore or
+That is only solvable when solar is the _only_ charge source. Add shore or
 alternator and there are two unknowns and one measurement. Shore is inferred
 rather than measured precisely because there's no sensor on it.
 
@@ -1094,11 +1108,11 @@ input, which covers most real usage, and unreliable otherwise.
 
 ### Fixes, none implemented
 
-- *Honest:* return `None` for `load_watts` when the inputs can't support an
+- _Honest:_ return `None` for `load_watts` when the inputs can't support an
   answer (non-solar charge source active), and render a dash. Unknown beats wrong.
-- *Minimum:* drop Starlink and Fridge from `ALWAYS_ON_WATTS` so the breakdown
+- _Minimum:_ drop Starlink and Fridge from `ALWAYS_ON_WATTS` so the breakdown
   only claims the Pi's ~5W, the one load genuinely always present.
-- *Real:* measure instead of infer. A Victron SmartShunt reports over the same
+- _Real:_ measure instead of infer. A Victron SmartShunt reports over the same
   BLE advertisement protocol the MPPT already uses, and would make load,
   runtime, and shore detection all real.
 
@@ -1142,6 +1156,7 @@ the way `SettingsDrawer.tsx` currently does — the intent is **separate
 drawers**, one per concern. Not built yet.
 
 **Still discussing, not yet actionable:**
+
 - A third Shelly switch button in the mockup ("Door Lights" in the visible
   text, "Ceiling" as the layer name) — placeholder for now, not a confirmed
   circuit. Likely connects to the door-sensor project already in Known
@@ -1164,14 +1179,14 @@ drawers**, one per concern. Not built yet.
 
 Primitives are in `src/components/ui/`:
 
-| Primitive | Purpose |
-|---|---|
-| `Panel` | Card surface. Reads `spacing` from the settings store and applies it as inline padding/gap |
-| `Stack` | Outer container. Same, but reads `gap` |
-| `Label` | Uppercase mono section label |
-| `StatusDot` | 2x2 indicator, `accent` or `success` tone. `aria-hidden` |
-| `SelectableTile` | Shelly toggles and mode buttons. Carries `aria-pressed` |
-| `Button` | `outline` / `ghost` / `danger`, sizes `icon` / `sm` / `md` |
+| Primitive        | Purpose                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------ |
+| `Panel`          | Card surface. Reads `spacing` from the settings store and applies it as inline padding/gap |
+| `Stack`          | Outer container. Same, but reads `gap`                                                     |
+| `Label`          | Uppercase mono section label                                                               |
+| `StatusDot`      | 2x2 indicator, `accent` or `success` tone. `aria-hidden`                                   |
+| `SelectableTile` | Shelly toggles and mode buttons. Carries `aria-pressed`                                    |
+| `Button`         | `outline` / `ghost` / `danger`, sizes `icon` / `sm` / `md`                                 |
 
 **Spacing is user-configurable at runtime.** `gap` and `spacing` live in the
 persisted settings store. `Panel` and `Stack` read them directly, which is why
@@ -1210,15 +1225,15 @@ project settings, or attach a custom domain, before sharing.
 **Approach:** `src/api/mock.ts` exports an object with the identical shape, and at the bottom of `client.ts`:
 
 ```ts
-export const api = import.meta.env.VITE_DEMO === 'true' ? mockApi : realApi
+export const api = import.meta.env.VITE_DEMO === "true" ? mockApi : realApi;
 ```
 
 Set `VITE_DEMO=true` in Vercel's environment variables. The Pi build never sets it, so production is untouched and tree-shaking drops the mock from the Pi bundle.
 
 **Where the effort actually is:**
 
-1. *History generation.* `RawReading`, `HourlyReading`, `DailyReading` back the Recharts components. Random numbers look obviously fake. Needs a generator modelling a solar bell curve peaking at solar noon, SOC climbing through the day and drawing down overnight, voltage tracking SOC. Roughly 60-80 lines and the bulk of the work.
-2. *Mutations must feel alive.* `shelly.toggle`, `mode.set`, `battery.release`/`connect`, `orion.toggle` need module-level state that actually changes, or the demo's buttons visibly do nothing. Add small jitter to `battery.get` and `mppt.get` since `usePolling` fires every 5s and static numbers look frozen.
+1. _History generation._ `RawReading`, `HourlyReading`, `DailyReading` back the Recharts components. Random numbers look obviously fake. Needs a generator modelling a solar bell curve peaking at solar noon, SOC climbing through the day and drawing down overnight, voltage tracking SOC. Roughly 60-80 lines and the bulk of the work.
+2. _Mutations must feel alive._ `shelly.toggle`, `mode.set`, `battery.release`/`connect`, `orion.toggle` need module-level state that actually changes, or the demo's buttons visibly do nothing. Add small jitter to `battery.get` and `mppt.get` since `usePolling` fires every 5s and static numbers look frozen.
 
 **Three decisions to make before building:**
 
@@ -1255,8 +1270,8 @@ branch needs no permission each time — it's expected, reversible work. The
 real gate moved to the PR/merge step.
 
 **Push to `main` deploys to the Pi.** The self-hosted runner picks up every
-push to `main` — there is no separate staging *environment*, though the
-branch/PR is now effectively a staging *step* before anything reaches the
+push to `main` — there is no separate staging _environment_, though the
+branch/PR is now effectively a staging _step_ before anything reaches the
 van. Verify backend changes locally first regardless.
 
 **Check whether duplication is real before extracting it.** Grepping for

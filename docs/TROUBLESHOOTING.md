@@ -7,11 +7,13 @@ Common issues and their fixes for the Van Control Panel system.
 ## BMS shows offline / "No data yet"
 
 ### Symptoms
+
 - Battery card shows `○ offline` or `○ offline — no data yet`
 - `/battery/` endpoint returns `connected: false`
 - Journal shows repeated `BMS: — retrying in 300s`
 
 ### Cause
+
 The Power Queen BMS firmware has a lockout mechanism. If too many rapid BLE connection attempts are made in a short period, the BMS enters a state where it advertises normally but rejects (or ignores) all incoming connections. This is most commonly triggered by repeated `van-api` restarts during development.
 
 **Observed variant, 2026-08-27: not advertising at all, not just refusing
@@ -31,12 +33,14 @@ confirmed separate cause. Same fix applies (physical power cycle below).
 **Important:** The Pi runs off the house battery. Shut it down gracefully before cutting power.
 
 **Step 1 — Shut down the Pi:**
+
 ```bash
 ssh todd@van-pi.local 'sudo shutdown now'
 # Wait ~15 seconds for full shutdown
 ```
 
 Or if on Tailscale:
+
 ```bash
 ssh todd@van-pi 'sudo shutdown now'
 # (Currently registered as van-pi-2 — see Tailscale hostname entry below)
@@ -51,9 +55,11 @@ The Pi boots automatically. `van-api` and `van-frontend` start via systemd. BMS 
 No further action needed.
 
 ### Fix — Power Queen app (sometimes works)
+
 If you don't want to power cycle, open the Power Queen app on your phone, let it connect and show full data (SOC, all cells), hold for ~10 seconds, then close it. This can reset the BMS BLE state. Success is not guaranteed if the lockout is severe.
 
 ### Prevention
+
 - Do not restart `van-api` repeatedly in quick succession
 - In normal operation the persistent connection holds for days
 - The 5-minute reconnect cooldown (`RECONNECT_IN = 300` in `battery_ble.py`) prevents hammering
@@ -67,12 +73,15 @@ If you don't want to power cycle, open the Power Queen app on your phone, let it
 ## BMS connects but Power Queen app can't
 
 ### Cause
+
 The Pi holds a persistent BLE connection. Only one device can connect at a time.
 
 ### Fix
+
 Use the **Release** button on the Battery card in the dashboard. A confirmation modal will appear. After confirming, the Pi drops its connection and the Power Queen app can connect. When done, tap **Connect** on the dashboard to resume monitoring.
 
 Alternatively via SSH:
+
 ```bash
 curl -X POST http://localhost:8000/battery/release
 # ... use Power Queen app ...
@@ -84,12 +93,15 @@ curl -X POST http://localhost:8000/battery/connect
 ## Dashboard not loading / all requests pending
 
 ### Cause
+
 Usually a DNS resolution issue — `van-pi.local` times out on some Mac setups before falling back to mDNS, adding ~5 seconds per request. The frontend polls every 5 seconds so requests pile up faster than they complete.
 
-> **Distinguishing from the WiFi-signal issue below:** DNS timeout adds a consistent ~5s delay per request, everything else is fast. WiFi signal issues make *everything* crawl, including SSH sessions, not just the browser.
+> **Distinguishing from the WiFi-signal issue below:** DNS timeout adds a consistent ~5s delay per request, everything else is fast. WiFi signal issues make _everything_ crawl, including SSH sessions, not just the browser.
 
 ### Fix
+
 Find the Pi's current IP and try a direct connection:
+
 ```bash
 ping van-pi.local    # get the IP
 ```
@@ -106,32 +118,40 @@ SSH and the dev proxy.
 ## Dashboard slow to load / page hangs but Pi is reachable
 
 ### Symptoms
+
 - `van-pi.local` eventually loads but takes 30-60+ seconds
 - SSH sessions feel laggy too, not just the browser
 - `top` / `free -h` on the Pi show normal CPU and memory (rules out the Pi itself)
 - Network tab in dev tools shows requests "Pending" for a long time or very slow transfer times on small files (e.g. a 14KB CSS file taking 30+ seconds)
 
 ### Cause
+
 Weak or congested WiFi link between the Pi and the router, not an app or auth issue. Check the radio stats:
+
 ```bash
 ssh todd@van-pi.local
 iwconfig wlan1
 ```
+
 Look at:
+
 - **Tx excessive retries** — climbing into the hundreds means the link is struggling
 - **Signal level** — below about -65 dBm is marginal
 - **Bit Rate** — the radio falls back to a low rate (e.g. 13-14 Mb/s) when the link is unstable
 
-*(wlan1 is the uplink client radio — the USB dongle. wlan0 runs the TwitchWiFi
-AP and won't show client signal stats.)*
+_(wlan1 is the uplink client radio — the USB dongle. wlan0 runs the TwitchWiFi
+AP and won't show client signal stats.)_
 
 ### Fix
+
 **Switch to 5GHz if the router supports it.** 2.4GHz is more congested and shorter-range-tolerant but noisier. Reconnecting the Pi to a 5GHz SSID (same network, different band) has resolved this outright — retries dropped from 300+ to 0 and bit rate roughly doubled.
 
 If power management is on, turn it off too (can cause latency spikes independent of signal strength):
+
 ```bash
 sudo iwconfig wlan1 power off
 ```
+
 Note: this resets on reboot/reconnect unless made persistent (see below).
 
 **To make power management off persistent across reboots**, add a systemd service or NetworkManager dispatcher rule — not yet set up as of this writing.
@@ -139,6 +159,7 @@ Note: this resets on reboot/reconnect unless made persistent (see below).
 **If neither helps**, consider a USB WiFi adapter with an external antenna. The Pi's onboard WiFi chip is known to be mediocre in marginal signal conditions.
 
 ### Quick way to isolate WiFi vs. everything else
+
 Temporarily connect the Pi via Ethernet. If the dashboard loads fast and clean over Ethernet, the problem is confirmed to be WiFi, not the app, auth, or database.
 
 ---
@@ -146,9 +167,11 @@ Temporarily connect the Pi via Ethernet. If the dashboard loads fast and clean o
 ## Frontend shows "ENOENT: no such file or directory ... dist/index.html"
 
 ### Cause
-`van-frontend.service` is running but the built frontend (`frontend/dist/`) is missing or empty. Seen once after an unexpected full Pi reboot (not just a service restart) triggered by an unrelated `systemctl restart van-frontend` call — root cause of *why* the whole box rebooted wasn't confirmed, worth watching if it recurs.
+
+`van-frontend.service` is running but the built frontend (`frontend/dist/`) is missing or empty. Seen once after an unexpected full Pi reboot (not just a service restart) triggered by an unrelated `systemctl restart van-frontend` call — root cause of _why_ the whole box rebooted wasn't confirmed, worth watching if it recurs.
 
 ### Fix
+
 ```bash
 ssh todd@van-pi.local
 ls -la /home/todd/van-control-panel/frontend/dist   # confirm it's actually missing/empty
@@ -160,6 +183,7 @@ sudo systemctl status van-frontend
 ```
 
 ### Note
+
 If you see `uptime` showing only a few minutes right after this error, the Pi rebooted rather than the service just restarting. A plain `systemctl restart` on `van-frontend` should not reboot the whole machine — if this happens again, check `journalctl -b -1 -n 50` (previous boot's last log lines) to try to catch the trigger, and rule out a power dip on the Pi's 12V feed around the same time.
 
 ---
@@ -184,9 +208,9 @@ A Shelly circuit left on is the usual answer. 45W at 13.5V is ~3.3A, well
 within range for the Garage circuit. If `current` is near `0.0` there is
 genuinely no draw and the card will show ~0W.
 
-*(Aug 2026: this was investigated as a suspected phantom-load bug. It wasn't.
+_(Aug 2026: this was investigated as a suspected phantom-load bug. It wasn't.
 The Garage Shelly was on. See CLAUDE.md "system.py load estimation" for the
-full correction.)*
+full correction.)_
 
 ### What is actually unreliable
 
@@ -206,9 +230,11 @@ dashboard today.
 ## van-api not responding after deploy
 
 ### Cause
+
 The GitHub Actions deploy workflow restarts `van-api`. The BMS service has a 5-second startup delay and a 5-minute reconnect cooldown, so the battery card shows offline for up to 5 minutes after every deploy. This is expected.
 
 ### Check status
+
 ```bash
 ssh todd@van-pi.local 'sudo systemctl status van-api --no-pager'
 ssh todd@van-pi.local 'sudo journalctl -u van-api --no-pager -n 20'
@@ -222,6 +248,7 @@ ssh todd@van-pi.local 'sudo journalctl -u van-api --no-pager -n 20'
 
 **`npm ci` fails — lock file out of sync:**
 Run locally and commit:
+
 ```bash
 cd frontend && npm install
 git add package-lock.json
@@ -234,6 +261,7 @@ The health check sleeps 5 seconds then pings `:8000/health`. If the Pi is under 
 
 **`git reset --hard` fails:**
 SSH in and check:
+
 ```bash
 ssh todd@van-pi.local 'cd ~/van-control-panel && git status'
 ```
@@ -243,6 +271,7 @@ ssh todd@van-pi.local 'cd ~/van-control-panel && git status'
 ## Camera capture times out ("capture timed out")
 
 ### Symptoms
+
 - `/photos/capture` or `/photos/latest` hangs for the full timeout, then
   returns `{"detail": "capture timed out"}`
 - A direct `ffmpeg` call against `/dev/video0` also hangs, even fresh from
@@ -272,6 +301,7 @@ clear. **Needs a physical USB unplug/replug.** Not something to keep
 debugging remotely; move to the fix once cause 1 is ruled out.
 
 ### Prevention
+
 Avoid backgrounding a raw `ffmpeg &` call over SSH without `nohup`/`disown` or
 running it through a process manager — that's specifically what orphans it
 when the session ends.
@@ -281,59 +311,60 @@ when the session ends.
 ## Fridge card shows offline / no data, ESP32 seems fine otherwise
 
 ### Symptoms
+
 - `FridgeCard` shows "Offline" or a dimmed last-known reading
 - ESP32's own JSON API (`http://dometic-bridge.local/sensor/...`) also
   returns null/empty
 - Nothing about the ESP32 or fridge itself has changed
 
-### Cause
-Almost always a network split, not a fridge or firmware problem. The Pi and
-the ESP32 need to be on the *same* WiFi network for mDNS resolution
-(`dometic-bridge.local`) to work at all. The Pi's `prefer-starlink`
-dispatcher actively tries to return it to Starlink, and if the ESP32 is on a
-different network at that moment, resolution fails cleanly and correctly —
-it's just not useful.
+### Cause (historical, fixed 2026-08-31)
+
+Used to be a network split: the Pi and the ESP32 had to be on the _same_ WAN
+network (Starlink or OHeck) for mDNS resolution (`dometic-bridge.local`) to
+work, and the Pi's `prefer-starlink` dispatcher could switch `wlan1` out from
+under the ESP32 at any time.
+
+**Fixed by moving the ESP32 to `TwitchWiFi`** (`wlan0`, the Pi's own
+always-on hotspot AP, 10.42.0.1) as its primary network, same as the
+Shellys. The ESP32 is now reachable any time the Pi is powered on,
+independent of which WAN uplink `wlan1` is using — no more drift, no reboot
+watchdog needed. If this still happens, it's no longer a WAN-network split;
+check instead whether the ESP32 actually associated with TwitchWiFi.
 
 ### Check
+
 ```bash
 ssh todd@van-pi.local
-ip -4 addr show wlan1 | grep inet      # which uplink network is the Pi on?
-getent hosts dometic-bridge.local      # can it even resolve the ESP32?
+ip -4 addr show wlan0 | grep inet      # should show 10.42.0.1 (TwitchWiFi AP)
+getent hosts dometic-bridge.local      # can the Pi resolve the ESP32?
 ```
 
-### Fix
-Put them back on the same network. Fastest lever, no reflash needed:
-```bash
-curl -s -X POST http://localhost:8000/system/wifi/switch/oheck-wlan1
-# or
-curl -s -X POST http://localhost:8000/system/wifi/switch/starlink-wlan1
-```
-
-Note this drifts back apart on its own — the ESP32 now has an explicit WiFi
-`priority:` favoring Starlink (see CLAUDE.md → Known Limitations), which
-fixes *which* network it picks on its next reconnect, but not proactively
-abandoning an already-working connection. Full symmetric fix (mirroring the
-Pi's own dispatcher) not built yet.
+Also check the ESP32's own serial/web log for which SSID it associated with
+— if it's on Starlink instead of TwitchWiFi, TwitchWiFi may have been out of
+range or its password in `secrets.yaml` may be stale.
 
 ---
 
 ## All BLE devices offline at once (BMS, Victron, EcoFlow)
 
 ### Symptoms
+
 - `/battery/`, `/mppt/`, `/ecoflow/` all return zeros with `connected: false`
 - `van-api` is running fine, no errors in the journal
 - Happens immediately after a fresh OS install
 
 ### Cause
+
 Bluetooth is **soft-blocked by rfkill** by default on a fresh Raspberry Pi OS
 Lite install. `bluetoothctl show` reports `Powered: no` and
 `PowerState: off-blocked`. Nothing BLE-related can work regardless of the
 services running correctly — they have no radio to talk to.
 
-One root cause explains all three devices at once. If only *one* BLE device is
+One root cause explains all three devices at once. If only _one_ BLE device is
 offline, this is not it.
 
 ### Fix
+
 ```bash
 sudo rfkill unblock bluetooth
 sudo systemctl restart bluetooth
@@ -345,6 +376,7 @@ Confirmed 2026-08-28. Now handled automatically by `scripts/pi-setup.sh`; this
 entry is for diagnosing an install that predates it or was done by hand.
 
 ### Note on the BMS specifically
+
 After unblocking, the BMS may still show `connected: false` with a
 `retry_in` countdown. That is the normal 5-minute `RECONNECT_IN` cooldown, not
 a failure. Confirm it is genuinely advertising rather than restarting anything:
@@ -363,11 +395,13 @@ to prevent that.
 ## Tailscale hostname is van-pi-2, not van-pi
 
 ### Symptoms
+
 - `van-pi.tailba93b9.ts.net` does not resolve
 - `tailscale status` shows `van-pi-2` as the active node, with `van-pi` and
   `van-pi-1` listed as offline
 
 ### Cause
+
 Every fresh OS install registers a **new** Tailscale node. The old ones keep
 the good hostname, so the new install gets suffixed. Rebuilding twice in one
 day produced `van-pi`, `van-pi-1`, and `van-pi-2`.
@@ -375,6 +409,7 @@ day produced `van-pi`, `van-pi-1`, and `van-pi-2`.
 Same collision-avoidance behaviour as mDNS, at a different layer.
 
 ### Fix
+
 Delete the stale offline machines at
 [login.tailscale.com/admin/machines](https://login.tailscale.com/admin/machines),
 then rename or re-register the current one. The CLI cannot delete nodes — this
@@ -390,10 +425,12 @@ separate setup that has not been done.
 ## van-pi.local doesn't resolve when connected to TwitchWiFi
 
 ### Symptoms
+
 - `http://van-pi.local` fails to load on a phone or laptop connected to TwitchWiFi
 - The Pi is reachable by its IP (`10.42.0.1`) but not by hostname
 
 ### Cause
+
 NM's hotspot runs dnsmasq for DHCP and DNS on TwitchWiFi clients. dnsmasq
 treats `.local` as a special mDNS domain and returns NXDOMAIN even with an
 explicit `address=` directive — it never looks up `.local` names in its own
@@ -405,6 +442,7 @@ via DHCP, so clients never send an mDNS multicast. Avahi works fine from other
 LANs; this is hotspot-only.
 
 ### Fix
+
 Create the conf file on the Pi:
 
 ```bash
@@ -427,10 +465,12 @@ This is persistent — the file survives reboots and the hotspot loads it every 
 ## mDNS: van-pi.local does not resolve
 
 ### Symptoms
+
 - `ping van-pi.local` → "cannot resolve"
 - The Pi is definitely up and reachable by IP
 
 ### Cause
+
 Avahi renamed itself to avoid a collision. Check what it actually claimed:
 
 ```bash
@@ -441,6 +481,7 @@ If it shows `running [van-pi-2.local]`, a stale advertisement from a previous
 install is still being defended somewhere on the network.
 
 ### Fix
+
 ```bash
 sudo systemctl restart avahi-daemon
 sudo systemctl status avahi-daemon --no-pager | grep "running \["   # want van-pi.local
@@ -458,12 +499,14 @@ CLAUDE.md → Networking → Signal quality.
 ## van-pi.local resolves but the browser hangs (IPv6 first)
 
 ### Symptoms
+
 - `van-pi.local` works on Tailscale but is flaky on OHeck — "sometimes loads,
   sometimes doesn't"
 - `ping van-pi.local` is fast and clean (it uses IPv4)
 - But the browser hangs or takes many seconds before loading
 
 ### Cause
+
 Avahi was advertising **both** an IPv4 and an IPv6 (`fd87:...` ULA) address for
 `van-pi.local`, returning the IPv6 record first. Browsers prefer IPv6 when
 offered, and the IPv6 path across these subnets was badly degraded — measured
@@ -473,6 +516,7 @@ tried IPv6 first and stalled. This is the real "sometimes works" cause, not
 the collision case above.
 
 ### Fix
+
 Stop Avahi advertising IPv6 over mDNS — nothing in this stack needs it, and
 Tailscale has its own separate addressing:
 
@@ -530,7 +574,7 @@ control**:
 
 - **OHeck** — the OHeck router is the DNS server. It has never heard of any
   Pi hostname. The Pi cannot inject a name into the router's answers. The
-  *only* reason `van-pi.local` works here is that `.local` bypasses the
+  _only_ reason `van-pi.local` works here is that `.local` bypasses the
   router entirely via mDNS multicast.
 - **TwitchWiFi (hotspot)** — the Pi's own dnsmasq is the DNS server, so it
   can answer anything (`.local` via the `address=` file, or any other name).
