@@ -16,14 +16,14 @@ export default {
           dim: "#a05010",
         },
         charge: {
-          solar: colors.lime[500],
-          shore: colors.blue[500],
-          dc: colors.purple[500],
+          solar: colors.lime[600],
+          shore: colors.lime[600],
+          dc: colors.lime[600],
         },
         soc: {
-          good: colors.lime[500],
-          mid: colors.amber[500],
-          low: colors.red[500],
+          good: colors.lime[600],
+          mid: colors.amber[600],
+          low: colors.red[600],
         },
       },
       fontFamily: {

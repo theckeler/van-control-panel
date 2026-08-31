@@ -114,7 +114,7 @@ export function WifiScanDrawer({
           className="w-full text-xs  px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
         >
           {scanning ? "Scanning…" : "Scan for networks"}
-          <span className="block text-[10px] text-zinc-600 mt-0.5">
+          <span className="block text-[10px] text-black mt-0.5">
             Shows nearby networks
           </span>
         </button>
@@ -145,7 +145,7 @@ export function WifiScanDrawer({
                     <span>{n.ssid}</span>
                     <span className="flex items-center gap-2">
                       {n.security && (
-                        <span className="text-[10px]  text-zinc-600">
+                        <span className="text-[10px]  text-black">
                           {n.security}
                         </span>
                       )}
@@ -184,7 +184,7 @@ export function WifiScanDrawer({
             >
               {connecting ? "Connecting…" : `Connect to ${selected.ssid}`}
             </button>
-            <p className="text-[10px]  text-zinc-600 leading-relaxed mt-2">
+            <p className="text-[10px]  text-black leading-relaxed mt-2">
               Connecting drops the Pi's LAN address. The dashboard reconnects
               over Tailscale; on the LAN you may need to rejoin the new network.
             </p>

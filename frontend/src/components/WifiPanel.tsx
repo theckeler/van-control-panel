@@ -62,7 +62,7 @@ export function WifiPanel({ className }: { className?: string }) {
             onClick={() =>
               hotspotOn ? setConfirmOff(true) : toggleHotspot(true)
             }
-            className="text-xs  px-3 py-1.5 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+            className="text-xs px-3 py-1.5 rounded border border-gray-800 text-black"
           >
             {hotspotOn ? "Turn off" : "Turn on"}
           </button>
@@ -79,7 +79,7 @@ export function WifiPanel({ className }: { className?: string }) {
             type="button"
             onClick={() => setDetailsOpen(true)}
             aria-label="WiFi network details"
-            className="rounded p-1.5 border border-panel-border text-zinc-500 hover:border-zinc-500 hover:text-zinc-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+            className="rounded p-1.5 border border-gray-800 text-black"
           >
             <NetworkInfoIcon />
           </button>

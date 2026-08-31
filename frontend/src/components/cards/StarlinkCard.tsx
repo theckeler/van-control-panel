@@ -93,7 +93,7 @@ export function StarlinkCard({ className }: { className?: string }) {
               Starlink
             </div>
             {starlink?.power_w != null && (
-              <div className="text-xs  text-zinc-600">
+              <div className="text-xs  text-black">
                 {starlink.power_w.toFixed(0)}W
               </div>
             )}
@@ -104,15 +104,15 @@ export function StarlinkCard({ className }: { className?: string }) {
             className={clsx(
               "text-sm  font-semibold",
               online
-                ? "text-zinc-200"
+                ? "text-lime-700"
                 : reachable
                   ? "text-amber-500"
-                  : "text-zinc-600",
+                  : "text-black",
             )}
           >
             {primary}
           </div>
-          <div className="text-xs  text-zinc-600">{detail}</div>
+          <div className="text-xs  text-black">{detail}</div>
           {(obstructed || (starlink?.alerts.length ?? 0) > 0) && (
             <div className="text-xs  text-amber-600">
               {obstructed ? "obstructed" : `${starlink!.alerts.length} alert`}

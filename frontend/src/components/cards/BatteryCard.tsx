@@ -99,7 +99,7 @@ export function BatteryCard({ className }: { className?: string }) {
             ○ offline — no data yet
           </span>
           {countdown !== null && countdown > 0 && (
-            <span className="text-xs  text-zinc-600">
+            <span className="text-xs  text-black">
               connecting in {formatCountdown(countdown)}
             </span>
           )}
@@ -131,14 +131,14 @@ export function BatteryCard({ className }: { className?: string }) {
                     ? "text-blue-400"
                     : isOffline
                       ? "text-amber-500"
-                      : "text-lime-500",
+                      : "text-lime-600",
                 )}
               >
                 {isReleased ? "○ released" : isOffline ? "○ offline" : "● live"}
               </span>
 
               {isOffline && battery.last_seen && (
-                <span className="text-xs  text-zinc-600">
+                <span className="text-xs  text-black">
                   last seen {formatLastSeen(battery.last_seen)}
                 </span>
               )}
@@ -147,7 +147,7 @@ export function BatteryCard({ className }: { className?: string }) {
                 !isReleased &&
                 countdown !== null &&
                 countdown > 0 && (
-                  <span className="text-xs  text-zinc-600">
+                  <span className="text-xs  text-black">
                     retry in {formatCountdown(countdown)}
                   </span>
                 )}
@@ -156,7 +156,7 @@ export function BatteryCard({ className }: { className?: string }) {
                 <button
                   onClick={handleConnect}
                   disabled={busy}
-                  className="text-xs text-zinc-600 hover:text-lime-500 transition-colors disabled:opacity-40"
+                  className="text-xs text-black disabled:opacity-40"
                 >
                   connect →
                 </button>
@@ -223,7 +223,7 @@ function Stat({
 function CardSkeleton() {
   return (
     <div className="bg-panel-surface border border-panel-border rounded-xl p-5 animate-pulse">
-      <div className="text-xs  text-zinc-600 uppercase tracking-widest mb-4">
+      <div className="text-xs  text-black uppercase tracking-widest mb-4">
         Battery
       </div>
       <div className="h-16 bg-panel-bg rounded-lg" />

@@ -45,7 +45,7 @@ export function Cameras({ className }: { className?: string }) {
       ) : enabled ? (
         <CameraPane photo={interiorLatest} />
       ) : (
-        <div className="flex items-center justify-center h-40 text-xs  text-zinc-600">
+        <div className="flex items-center justify-center h-40 text-xs  text-black">
           Camera off
         </div>
       )}
@@ -86,7 +86,7 @@ function CameraPane({ label, photo }: { label?: string; photo: Photo | null }) {
           </span>
         )}
         {photo && (
-          <span className="text-xs  text-zinc-600">
+          <span className="text-xs  text-black">
             {formatCaptureTime(photo.timestamp)}
           </span>
         )}
@@ -99,12 +99,12 @@ function CameraPane({ label, photo }: { label?: string; photo: Photo | null }) {
           style={{ maxHeight: "280px" }}
         />
       ) : (
-        <div className="flex items-center justify-center h-40 text-xs  text-zinc-600">
+        <div className="flex items-center justify-center h-40 text-xs  text-black">
           No photo available
         </div>
       )}
       {photo && (
-        <div className="text-xs  text-zinc-600 text-center py-2 border-t border-panel-border">
+        <div className="text-xs  text-black text-center py-2 border-t border-panel-border">
           Captured {formatCaptureTime(photo.timestamp)}
         </div>
       )}

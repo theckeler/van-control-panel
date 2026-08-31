@@ -137,7 +137,7 @@ export function HistoryCard({ className }: { className?: string }) {
       </div>
 
       {!historyLoaded ? (
-        <div className="h-32 flex items-center justify-center text-zinc-600  text-sm animate-pulse">
+        <div className="h-32 flex items-center justify-center text-black  text-sm animate-pulse">
           Loading...
         </div>
       ) : tab === "soc" ? (
@@ -269,7 +269,7 @@ export function HistoryCard({ className }: { className?: string }) {
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="h-40 flex items-center justify-center text-zinc-600  text-xs text-center px-4">
+    <div className="h-40 flex items-center justify-center text-black  text-xs text-center px-4">
       {message}
     </div>
   );

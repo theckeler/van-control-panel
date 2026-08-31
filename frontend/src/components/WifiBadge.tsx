@@ -31,7 +31,7 @@ export function WifiBadge({ className }: { className?: string }) {
       }
     >
       {ssid ?? "no wifi"}
-      {system.band && <span className="text-zinc-600"> {system.band}</span>}
+      {system.band && <span className="text-black"> {system.band}</span>}
     </span>
   );
 }

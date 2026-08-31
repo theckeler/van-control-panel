@@ -12,7 +12,6 @@ export function ChargeSourcesCard({ className }: { className?: string }) {
       <SourceRow
         label="Solar"
         active={!!mppt?.panel_power && mppt.panel_power > 0}
-        color="text-charge-solar"
         value={mppt ? `${mppt.panel_power.toFixed(0)}W` : "—"}
         detail={
           mppt
@@ -23,7 +22,6 @@ export function ChargeSourcesCard({ className }: { className?: string }) {
       <SourceRow
         label="Shore"
         active={!!shore?.connected}
-        color="text-charge-shore"
         value={
           shore?.connected ? `${shore.charge_current.toFixed(1)}A` : "Unplugged"
         }
@@ -42,13 +40,11 @@ export function ChargeSourcesCard({ className }: { className?: string }) {
 function SourceRow({
   label,
   active,
-  color,
   value,
   detail,
 }: {
   label: string;
   active?: boolean;
-  color: string;
   value: string;
   detail?: string | null;
 }) {
@@ -66,7 +62,7 @@ function SourceRow({
         <div
           className={clsx(
             "text-sm  font-semibold",
-            active ? color : "text-zinc-600",
+            active ? "text-lime-600" : "text-gray-400",
           )}
         >
           {label}
@@ -76,13 +72,13 @@ function SourceRow({
         <div
           className={clsx(
             "text-sm  font-semibold",
-            active ? "text-zinc-200" : "text-zinc-600",
+            active ? "text-lime-600" : "text-gray-400",
           )}
         >
           {value}
         </div>
         {detail && (
-          <div className="text-xs  text-zinc-600 max-w-32 truncate">
+          <div className="text-xs text-gray-800 max-w-32 truncate">
             {detail}
           </div>
         )}

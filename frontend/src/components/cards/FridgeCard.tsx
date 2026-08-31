@@ -24,8 +24,8 @@ export function FridgeCard({ className }: { className?: string }) {
         <div className="flex items-center gap-3">
           <StatusDot on={reachable} tone="success" />
           <div>
-            <div className="text-sm  font-semibold text-charge-dc">Fridge</div>
-            <div className="text-xs  text-zinc-600">
+            <div className="text-sm font-semibold text-charge-dc">Fridge</div>
+            <div className="text-xs text-black">
               {reachable
                 ? fridge.power_source
                   ? `${fridge.power_source} power`
@@ -40,12 +40,12 @@ export function FridgeCard({ className }: { className?: string }) {
           <div
             className={clsx(
               "text-sm  font-semibold",
-              reachable ? "text-zinc-200" : "text-zinc-500",
+              reachable ? "text-lime-700" : "text-zinc-500",
             )}
           >
             {fridge.temp_f != null ? `${fridge.temp_f.toFixed(1)}°F` : "—"}
           </div>
-          <div className="text-xs  text-zinc-600">
+          <div className="text-xs  text-black">
             {fridge.set_temp_f != null
               ? `Set to ${fridge.set_temp_f.toFixed(1)}°F`
               : hasCache
@@ -56,7 +56,7 @@ export function FridgeCard({ className }: { className?: string }) {
             <div
               className={clsx(
                 "text-xs ",
-                fridge.cooler_on ? "text-charge-dc" : "text-zinc-600",
+                fridge.cooler_on ? "text-charge-dc" : "text-black",
               )}
             >
               {fridge.cooler_on ? "compressor running" : "idle"}
@@ -72,7 +72,7 @@ export function FridgeCard({ className }: { className?: string }) {
 function CardSkeleton() {
   return (
     <div className="bg-panel-surface border border-panel-border rounded-xl p-5 animate-pulse">
-      <div className="text-xs  text-zinc-600 uppercase tracking-widest mb-4">
+      <div className="text-xs  text-black uppercase tracking-widest mb-4">
         Fridge
       </div>
       <div className="h-12 bg-panel-bg rounded-lg" />

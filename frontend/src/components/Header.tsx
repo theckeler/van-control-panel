@@ -16,7 +16,7 @@ export function Header({
 }) {
   return (
     <header className="flex items-center justify-between pt-6">
-      <h1 className="text-lg  font-bold text-zinc-600 tracking-tight">
+      <h1 className="text-lg  font-bold text-black tracking-tight">
         {(isDemo && "Demo Van") || vanName}
         {isDemo && (
           <span className="ml-2 px-1.5 py-0.5 text-[10px]  uppercase tracking-widest text-amber-500 border border-amber-500/40 rounded align-middle">
@@ -28,7 +28,7 @@ export function Header({
         <div className="text-right">
           {error && <div className="text-xs  text-red-500 mb-1">⚠ {error}</div>}
           {lastUpdated && (
-            <div className="text-xs  text-zinc-600">
+            <div className="text-xs  text-black">
               {lastUpdated.toLocaleTimeString()}
             </div>
           )}

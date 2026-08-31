@@ -4,7 +4,7 @@ type Tone = "accent" | "success";
 
 const ON: Record<Tone, string> = {
   accent: "bg-accent",
-  success: "bg-lime-400",
+  success: "bg-lime-600",
 };
 
 export function StatusDot({

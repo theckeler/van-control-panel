@@ -17,7 +17,6 @@ export function ModeSelector({ className }: { className?: string }) {
         {mode.available.map((m) => (
           <SelectableTile
             key={m}
-            size="sm"
             selected={m === mode.current}
             onClick={() => setMode(m)}
             className="text-center"

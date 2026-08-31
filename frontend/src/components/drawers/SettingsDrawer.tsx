@@ -296,7 +296,7 @@ export function SettingsDrawer({
               )}
             </>
           ) : (
-            <div className="text-[11px]  text-zinc-600">unavailable</div>
+            <div className="text-[11px]  text-black">unavailable</div>
           )}
         </section>
 
@@ -316,7 +316,7 @@ export function SettingsDrawer({
             className="mt-3 w-full text-xs  px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
           >
             WiFi settings
-            <span className="block text-[10px] text-zinc-600 mt-0.5">
+            <span className="block text-[10px] text-black mt-0.5">
               Signal, IP, hotspot status, connect to a new network
             </span>
           </button>
@@ -362,7 +362,7 @@ export function SettingsDrawer({
             className="mt-3 w-full text-xs  px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
           >
             {downloading ? "Preparing…" : "Download database"}
-            <span className="block text-[10px] text-zinc-600 mt-0.5">
+            <span className="block text-[10px] text-black mt-0.5">
               Gzipped snapshot. Readings only, no credentials
             </span>
           </button>
@@ -402,7 +402,7 @@ export function SettingsDrawer({
             {imageStatus?.state === "running"
               ? "Creating image…"
               : "Create SD image"}
-            <span className="block text-[10px] text-zinc-600 mt-0.5">
+            <span className="block text-[10px] text-black mt-0.5">
               Full SD card snapshot · ~1–2 GB gzipped · ~45 min
             </span>
           </button>
@@ -414,7 +414,7 @@ export function SettingsDrawer({
               className="mt-2 block w-full text-xs  px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
             >
               Download image
-              <span className="block text-[10px] text-zinc-600 mt-0.5">
+              <span className="block text-[10px] text-black mt-0.5">
                 {imageStatus.filename ?? "van-pi.img.gz"}
               </span>
             </a>
@@ -429,7 +429,7 @@ export function SettingsDrawer({
               className="mt-1 w-full text-xs  px-4 py-2 rounded border border-panel-border text-zinc-500 hover:text-red-400 hover:border-red-800 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
             >
               {imageStatus.state === "running" ? "Cancel" : "Delete image"}
-              <span className="block text-[10px] text-zinc-600 mt-0.5">
+              <span className="block text-[10px] text-black mt-0.5">
                 {imageStatus.state === "running"
                   ? "Stops dd and removes the partial file"
                   : "Frees space on the Pi"}
@@ -449,7 +449,7 @@ export function SettingsDrawer({
             className="w-full text-xs  px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
           >
             {released ? "Reconnect BMS" : "Release BMS"}
-            <span className="block text-[10px] text-zinc-600 mt-0.5">
+            <span className="block text-[10px] text-black mt-0.5">
               {released
                 ? "Resume monitoring from the Pi"
                 : "Free the Bluetooth link for the Power Queen app"}

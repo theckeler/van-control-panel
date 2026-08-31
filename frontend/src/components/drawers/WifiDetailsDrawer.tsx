@@ -126,7 +126,7 @@ export function WifiDetailsDrawer({
             className="mt-3 w-full text-xs  px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
           >
             Connect to new WiFi
-            <span className="block text-[10px] text-zinc-600 mt-0.5">
+            <span className="block text-[10px] text-black mt-0.5">
               Scan for and join a new network
             </span>
           </button>

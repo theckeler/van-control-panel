@@ -250,8 +250,8 @@ export function PowerModal({ open, onClose }: PowerModalProps) {
             )}
             {phase === "back" && (
               <>
-                <span className="text-2xl text-lime-500">✓</span>
-                <p className="text-xs  text-lime-500">{COPY[act].back}</p>
+                <span className="text-2xl text-lime-600">✓</span>
+                <p className="text-xs  text-lime-600">{COPY[act].back}</p>
                 <button
                   type="button"
                   onClick={handleClose}
@@ -271,7 +271,7 @@ export function PowerModal({ open, onClose }: PowerModalProps) {
 function Spinner() {
   return (
     <svg
-      className="w-8 h-8 animate-spin text-zinc-600"
+      className="w-8 h-8 animate-spin text-black"
       viewBox="0 0 24 24"
       fill="none"
     >
