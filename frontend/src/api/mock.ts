@@ -471,5 +471,9 @@ export const mockApi = {
     // Destructive controls are inert in demo mode.
     shutdown: () => delay({ status: 'demo', message: 'Shutdown disabled in demo mode' }),
     reboot:   () => delay({ status: 'demo', message: 'Reboot disabled in demo mode' }),
+    diskImageStart:  () => delay({ ok: false, message: 'Disk image disabled in demo mode' }),
+    diskImageStatus: () => delay({ state: null, bytes_written: null, filename: null, error: null }),
+    diskImageUrl:    () => '',
+    diskImageCancel: () => delay({ ok: true }),
   },
 }

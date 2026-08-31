@@ -186,6 +186,13 @@ export interface WifiNetwork {
   security: string | null
 }
 
+export interface DiskImageStatus {
+  state: 'running' | 'done' | 'error' | null
+  bytes_written: number | null
+  filename: string | null
+  error: string | null
+}
+
 export interface SystemData {
   net_power_w: number
   estimated_runtime_hrs: number | null

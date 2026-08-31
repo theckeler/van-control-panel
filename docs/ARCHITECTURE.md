@@ -78,7 +78,7 @@ src/
 │   ├── ChargeSourcesCard  Solar / Shore / Orion status rows
 │   ├── ShellyPanel        Per-circuit toggle buttons
 │   ├── ModeSelector       4 mode buttons with icons
-│   ├── SettingsDrawer     Pi health, network detail, WiFi scan/connect, BMS release, power options
+│   ├── SettingsDrawer     Pi health, network detail, WiFi scan/connect, backup download, SD image creation, BMS release, power options
 │   ├── WifiScanDrawer     Second-layer drawer — scan wlan1, select, connect with password
 │   ├── WifiBadge          Header SSID + signal, amber/red on weak/unassociated
 │   └── Toaster            Toast notification queue
@@ -132,7 +132,8 @@ services/
 ├── data_logger.py         Writes readings to SQLite every 30s, triggers rollups
 ├── db.py                  SQLite schema, 4-tier rollup, prune, query helpers
 ├── pq_battery.py          Vendored: pq_bms_bluetooth parse logic
-└── pq_request.py          Vendored: pq_bms_bluetooth BLE request helper
+├── pq_request.py          Vendored: pq_bms_bluetooth BLE request helper
+└── disk_image.py          SD card image creation: module-level job state, dd|gzip background task
 ```
 
 ---
