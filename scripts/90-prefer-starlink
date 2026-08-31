@@ -17,18 +17,24 @@
 IFACE="$1"
 ACTION="$2"
 
-PREFERRED="starlink"
+# Rewritten 2026-08-31: this used to reason about wlan0, back when wlan0 was
+# the client radio doing Starlink/OHeck uplink. Since 2026-08-28, wlan0 is
+# the dedicated TwitchWiFi hotspot AP and wlan1 (external antenna) is the
+# only uplink client — so a script still watching wlan0 events never fires
+# at all. Confirmed live: Starlink was visible at full signal, wlan1 sat on
+# oheck-wlan1 regardless, and this dispatcher never logged a single line.
+PREFERRED="starlink-wlan1"
 PREFERRED_SSID="Sir Salettelot"
 STATE="/run/prefer-starlink.last"
 COOLDOWN=120
 
 case "$ACTION" in
     up|dhcp4-change)
-        [ "$IFACE" = "wlan0" ] || exit 0
+        [ "$IFACE" = "wlan1" ] || exit 0
         ;;
     connectivity-change)
         # NM may pass an empty interface for this event.
-        [ -z "$IFACE" ] || [ "$IFACE" = "wlan0" ] || exit 0
+        [ -z "$IFACE" ] || [ "$IFACE" = "wlan1" ] || exit 0
         ;;
     *)
         exit 0
@@ -36,7 +42,7 @@ case "$ACTION" in
 esac
 
 ACTIVE=$(nmcli -t -f NAME,DEVICE connection show --active 2>/dev/null \
-         | awk -F: '$2=="wlan0"{print $1}')
+         | awk -F: '$2=="wlan1"{print $1}')
 
 # Already where we want to be, or nothing is up yet.
 [ "$ACTIVE" = "$PREFERRED" ] && exit 0
