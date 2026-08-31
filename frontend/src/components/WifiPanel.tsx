@@ -2,9 +2,9 @@ import { useState } from "react";
 import { useVanStore } from "../store/van";
 import { ConfirmModal } from "./ConfirmModal";
 import { Panel, StatusDot } from "./ui";
-import { WifiScanDrawer } from "./WifiScanDrawer";
+import { WifiDetailsDrawer } from "./WifiDetailsDrawer";
 
-function ChangeWifiIcon() {
+function NetworkInfoIcon() {
   return (
     <svg
       width="14"
@@ -35,7 +35,7 @@ export function WifiPanel({ className }: { className?: string }) {
   const system = useVanStore((s) => s.system);
   const hotspot = useVanStore((s) => s.hotspot);
   const toggleHotspot = useVanStore((s) => s.toggleHotspot);
-  const [scanOpen, setScanOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [confirmOff, setConfirmOff] = useState(false);
 
   const hotspotOn = !!hotspot?.active;
@@ -91,16 +91,19 @@ export function WifiPanel({ className }: { className?: string }) {
           </div>
           <button
             type="button"
-            onClick={() => setScanOpen(true)}
-            aria-label="Change WiFi network"
+            onClick={() => setDetailsOpen(true)}
+            aria-label="WiFi network details"
             className="rounded p-1.5 border border-panel-border text-zinc-500 hover:border-zinc-500 hover:text-zinc-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
           >
-            <ChangeWifiIcon />
+            <NetworkInfoIcon />
           </button>
         </div>
       </div>
 
-      <WifiScanDrawer open={scanOpen} onClose={() => setScanOpen(false)} />
+      <WifiDetailsDrawer
+        open={detailsOpen}
+        onClose={() => setDetailsOpen(false)}
+      />
     </Panel>
   );
 }

@@ -6,7 +6,7 @@ import { toast } from "../store/toast";
 import { useVanStore } from "../store/van";
 import type { BackupStatus, DiskImageStatus, PiHealth } from "../types";
 import { Button, Label } from "./ui";
-import { WifiScanDrawer } from "./WifiScanDrawer";
+import { WifiDetailsDrawer } from "./WifiDetailsDrawer";
 
 function fmtUptime(s: number) {
   const d = Math.floor(s / 86400);
@@ -56,7 +56,7 @@ export function SettingsDrawer({
   const [health, setHealth] = useState<PiHealth | null>(null);
   const [backup, setBackup] = useState<BackupStatus | null>(null);
   const [downloading, setDownloading] = useState(false);
-  const [wifiScanOpen, setWifiScanOpen] = useState(false);
+  const [wifiDetailsOpen, setWifiDetailsOpen] = useState(false);
   const [imageStatus, setImageStatus] = useState<DiskImageStatus | null>(null);
   const [imageBusy, setImageBusy] = useState(false);
 
@@ -309,30 +309,15 @@ export function SettingsDrawer({
             value={system?.ssid ?? "not connected"}
             tone={system?.ssid ? undefined : "bad"}
           />
-          <Row label="Band" value={system?.band ?? "—"} />
-          <Row
-            label="Signal"
-            value={
-              system?.wifi_signal_dbm != null
-                ? `${system.wifi_signal_dbm} dBm`
-                : "—"
-            }
-            tone={
-              system?.wifi_signal_dbm != null && system.wifi_signal_dbm < -70
-                ? "warn"
-                : undefined
-            }
-          />
-          <Row label="IP" value={system?.wifi_ip ?? "—"} />
 
           <button
             type="button"
-            onClick={() => setWifiScanOpen(true)}
+            onClick={() => setWifiDetailsOpen(true)}
             className="mt-3 w-full text-xs font-mono px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
           >
-            Connect to new WiFi
+            WiFi settings
             <span className="block text-[10px] text-zinc-600 mt-0.5">
-              Scan for and join a new network
+              Signal, IP, hotspot status, connect to a new network
             </span>
           </button>
         </section>
@@ -489,9 +474,9 @@ export function SettingsDrawer({
         </section>
       </div>
 
-      <WifiScanDrawer
-        open={wifiScanOpen}
-        onClose={() => setWifiScanOpen(false)}
+      <WifiDetailsDrawer
+        open={wifiDetailsOpen}
+        onClose={() => setWifiDetailsOpen(false)}
       />
     </div>
   );
