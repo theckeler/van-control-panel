@@ -34,6 +34,17 @@ fi
 echo "backup sent: $(basename "$TMP.gz")"
 rm -f "$TMP.gz"
 
+# Flush any snapshots held from previous failed sends
+if [ -d "$HOME/van-backups-pending" ]; then
+    for f in "$HOME/van-backups-pending"/*.gz; do
+        [ -e "$f" ] || continue
+        if scp -o ConnectTimeout=15 -o BatchMode=yes "$f" "$DEST_HOST:$DEST_DIR/"; then
+            rm -f "$f"
+            echo "flushed pending: $(basename "$f")"
+        fi
+    done
+fi
+
 # --- Retention on the Mac -------------------------------------------------
 # Without this the folder grows forever. At ~150KB/day that is 55MB a year,
 # which is not a disk problem but does make the folder useless to scan.
