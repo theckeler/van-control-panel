@@ -489,6 +489,36 @@ sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
 
 Confirmed 2026-08-30. Persists across reboots (it's a config file change).
 
+### The bigger cause: avahi advertising on the hotspot interface
+
+The IPv6 fix above helped but wasn't the whole story. With `wlan0` running the
+`VanControlPanel` hotspot (`10.42.0.1`) and `wlan1` on the OHeck uplink, avahi
+by default advertises `van-pi.local` on **every** interface. A client on OHeck
+would get two answers: the correct `192.168.1.206` from `wlan1`, and a
+`0.0.0.0` / "No Such Record" from the isolated hotspot interface. When the
+browser picked the `0.0.0.0` answer it hung forever on a null address — the
+real "long hang."
+
+Confirmed via `dns-sd -timeout -Q van-pi.local A` on the Mac, which showed both
+answers. Fix — restrict avahi to the interfaces that actually route to clients:
+
+```bash
+sudo sed -i 's/^#allow-interfaces=.*/allow-interfaces=wlan1,tailscale0/' /etc/avahi/avahi-daemon.conf
+sudo systemctl restart avahi-daemon
+```
+
+Verify with `curl -m 8 -o /dev/null -w "%{http_code} %{time_total}s\n"
+http://van-pi.local/` on the Mac — a fast `302` means it's fixed even if
+`dscacheutil` still lists a cached address. **Fully quit and reopen the
+browser** (or use a private window) — it caches the failed connection
+separately from the OS resolver.
+
+**Note if the hotspot subnet ever needs `van-pi.local` too:** this
+deliberately stops advertising there. Hotspot clients use the dnsmasq
+`address=/van-pi.local/10.42.0.1` file instead (see the TwitchWiFi entry
+above), which is the correct answer for that subnet — so both paths still
+work, each via the right mechanism.
+
 ---
 
 ## Tailscale not connecting
