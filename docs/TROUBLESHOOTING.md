@@ -455,6 +455,42 @@ CLAUDE.md → Networking → Signal quality.
 
 ---
 
+## van-pi.local resolves but the browser hangs (IPv6 first)
+
+### Symptoms
+- `van-pi.local` works on Tailscale but is flaky on OHeck — "sometimes loads,
+  sometimes doesn't"
+- `ping van-pi.local` is fast and clean (it uses IPv4)
+- But the browser hangs or takes many seconds before loading
+
+### Cause
+Avahi was advertising **both** an IPv4 and an IPv6 (`fd87:...` ULA) address for
+`van-pi.local`, returning the IPv6 record first. Browsers prefer IPv6 when
+offered, and the IPv6 path across these subnets was badly degraded — measured
+2026-08-30 at **738ms latency and 33% loss over IPv6 versus 6ms clean over
+IPv4** to the same Pi. `ping` looked fine because it used IPv4; the browser
+tried IPv6 first and stalled. This is the real "sometimes works" cause, not
+the collision case above.
+
+### Fix
+Stop Avahi advertising IPv6 over mDNS — nothing in this stack needs it, and
+Tailscale has its own separate addressing:
+
+```bash
+sudo sed -i 's/^use-ipv6=yes/use-ipv6=no/' /etc/avahi/avahi-daemon.conf
+sudo systemctl restart avahi-daemon
+```
+
+Then flush the client's DNS cache so it drops the stale AAAA record (on macOS):
+
+```bash
+sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
+```
+
+Confirmed 2026-08-30. Persists across reboots (it's a config file change).
+
+---
+
 ## Tailscale not connecting
 
 ```bash
