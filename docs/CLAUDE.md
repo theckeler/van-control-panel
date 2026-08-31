@@ -757,10 +757,17 @@ Starlink is up; `nmcli -f NAME,DEVICE,AUTOCONNECT-PRIORITY connection show`
 should list both `-wlan1` profiles with the right priorities.
 
 **wlan0 is now the dedicated AP, not a client.** The `90-prefer-starlink`
-dispatcher only reasons about `wlan0`. Now that `wlan0` is the TwitchWiFi AP,
-the dispatcher logic is irrelevant for wlan0 — it never switches away from the
-hotspot. Whether `wlan1` needs its own equivalent dispatcher (it already has
-static priority via `autoconnect-priority`) is still open.
+dispatcher only reasoned about `wlan0`. Now that `wlan0` is the TwitchWiFi AP,
+that logic was irrelevant for `wlan0` — it never switched away from the
+hotspot, and since `wlan0` isn't the uplink client anymore either, the script
+never fired at all: confirmed live 2026-08-31, Starlink visible at full
+signal, `wlan1` sitting on `oheck-wlan1` regardless, zero log lines.
+
+**Fixed 2026-08-31:** `scripts/90-prefer-starlink` rewritten to watch `wlan1`
+events and switch to the `starlink-wlan1` profile instead of `starlink`.
+Deployed and verified: manually firing the dispatcher moved `wlan1` from
+`oheck-wlan1` to `starlink-wlan1`, and `/starlink/` immediately went
+`reachable: true` with real telemetry.
 
 ### Local AP, 2026-08-28 — `wlan0` is not a client anymore
 

@@ -9,6 +9,17 @@ fridge reliably and enumerates its GATT tree, which the Pi never managed. Two
 blockers were found above that layer and both are now understood. See
 `rubber-duck-review-2026-08-27.md` for the full investigation.
 
+**Update 2026-08-31:** Moved to TwitchWiFi (see network section above) and
+reflashed. **Reflashing drops the BLE bond** (it lives in the ESP32's NVS) —
+confirmed live: after the flash the board was reachable over WiFi and
+answering HTTP, but every fridge field stayed null/empty except the
+binary_sensors' boot-time `false` default (see the reachability fix in
+`services/dometic.py`). Re-entering the fridge's Bluetooth PAIR mode
+re-bonded it within one reconnect cycle — real readings (temp, set point,
+battery voltage, power source) came back immediately after. No firmware
+change needed for this; it's just something to expect after any future
+reflash, not a regression.
+
 ---
 
 ## What was wrong, and what changed
