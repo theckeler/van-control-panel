@@ -105,9 +105,20 @@ async def poll_once() -> bool:
 
     values = dict(zip(ENTITIES.keys(), results))
 
-    # At least one real value means the bridge is up, even if a single
-    # entity glitched — same reasoning as Shelly's per-unit reachability.
-    if all(v is None for v in values.values()):
+    # cooler_on/door_open are binary_sensors that ESPHome initializes to
+    # false/"OFF" at boot regardless of BLE state — confirmed live, curling
+    # the ESP32 directly with the fridge unplugged still returns
+    # {"value": false, "state": "OFF"} for both, never null. Trusting them
+    # here made an ESP32 that had never bonded to the fridge look
+    # `reachable: true`. Only the fields that are actually null until the
+    # BLE bond delivers real data prove the bridge is talking to the fridge.
+    has_real_reading = (
+        values["temp_c"] is not None
+        or values["set_temp_c"] is not None
+        or values["battery_voltage"] is not None
+        or bool(values["power_source"])
+    )
+    if not has_real_reading:
         return False
 
     _cache = FridgeReading(
