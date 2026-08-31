@@ -308,6 +308,63 @@ when the session ends.
 
 ---
 
+## Camera disabled 2026-08-31 — `ffmpeg` missing, and installing it OOM-crashed the Pi
+
+### What happened
+
+`ffmpeg` (assumed installed per the section above) turned out to be missing
+from the Pi entirely — likely lost in an OS reimage, since this Pi is
+running a fresh Debian trixie. `/photos/latest` was returning `Internal
+Server Error` with `FileNotFoundError: [Errno 2] No such file or directory`
+from `asyncio.create_subprocess_exec("ffmpeg", ...)`.
+
+`apt-get install ffmpeg` pulls in a large dependency chain (mesa, gtk3,
+vulkan, libflite, etc.) — on this Pi's 1GB RAM, the install's `dpkg`/`apt`
+process grew to ~40-50% of total RAM and the Pi **rebooted unplanned, twice,
+both times mid-install.** No persistent journal to confirm OOM-killer
+directly, but the timing (both reboots landed exactly while `apt` was at
+peak RSS) is as close to confirmed as it gets without one. Not worth a third
+try under the same memory pressure.
+
+### Fix: v4l2-ctl instead of ffmpeg
+
+`v4l2-ctl` (part of `v4l-utils`) was already installed and in use for camera
+tuning (`_apply_tuning` in `camera.py`) — no install needed at all. Most UVC
+webcams (including this one) do their own onboard MJPEG encoding, so asking
+for that format and writing one stream frame straight to disk is already a
+complete, valid JPEG file:
+
+```bash
+v4l2-ctl -d /dev/videoN \
+  --set-fmt-video=width=1280,height=720,pixelformat=MJPG \
+  --stream-mmap --stream-count=1 --stream-to=out.jpg
+```
+
+`camera.py`'s `_capture()` now shells out to this instead of `ffmpeg`. Zero
+new packages, zero OOM risk.
+
+### Still unresolved as of 2026-08-31
+
+The physical USB camera (`lsusb` showed `32e4:9520 HD Camera Manufacturer HD
+USB Camera`, not the Logitech C270 the older hardware docs assume) **dropped
+off the USB bus entirely** after the reboots — `lsusb` no longer lists it,
+`v4l2-ctl --list-devices` no longer shows it. Needs a physical check
+(reseat the USB connector) before the `v4l2-ctl` fix above can be verified
+end-to-end. The `Cameras` card is commented out in `Dashboard.tsx` until
+that's confirmed working — re-enable by uncommenting the two lines flagged
+`disabled 2026-08-31` once a capture succeeds via `curl
+http://localhost:8000/photos/latest?cam=interior`.
+
+Also note `camera.py`'s `DEVICE_MAP` hardcodes `/dev/video0`/`/dev/video2` —
+confirmed fragile: this camera's node numbers actually shifted (`/dev/video0`
+→ `/dev/video14`) across the reboots above. Worth resolving to the camera by
+USB path or a udev-assigned persistent name (see `HARDWARE.md`'s
+`99-van-cam.rules` — also not actually installed on this Pi, `cat` came back
+`No such file or directory`) rather than a fixed device number, next time
+someone's in here.
+
+---
+
 ## Fridge card shows offline / no data, ESP32 seems fine otherwise
 
 ### Symptoms
@@ -562,6 +619,20 @@ deliberately stops advertising there. Hotspot clients use the dnsmasq
 `address=/van-pi.local/10.42.0.1` file instead (see the TwitchWiFi entry
 above), which is the correct answer for that subnet — so both paths still
 work, each via the right mechanism.
+
+**Superseded 2026-08-31: `wlan0` had to go back in.** `allow-interfaces` is a
+single global knob — it governs the Pi's own avahi _resolving other devices'_
+`.local` names just as much as it governs _publishing_ `van-pi.local`.
+Dropping `wlan0` broke `shelly.py`'s hostname lookups for any Shelly (or the
+ESP32 fridge bridge) actually joined to TwitchWiFi at the time — surfaced as
+PS Input 1 showing `reachable: false` while it was the only unit on
+TwitchWiFi and the rest were on OHeck. `allow-interfaces=wlan0,wlan1,tailscale0`
+resolves both: OHeck clients still get a fast, single-answer `van-pi.local`
+(retested 2026-08-31, `302` in 17ms, no regression), and the Pi can resolve
+TwitchWiFi-side devices again. The original hotspot-interface answer must
+have been transient/interface-state-dependent rather than a permanent
+property of advertising on `wlan0` — worth re-testing if the hang ever
+recurs, but re-including `wlan0` did not reproduce it.
 
 ### Why there is no single plain hostname for all three networks
 

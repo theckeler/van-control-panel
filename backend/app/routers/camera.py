@@ -68,9 +68,16 @@ async def _capture(cam: str) -> dict:
     filename = f"{cam}_{stamp}.jpg"
     path = os.path.join(cam_dir, filename)
 
+    # v4l2-ctl instead of ffmpeg — ffmpeg's dependency chain (mesa, gtk3,
+    # vulkan, etc.) OOM-crashed the Pi's 1GB RAM twice mid-install, 2026-08-31.
+    # v4l2-ctl is already on the box (used for _apply_tuning above) and this
+    # UVC camera does its own onboard MJPEG encoding, so asking for MJPG and
+    # writing one stream frame straight to disk *is* a complete JPEG file —
+    # no transcoding, no extra process, no extra package.
     proc = await asyncio.create_subprocess_exec(
-        "ffmpeg", "-y", "-f", "v4l2", "-video_size", "1280x720",
-        "-i", device, "-frames:v", "1", "-update", "1", path,
+        "v4l2-ctl", "-d", device,
+        "--set-fmt-video=width=1280,height=720,pixelformat=MJPG",
+        "--stream-mmap", "--stream-count=1", f"--stream-to={path}",
         stdout=asyncio.subprocess.DEVNULL,
         stderr=asyncio.subprocess.PIPE,
     )
