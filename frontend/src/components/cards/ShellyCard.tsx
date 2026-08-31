@@ -12,7 +12,7 @@ export function ShellyCard({ className }: { className?: string }) {
       {!installed.length ? (
         <div className="text-xs  text-black">Loading circuits...</div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {installed.map((unit) => {
             const offline = unit.reachable === false;
             const statusText = offline ? "unreachable" : unit.on ? "ON" : "OFF";
