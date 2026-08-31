@@ -1,5 +1,5 @@
-import React from "react";
 import clsx from "clsx";
+import React from "react";
 
 type Variant = "outline" | "ghost" | "danger";
 type Size = "icon" | "sm" | "md";
@@ -35,7 +35,7 @@ export function Button({
     <button
       type="button"
       className={clsx(
-        "rounded-lg font-mono transition-colors",
+        "rounded-lg  transition-colors",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
         "focus-visible:ring-offset-2 focus-visible:ring-offset-panel-bg",
         "disabled:opacity-50 disabled:cursor-not-allowed",

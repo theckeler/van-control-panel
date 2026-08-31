@@ -1,7 +1,7 @@
-import { useVanStore } from "../store/van";
-import { Label, Panel, SelectableTile, StatusDot } from "./ui";
+import { useVanStore } from "../../store/van";
+import { Label, Panel, SelectableTile, StatusDot } from "../ui";
 
-export function ShellyPanel({ className }: { className?: string }) {
+export function ShellyCard({ className }: { className?: string }) {
   const shellys = useVanStore((s) => s.shellys);
   const toggleShelly = useVanStore((s) => s.toggleShelly);
 
@@ -10,9 +10,7 @@ export function ShellyPanel({ className }: { className?: string }) {
   return (
     <Panel className={className}>
       {!installed.length ? (
-        <div className="text-xs font-mono text-zinc-600">
-          Loading circuits...
-        </div>
+        <div className="text-xs  text-zinc-600">Loading circuits...</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {installed.map((unit) => {

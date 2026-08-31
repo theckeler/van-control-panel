@@ -1,17 +1,17 @@
 import clsx from "clsx";
 import { useState } from "react";
-import { api } from "../api/client";
-import { useModalBehavior } from "../hooks/useModalBehavior";
-import { toast } from "../store/toast";
-import type { WifiNetwork } from "../types";
-import { Button, Label } from "./ui";
+import { api } from "../../api/client";
+import { useModalBehavior } from "../../hooks/useModalBehavior";
+import { toast } from "../../store/toast";
+import type { WifiNetwork } from "../../types";
+import { Button, Label } from "../ui";
 
 function SignalBars({ signal }: { signal: number | null }) {
   const pct = signal ?? 0;
   const tone =
     pct >= 70 ? "text-zinc-300" : pct >= 45 ? "text-amber-400" : "text-red-400";
   return (
-    <span className={clsx("text-[10px] font-mono tabular-nums", tone)}>
+    <span className={clsx("text-[10px]  tabular-nums", tone)}>
       {signal != null ? `${signal}%` : "—"}
     </span>
   );
@@ -111,7 +111,7 @@ export function WifiScanDrawer({
           type="button"
           disabled={scanning}
           onClick={doScan}
-          className="w-full text-xs font-mono px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+          className="w-full text-xs  px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
         >
           {scanning ? "Scanning…" : "Scan for networks"}
           <span className="block text-[10px] text-zinc-600 mt-0.5">
@@ -134,7 +134,7 @@ export function WifiScanDrawer({
                     setPassword("");
                   }}
                   className={clsx(
-                    "w-full text-[11px] font-mono px-3 py-2 rounded border text-left transition-colors",
+                    "w-full text-[11px]  px-3 py-2 rounded border text-left transition-colors",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface",
                     selected?.ssid === n.ssid
                       ? "bg-accent border-accent text-zinc-100"
@@ -145,7 +145,7 @@ export function WifiScanDrawer({
                     <span>{n.ssid}</span>
                     <span className="flex items-center gap-2">
                       {n.security && (
-                        <span className="text-[10px] font-mono text-zinc-600">
+                        <span className="text-[10px]  text-zinc-600">
                           {n.security}
                         </span>
                       )}
@@ -173,18 +173,18 @@ export function WifiScanDrawer({
                   if (e.key === "Enter" && password) doConnect();
                 }}
                 autoComplete="new-password"
-                className="w-full text-[11px] font-mono px-3 py-2 mb-2 rounded border border-panel-border bg-transparent text-zinc-300 placeholder-zinc-600 focus:outline-none focus:border-zinc-500 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+                className="w-full text-[11px]  px-3 py-2 mb-2 rounded border border-panel-border bg-transparent text-zinc-300 placeholder-zinc-600 focus:outline-none focus:border-zinc-500 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
               />
             )}
             <button
               type="button"
               disabled={connecting || (needsPassword && !password)}
               onClick={doConnect}
-              className="w-full text-xs font-mono px-4 py-3 rounded border border-accent bg-accent text-white text-left disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+              className="w-full text-xs  px-4 py-3 rounded border border-accent bg-accent text-white text-left disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
             >
               {connecting ? "Connecting…" : `Connect to ${selected.ssid}`}
             </button>
-            <p className="text-[10px] font-mono text-zinc-600 leading-relaxed mt-2">
+            <p className="text-[10px]  text-zinc-600 leading-relaxed mt-2">
               Connecting drops the Pi's LAN address. The dashboard reconnects
               over Tailscale; on the LAN you may need to rejoin the new network.
             </p>

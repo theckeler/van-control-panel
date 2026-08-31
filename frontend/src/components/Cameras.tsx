@@ -20,7 +20,8 @@ export function Cameras({ className }: { className?: string }) {
       return;
     }
     setLoading(true);
-    api.camera.latest("interior")
+    api.camera
+      .latest("interior")
       .then((photo) => {
         // eslint-disable-next-line no-console
         console.log("camera:latest response", photo);
@@ -44,14 +45,14 @@ export function Cameras({ className }: { className?: string }) {
       ) : enabled ? (
         <CameraPane photo={interiorLatest} />
       ) : (
-        <div className="flex items-center justify-center h-40 text-xs font-mono text-zinc-600">
+        <div className="flex items-center justify-center h-40 text-xs  text-zinc-600">
           Camera off
         </div>
       )}
       <button
         type="button"
         onClick={toggle}
-        className="w-full text-xs font-mono px-4 py-3 rounded-lg border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+        className="w-full text-xs  px-4 py-3 rounded-lg border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
       >
         {enabled ? "Turn camera off" : "Turn camera on"}
       </button>
@@ -80,12 +81,12 @@ function CameraPane({ label, photo }: { label?: string; photo: Photo | null }) {
     <div className="bg-panel-surface border border-panel-border rounded-xl overflow-hidden">
       <div className="flex items-center justify-between border-b border-panel-border">
         {label && (
-          <span className="text-xs font-mono text-zinc-500 uppercase tracking-widest">
+          <span className="text-xs  text-zinc-500 uppercase tracking-widest">
             {label}
           </span>
         )}
         {photo && (
-          <span className="text-xs font-mono text-zinc-600">
+          <span className="text-xs  text-zinc-600">
             {formatCaptureTime(photo.timestamp)}
           </span>
         )}
@@ -98,12 +99,12 @@ function CameraPane({ label, photo }: { label?: string; photo: Photo | null }) {
           style={{ maxHeight: "280px" }}
         />
       ) : (
-        <div className="flex items-center justify-center h-40 text-xs font-mono text-zinc-600">
+        <div className="flex items-center justify-center h-40 text-xs  text-zinc-600">
           No photo available
         </div>
       )}
       {photo && (
-        <div className="text-xs font-mono text-zinc-600 text-center py-2 border-t border-panel-border">
+        <div className="text-xs  text-zinc-600 text-center py-2 border-t border-panel-border">
           Captured {formatCaptureTime(photo.timestamp)}
         </div>
       )}

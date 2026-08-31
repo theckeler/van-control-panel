@@ -9,7 +9,11 @@ export function ModeSelector({ className }: { className?: string }) {
 
   return (
     <Panel className={className}>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="Van mode">
+      <div
+        className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+        role="group"
+        aria-label="Van mode"
+      >
         {mode.available.map((m) => (
           <SelectableTile
             key={m}
@@ -18,9 +22,7 @@ export function ModeSelector({ className }: { className?: string }) {
             onClick={() => setMode(m)}
             className="text-center"
           >
-            <div className="text-xs font-mono capitalize">
-              {m.replace("_", " ")}
-            </div>
+            <div className="text-xs  capitalize">{m.replace("_", " ")}</div>
           </SelectableTile>
         ))}
       </div>

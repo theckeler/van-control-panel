@@ -1,8 +1,8 @@
 import clsx from "clsx";
 import { useState } from "react";
-import { useModalBehavior } from "../hooks/useModalBehavior";
-import { useVanStore } from "../store/van";
-import { Button, Label } from "./ui";
+import { useModalBehavior } from "../../hooks/useModalBehavior";
+import { useVanStore } from "../../store/van";
+import { Button, Label } from "../ui";
 import { WifiScanDrawer } from "./WifiScanDrawer";
 
 function Row({
@@ -16,10 +16,10 @@ function Row({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-1.5 border-b border-panel-border/50 last:border-0">
-      <span className="text-[11px] font-mono text-zinc-500">{label}</span>
+      <span className="text-[11px]  text-zinc-500">{label}</span>
       <span
         className={clsx(
-          "text-[11px] font-mono tabular-nums",
+          "text-[11px]  tabular-nums",
           tone === "bad"
             ? "text-red-400"
             : tone === "warn"
@@ -123,7 +123,7 @@ export function WifiDetailsDrawer({
           <button
             type="button"
             onClick={() => setWifiScanOpen(true)}
-            className="mt-3 w-full text-xs font-mono px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+            className="mt-3 w-full text-xs  px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
           >
             Connect to new WiFi
             <span className="block text-[10px] text-zinc-600 mt-0.5">

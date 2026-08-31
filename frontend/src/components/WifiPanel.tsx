@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useVanStore } from "../store/van";
-import { ConfirmModal } from "./ConfirmModal";
+import { WifiDetailsDrawer } from "./drawers/WifiDetailsDrawer";
+import { ConfirmModal } from "./modals/ConfirmModal";
 import { Panel, StatusDot } from "./ui";
-import { WifiDetailsDrawer } from "./WifiDetailsDrawer";
 
 function NetworkInfoIcon() {
   return (
@@ -24,13 +24,6 @@ function NetworkInfoIcon() {
   );
 }
 
-/**
- * The two radios, side by side — wlan0 (TwitchWiFi, the Pi's own always-on
- * hotspot AP) and wlan1 (the uplink client: Starlink primary, OHeck
- * fallback). Same underlying data as WifiBadge and the Settings drawer's
- * Network section — this is just a glanceable, always-visible version of it,
- * styled like the Shelly/EcoFlow cards rather than tucked in a drawer.
- */
 export function WifiPanel({ className }: { className?: string }) {
   const system = useVanStore((s) => s.system);
   const hotspot = useVanStore((s) => s.hotspot);
@@ -55,23 +48,21 @@ export function WifiPanel({ className }: { className?: string }) {
         }}
         onCancel={() => setConfirmOff(false)}
       />
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <div className="flex items-center justify-between rounded-lg p-3 border bg-panel-bg border-panel-border">
           <div className="flex items-center gap-3">
             <StatusDot on={hotspotOn} tone="success" />
-            <div>
-              <div className="text-sm font-mono font-semibold text-charge-dc">
-                Hotspot
-              </div>
-              <div className="text-xs font-mono text-zinc-600">
-                {hotspotOn ? (hotspot?.ssid ?? "on") : "off"}
-              </div>
+            <div className="text-sm  font-semibold text-charge-dc">
+              {hotspotOn ? (hotspot?.ssid ?? "on") : "off"}
             </div>
           </div>
           <button
             type="button"
-            onClick={() => (hotspotOn ? setConfirmOff(true) : toggleHotspot(true))}
-            className="text-xs font-mono px-3 py-1.5 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+            onClick={() =>
+              hotspotOn ? setConfirmOff(true) : toggleHotspot(true)
+            }
+            className="text-xs  px-3 py-1.5 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
           >
             {hotspotOn ? "Turn off" : "Turn on"}
           </button>
@@ -80,13 +71,8 @@ export function WifiPanel({ className }: { className?: string }) {
         <div className="flex items-center justify-between rounded-lg p-3 border bg-panel-bg border-panel-border">
           <div className="flex items-center gap-3">
             <StatusDot on={uplinkOn} tone="success" />
-            <div>
-              <div className="text-sm font-mono font-semibold text-charge-dc">
-                Uplink
-              </div>
-              <div className="text-xs font-mono text-zinc-600 truncate max-w-[9rem]">
-                {system?.ssid ?? "not connected"}
-              </div>
+            <div className="text-sm  font-semibold text-charge-dc">
+              {system?.ssid ?? "not connected"}
             </div>
           </div>
           <button

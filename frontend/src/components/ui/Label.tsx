@@ -1,5 +1,5 @@
-import React from "react";
 import clsx from "clsx";
+import React from "react";
 
 export function Label({
   as: Tag = "span",
@@ -13,7 +13,7 @@ export function Label({
   return (
     <Tag
       className={clsx(
-        "text-xs font-mono text-zinc-500 uppercase tracking-widest",
+        "text-xs  text-zinc-500 uppercase tracking-widest",
         className,
       )}
     >

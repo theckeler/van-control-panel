@@ -1,9 +1,9 @@
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
-import { useSettingsStore } from "../store/settings";
-import { useVanStore } from "../store/van";
-import { ConfirmModal } from "./ConfirmModal";
-import { Button, Panel } from "./ui";
+import { useSettingsStore } from "../../store/settings";
+import { useVanStore } from "../../store/van";
+import { ConfirmModal } from "../modals/ConfirmModal";
+import { Button, Panel } from "../ui";
 
 function formatLastSeen(isoStr: string): string {
   const diff = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
@@ -95,11 +95,11 @@ export function BatteryCard({ className }: { className?: string }) {
       />
       {isOffline && !hasCache ? (
         <div className="flex flex-col gap-1 py-2">
-          <span className="text-xs font-mono text-amber-500">
+          <span className="text-xs  text-amber-500">
             ○ offline — no data yet
           </span>
           {countdown !== null && countdown > 0 && (
-            <span className="text-xs font-mono text-zinc-600">
+            <span className="text-xs  text-zinc-600">
               connecting in {formatCountdown(countdown)}
             </span>
           )}
@@ -118,50 +118,27 @@ export function BatteryCard({ className }: { className?: string }) {
         <>
           <div className="flex items-end justify-between">
             <div
-              className={clsx(
-                "text-6xl font-mono font-bold tracking-tight",
-                socColor,
-              )}
+              className={clsx("text-4xl  font-bold tracking-tight", socColor)}
             >
               {battery.soc.toFixed(1)}
               <span className="text-2xl ml-1">%</span>
             </div>
             <div className="flex flex-col items-end gap-1">
-              {/* {!isOffline && !isReleased && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowConfirm(true)}
-                  disabled={busy}
-                  aria-label="Release BMS connection"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    height="24px"
-                    viewBox="0 -960 960 960"
-                    width="24px"
-                    aria-hidden="true"
-                  >
-                    <path d="m344-160-76-128-144-32 14-148-98-112 98-112-14-148 144-32 76-128 136 58 136-58 76 128 144 32-14 148 98 112-98 112 14 148-144 32-76 128-136-58-136 58Zm34-102 102-44 104 44 56-96 110-26-10-112 74-84-74-86 10-112-110-24-58-96-102 44-104-44-56 96-110 24 10 112-74 86 74 84-10 114 110 24 58 96Zm102-318Zm28.5 188.5Q520-303 520-320t-11.5-28.5Q497-360 480-360t-28.5 11.5Q440-337 440-320t11.5 28.5Q463-280 480-280t28.5-11.5ZM440-440h80v-240h-80v240Z" />
-                  </svg>
-                </Button>
-              )} */}
-
               <span
                 className={clsx(
-                  "text-xs font-mono",
+                  "text-xs ",
                   isReleased
                     ? "text-blue-400"
                     : isOffline
                       ? "text-amber-500"
-                      : "text-green-500",
+                      : "text-lime-500",
                 )}
               >
                 {isReleased ? "○ released" : isOffline ? "○ offline" : "● live"}
               </span>
 
               {isOffline && battery.last_seen && (
-                <span className="text-xs font-mono text-zinc-600">
+                <span className="text-xs  text-zinc-600">
                   last seen {formatLastSeen(battery.last_seen)}
                 </span>
               )}
@@ -170,7 +147,7 @@ export function BatteryCard({ className }: { className?: string }) {
                 !isReleased &&
                 countdown !== null &&
                 countdown > 0 && (
-                  <span className="text-xs font-mono text-zinc-600">
+                  <span className="text-xs  text-zinc-600">
                     retry in {formatCountdown(countdown)}
                   </span>
                 )}
@@ -179,7 +156,7 @@ export function BatteryCard({ className }: { className?: string }) {
                 <button
                   onClick={handleConnect}
                   disabled={busy}
-                  className="text-xs font-mono text-zinc-600 hover:text-green-400 transition-colors disabled:opacity-40"
+                  className="text-xs text-zinc-600 hover:text-lime-500 transition-colors disabled:opacity-40"
                 >
                   connect →
                 </button>
@@ -208,7 +185,10 @@ export function BatteryCard({ className }: { className?: string }) {
               value={`${drawW}W`}
               highlight={isCharging ? "charge" : "draw"}
             />
-            <Stat pad={pad} value={`${battery.temperature.toFixed(1)}°C`} />
+            <Stat
+              pad={pad}
+              value={`${((battery.temperature * 9) / 5 + 32).toFixed(1)}°F`}
+            />
           </div>
         </>
       )}
@@ -228,7 +208,7 @@ function Stat({
   return (
     <div className="bg-panel-bg rounded" style={{ padding: `${pad}px` }}>
       <div
-        className={clsx("text-center text-sm font-mono font-semibold", {
+        className={clsx("text-center text-sm  font-semibold", {
           "text-charge-solar": highlight === "charge",
           "text-soc-low": highlight === "draw",
           "text-zinc-200": !highlight,
@@ -243,7 +223,7 @@ function Stat({
 function CardSkeleton() {
   return (
     <div className="bg-panel-surface border border-panel-border rounded-xl p-5 animate-pulse">
-      <div className="text-xs font-mono text-zinc-600 uppercase tracking-widest mb-4">
+      <div className="text-xs  text-zinc-600 uppercase tracking-widest mb-4">
         Battery
       </div>
       <div className="h-16 bg-panel-bg rounded-lg" />

@@ -1,19 +1,19 @@
 import { useState } from "react";
 import { isDemo } from "../api/client";
-import { BatteryCard } from "../components/BatteryCard";
+import { BatteryCard } from "../components/cards/BatteryCard";
 // import { Cameras } from "../components/Cameras"; // disabled 2026-08-31 — needs ffmpeg, which OOM-crashed the Pi (1GB RAM) mid-install. Revisit before re-enabling.
-import { ChargeSourcesCard } from "../components/ChargeSourcesCard";
-import { EcoflowCard } from "../components/EcoflowCard";
-import { FridgeCard } from "../components/FridgeCard";
-import { HistoryCard } from "../components/HistoryCard";
-import { PowerModal } from "../components/PowerModal";
-import { SettingsDrawer } from "../components/SettingsDrawer";
-import { ShellyPanel } from "../components/ShellyPanel";
-import { StarlinkCard } from "../components/StarlinkCard";
+import { ChargeSourcesCard } from "../components/cards/ChargeSourcesCard";
+import { EcoflowCard } from "../components/cards/EcoflowCard";
+import { FridgeCard } from "../components/cards/FridgeCard";
+import { HistoryCard } from "../components/cards/HistoryCard";
+import { ShellyCard } from "../components/cards/ShellyCard";
+import { StarlinkCard } from "../components/cards/StarlinkCard";
+import { SettingsDrawer } from "../components/drawers/SettingsDrawer";
+import { PowerModal } from "../components/modals/PowerModal";
 import { Toaster } from "../components/Toaster";
+import { Button, Stack } from "../components/ui";
 import { WifiBadge } from "../components/WifiBadge";
 import { WifiPanel } from "../components/WifiPanel";
-import { Button, Stack } from "../components/ui";
 import { usePolling } from "../hooks/usePolling";
 import { useSettingsStore } from "../store/settings";
 import { useVanStore } from "../store/van";
@@ -50,10 +50,10 @@ export function Dashboard() {
       <Toaster />
 
       <header className="flex items-center justify-between pt-6">
-        <h1 className="text-lg font-mono font-bold text-zinc-600 tracking-tight">
+        <h1 className="text-lg  font-bold text-zinc-600 tracking-tight">
           {(isDemo && "Demo Van") || vanName}
           {isDemo && (
-            <span className="ml-2 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-widest text-amber-500 border border-amber-500/40 rounded align-middle">
+            <span className="ml-2 px-1.5 py-0.5 text-[10px]  uppercase tracking-widest text-amber-500 border border-amber-500/40 rounded align-middle">
               demo
             </span>
           )}
@@ -61,12 +61,10 @@ export function Dashboard() {
         <div className="flex items-center gap-2">
           <div className="text-right">
             {error && (
-              <div className="text-xs font-mono text-red-500 mb-1">
-                ⚠ {error}
-              </div>
+              <div className="text-xs  text-red-500 mb-1">⚠ {error}</div>
             )}
             {lastUpdated && (
-              <div className="text-xs font-mono text-zinc-600">
+              <div className="text-xs  text-zinc-600">
                 {lastUpdated.toLocaleTimeString()}
               </div>
             )}
@@ -83,7 +81,7 @@ export function Dashboard() {
         </div>
       </header>
 
-      <ShellyPanel />
+      <ShellyCard />
       <WifiPanel />
       <BatteryCard />
       <ChargeSourcesCard />

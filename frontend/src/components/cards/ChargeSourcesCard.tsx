@@ -1,6 +1,6 @@
 import clsx from "clsx";
-import { useVanStore } from "../store/van";
-import { Panel, StatusDot } from "./ui";
+import { useVanStore } from "../../store/van";
+import { Panel, StatusDot } from "../ui";
 
 export function ChargeSourcesCard({ className }: { className?: string }) {
   const mppt = useVanStore((s) => s.mppt);
@@ -65,7 +65,7 @@ function SourceRow({
         <StatusDot on={!!active} tone="success" />
         <div
           className={clsx(
-            "text-sm font-mono font-semibold",
+            "text-sm  font-semibold",
             active ? color : "text-zinc-600",
           )}
         >
@@ -75,14 +75,14 @@ function SourceRow({
       <div className="text-right">
         <div
           className={clsx(
-            "text-sm font-mono font-semibold",
+            "text-sm  font-semibold",
             active ? "text-zinc-200" : "text-zinc-600",
           )}
         >
           {value}
         </div>
         {detail && (
-          <div className="text-xs font-mono text-zinc-600 max-w-32 truncate">
+          <div className="text-xs  text-zinc-600 max-w-32 truncate">
             {detail}
           </div>
         )}

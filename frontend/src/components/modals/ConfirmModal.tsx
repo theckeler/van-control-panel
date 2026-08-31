@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useModalBehavior } from "../hooks/useModalBehavior";
+import { useModalBehavior } from "../../hooks/useModalBehavior";
 
 interface ConfirmModalProps {
   open: boolean;
@@ -45,13 +45,13 @@ export function ConfirmModal({
       >
         <h2
           id="confirm-modal-title"
-          className="text-sm font-mono font-semibold text-zinc-100 mb-2"
+          className="text-sm  font-semibold text-zinc-100 mb-2"
         >
           {title}
         </h2>
         <p
           id="confirm-modal-message"
-          className="text-xs font-mono text-zinc-400 leading-relaxed mb-6"
+          className="text-xs  text-zinc-400 leading-relaxed mb-6"
         >
           {message}
         </p>
@@ -59,7 +59,7 @@ export function ConfirmModal({
           <button
             type="button"
             onClick={onCancel}
-            className="text-xs font-mono px-4 py-2 rounded-lg border border-panel-border text-zinc-400 hover:text-zinc-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+            className="text-xs  px-4 py-2 rounded-lg border border-panel-border text-zinc-400 hover:text-zinc-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
           >
             {cancelLabel}
           </button>
@@ -67,7 +67,7 @@ export function ConfirmModal({
             type="button"
             onClick={onConfirm}
             className={clsx(
-              "text-xs font-mono px-4 py-2 rounded-lg transition-colors",
+              "text-xs  px-4 py-2 rounded-lg transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface",
               danger
                 ? "bg-red-900/60 hover:bg-red-800/60 text-red-300 border border-red-800"
