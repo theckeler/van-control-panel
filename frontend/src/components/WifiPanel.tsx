@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useVanStore } from "../store/van";
+import { ConfirmModal } from "./ConfirmModal";
 import { Panel, StatusDot } from "./ui";
 import { WifiScanDrawer } from "./WifiScanDrawer";
 
@@ -35,12 +36,25 @@ export function WifiPanel({ className }: { className?: string }) {
   const hotspot = useVanStore((s) => s.hotspot);
   const toggleHotspot = useVanStore((s) => s.toggleHotspot);
   const [scanOpen, setScanOpen] = useState(false);
+  const [confirmOff, setConfirmOff] = useState(false);
 
   const hotspotOn = !!hotspot?.active;
   const uplinkOn = !!system?.ssid;
 
   return (
     <Panel className={className}>
+      <ConfirmModal
+        open={confirmOff}
+        title="Turn off the hotspot?"
+        message="Any device currently connected over TwitchWiFi — including this one, if that's how you're viewing this — will be disconnected. Tailscale and OHeck/Starlink-connected devices are unaffected."
+        confirmLabel="Turn off"
+        danger
+        onConfirm={() => {
+          setConfirmOff(false);
+          toggleHotspot(false);
+        }}
+        onCancel={() => setConfirmOff(false)}
+      />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <div className="flex items-center justify-between rounded-lg p-3 border bg-panel-bg border-panel-border">
           <div className="flex items-center gap-3">
@@ -56,7 +70,7 @@ export function WifiPanel({ className }: { className?: string }) {
           </div>
           <button
             type="button"
-            onClick={() => toggleHotspot(!hotspotOn)}
+            onClick={() => (hotspotOn ? setConfirmOff(true) : toggleHotspot(true))}
             className="text-xs font-mono px-3 py-1.5 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
           >
             {hotspotOn ? "Turn off" : "Turn on"}
