@@ -5,7 +5,7 @@ import { BatteryCard } from "../components/cards/BatteryCard";
 import { ChargeSourcesCard } from "../components/cards/ChargeSourcesCard";
 import { EcoflowCard } from "../components/cards/EcoflowCard";
 import { FridgeCard } from "../components/cards/FridgeCard";
-import { HistoryCard } from "../components/cards/HistoryCard";
+// import { HistoryCard } from "../components/cards/HistoryCard";
 import { ShellyCard } from "../components/cards/ShellyCard";
 import { StarlinkCard } from "../components/cards/StarlinkCard";
 import { SettingsDrawer } from "../components/drawers/SettingsDrawer";
@@ -47,7 +47,7 @@ export function Dashboard() {
       <EcoflowCard />
       <FridgeCard />
       <StarlinkCard />
-      <HistoryCard />
+      {/* <HistoryCard /> */}
       {/* <Cameras /> */}
       {/* <ModeSelector /> */}
 

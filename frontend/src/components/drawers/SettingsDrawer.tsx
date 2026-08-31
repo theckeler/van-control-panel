@@ -5,6 +5,7 @@ import { useModalBehavior } from "../../hooks/useModalBehavior";
 import { toast } from "../../store/toast";
 import { useVanStore } from "../../store/van";
 import type { BackupStatus, DiskImageStatus, PiHealth } from "../../types";
+import { HistoryCard } from "../cards/HistoryCard";
 import { Button, Label } from "../ui";
 import { WifiDetailsDrawer } from "./WifiDetailsDrawer";
 
@@ -199,7 +200,7 @@ export function SettingsDrawer({
         aria-modal="true"
         aria-label="Settings"
         tabIndex={-1}
-        className="relative w-full max-w-sm h-full overflow-y-auto bg-panel-surface border-l border-panel-border p-5 flex flex-col gap-5 focus:outline-none"
+        className="relative w-full max-w-sm h-full overflow-y-auto bg-panel-surface border-l border-panel-border p-5 flex flex-col gap-5 pb-12"
       >
         <div className="flex items-center justify-between">
           <Label as="h2">Settings</Label>
@@ -472,6 +473,8 @@ export function SettingsDrawer({
             <ThemeToggle className="rounded p-1.5 border border-panel-border text-zinc-500 hover:border-zinc-500 hover:text-zinc-300 transition-colors" />
           </div> */}
         </section>
+
+        <HistoryCard />
       </div>
 
       <WifiDetailsDrawer
