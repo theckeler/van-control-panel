@@ -1,8 +1,8 @@
 import { useTheme } from "../hooks/useTheme";
 
 export function ThemeToggle({ className }: { className?: string }) {
-  const { theme, toggleTheme } = useTheme();
-  const isLight = theme === "light";
+  const { toggleTheme } = useTheme();
+  const isLight = true; // theme is forced light for now — see useTheme.ts
 
   return (
     <button
