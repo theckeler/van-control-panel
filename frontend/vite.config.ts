@@ -6,15 +6,21 @@ export default defineConfig(({ mode }) => {
   // stays server-side in this config and never reaches the client bundle.
   const env = loadEnv(mode, process.cwd(), '')
 
-  // Defaults to the Pi over mDNS — works from any device on the same LAN as
-  // the Pi (both Starlink and OHeck networks).
+  // Defaults to the Pi over Tailscale, which resolves reliably in Node.
+  // (Node's resolver does NOT do mDNS the way browsers do, so a `.local`
+  // target here fails with ENOTFOUND even when the browser loads it fine —
+  // that was the long-standing "dev server can't reach the Pi" bug.)
+  //
+  // Note: van-api (uvicorn) binds to 127.0.0.1 only, so port 8000 is not
+  // reachable from this machine at all. The dev proxy goes through nginx on
+  // port 80, which fronts the Express auth gate. Set VAN_API_KEY in a
+  // frontend/.env.local so the proxy can authenticate to van-api.
   //
   // Override with VAN_API_TARGET when you need a different target:
-  //   VAN_API_TARGET=http://localhost:8000       local backend on this machine
-  //   VAN_API_TARGET=http://100.x.x.x:8000       Pi over Tailscale (if active)
+  //   VAN_API_TARGET=http://localhost:8000   local backend on this machine
   //
   // The VS Code "Dev: full stack (local)" task sets VAN_API_TARGET=localhost.
-  const target = env.VAN_API_TARGET || 'http://van-pi.local:8000'
+  const target = env.VAN_API_TARGET || 'http://van-pi.tailba93b9.ts.net'
   const isLocal = target.includes('localhost') || target.includes('127.0.0.1')
 
   return {
