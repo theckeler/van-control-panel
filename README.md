@@ -6,8 +6,8 @@
 ![Platform](https://img.shields.io/badge/platform-Raspberry%20Pi%204B-red)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-<img width="821" height="780" alt="image" src="https://github.com/user-attachments/assets/aa98d6e1-44fa-4078-8c45-ffb89cb7441c" />
-<img width="549" height="785" alt="image" src="https://github.com/user-attachments/assets/357755d8-0493-4adc-8d27-c78447a657dc" />
+<img width="1008" height="817" alt="image" src="https://github.com/user-attachments/assets/405028d8-65b2-4154-a86d-81c4787dfc2c" />
+
 
 ---
 
