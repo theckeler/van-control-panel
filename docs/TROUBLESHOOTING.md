@@ -519,6 +519,37 @@ deliberately stops advertising there. Hotspot clients use the dnsmasq
 above), which is the correct answer for that subnet — so both paths still
 work, each via the right mechanism.
 
+### Why there is no single plain hostname for all three networks
+
+Asked 2026-08-31: one URL that works on OHeck, TwitchWiFi, and Tailscale
+alike. There isn't one, and it's worth writing down why so it isn't
+re-chased.
+
+Each network resolves names through a **different authority the Pi does not
+control**:
+
+- **OHeck** — the OHeck router is the DNS server. It has never heard of any
+  Pi hostname. The Pi cannot inject a name into the router's answers. The
+  *only* reason `van-pi.local` works here is that `.local` bypasses the
+  router entirely via mDNS multicast.
+- **TwitchWiFi (hotspot)** — the Pi's own dnsmasq is the DNS server, so it
+  can answer anything (`.local` via the `address=` file, or any other name).
+  But clients special-case `.local` to mDNS and never ask dnsmasq for it —
+  and avahi is restricted off this interface (above) — so `.local` fails
+  here while the IP `10.42.0.1` works.
+- **Tailscale** — its own DNS, which travels with every enrolled device
+  regardless of WiFi.
+
+A non-`.local` name like `van.pi` can only be answered where the Pi controls
+DNS, i.e. the hotspot only. It cannot work on OHeck. A `.local` name can't
+work on the hotspot. So no single name spans all three.
+
+**The actual one-URL-for-everything answer is Tailscale** — it's the only
+layer that sees all networks equally. Rename the machine in the admin console
+(`...` → Edit machine name → `van`) to get `http://van`, which works on every
+network and from anywhere. Ugly `*.ts.net` name is the only downside, and the
+rename fixes that.
+
 ---
 
 ## Tailscale not connecting
