@@ -140,7 +140,6 @@ export function WifiDetailsDrawer({
             value={system?.eth0_connected ? "on" : "off"}
             tone={system?.eth0_connected ? undefined : "warn"}
           />
-          {/* <Row label="IP" value={ethernet?.ip ?? "—"} /> */}
         </section>
 
         <section>

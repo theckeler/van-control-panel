@@ -23,8 +23,6 @@ export function Cameras({ className }: { className?: string }) {
     api.camera
       .latest("interior")
       .then((photo) => {
-        // eslint-disable-next-line no-console
-        console.log("camera:latest response", photo);
         setInteriorLatest(photo);
       })
       .catch(() => setInteriorLatest(null))
