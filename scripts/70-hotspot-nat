@@ -1,10 +1,15 @@
 #!/bin/bash
-# NetworkManager dispatcher: restore hotspot internet-sharing NAT.
+# NetworkManager dispatcher: restore internet-sharing NAT for local interfaces.
 #
-# The VanControlPanel/TwitchWiFi hotspot on wlan0 shares wlan1's internet
-# via NAT. These rules live only in the kernel and are wiped by any reboot
-# or hotspot recreation -- which is exactly how internet-sharing silently
-# broke (2026-09-01). This reinstates them whenever wlan0 comes up as the AP.
+# Two interfaces share wlan1's internet via NAT:
+#   - wlan0  -> the VanControlPanel/TwitchWiFi hotspot (10.42.0.0/24)
+#   - eth0   -> the wired rescue port (10.55.0.0/24)
+#
+# These rules live only in the kernel and are wiped by any reboot or by the
+# interface being recreated -- which is exactly how hotspot internet-sharing
+# silently broke (2026-09-01), and how eth0 sharing was missing entirely
+# until it was added. This reinstates them whenever the matching interface
+# comes up.
 #
 # Idempotent: -C checks before -A so re-runs don't stack duplicates.
 #
@@ -15,16 +20,22 @@
 IFACE="$1"
 ACTION="$2"
 
-HOTSPOT_SUBNET="10.42.0.0/24"
 UPLINK="wlan1"
 
-if [ "$ACTION" = "up" ] && [ "$IFACE" = "wlan0" ]; then
+# Map each shared interface to the subnet it hands out.
+case "$IFACE" in
+  wlan0) SUBNET="10.42.0.0/24" ;;
+  eth0)  SUBNET="10.55.0.0/24" ;;
+  *)     exit 0 ;;   # not a shared interface, nothing to do
+esac
+
+if [ "$ACTION" = "up" ]; then
   echo 1 > /proc/sys/net/ipv4/ip_forward
-  iptables -t nat -C POSTROUTING -s "$HOTSPOT_SUBNET" -o "$UPLINK" -j MASQUERADE 2>/dev/null \
-    || iptables -t nat -A POSTROUTING -s "$HOTSPOT_SUBNET" -o "$UPLINK" -j MASQUERADE
-  iptables -C FORWARD -i wlan0 -o "$UPLINK" -j ACCEPT 2>/dev/null \
-    || iptables -A FORWARD -i wlan0 -o "$UPLINK" -j ACCEPT
-  iptables -C FORWARD -i "$UPLINK" -o wlan0 -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null \
-    || iptables -A FORWARD -i "$UPLINK" -o wlan0 -m state --state RELATED,ESTABLISHED -j ACCEPT
-  logger -t hotspot-nat "restored hotspot NAT: $HOTSPOT_SUBNET via $UPLINK"
+  iptables -t nat -C POSTROUTING -s "$SUBNET" -o "$UPLINK" -j MASQUERADE 2>/dev/null \
+    || iptables -t nat -A POSTROUTING -s "$SUBNET" -o "$UPLINK" -j MASQUERADE
+  iptables -C FORWARD -i "$IFACE" -o "$UPLINK" -j ACCEPT 2>/dev/null \
+    || iptables -A FORWARD -i "$IFACE" -o "$UPLINK" -j ACCEPT
+  iptables -C FORWARD -i "$UPLINK" -o "$IFACE" -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null \
+    || iptables -A FORWARD -i "$UPLINK" -o "$IFACE" -m state --state RELATED,ESTABLISHED -j ACCEPT
+  logger -t shared-nat "restored NAT: $SUBNET ($IFACE) via $UPLINK"
 fi
