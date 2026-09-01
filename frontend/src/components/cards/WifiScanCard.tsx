@@ -1,7 +1,8 @@
 import clsx from "clsx";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { api } from "../../api/client";
 import { toast } from "../../store/toast";
+import { useVanStore } from "../../store/van";
 import type { WifiNetwork } from "../../types";
 import { Label } from "../ui";
 
@@ -16,12 +17,13 @@ function SignalBars({ signal }: { signal: number | null }) {
   );
 }
 
-export function WifiScanCard({}: {}) {
+export function WifiScanCard() {
   const [networks, setNetworks] = useState<WifiNetwork[]>([]);
   const [scanning, setScanning] = useState(false);
   const [selected, setSelected] = useState<WifiNetwork | null>(null);
   const [password, setPassword] = useState("");
   const [connecting, setConnecting] = useState(false);
+  const fetchAll = useVanStore((s) => s.fetchAll);
 
   async function doScan() {
     setScanning(true);
@@ -30,9 +32,15 @@ export function WifiScanCard({}: {}) {
     try {
       const results = await api.system.wifiScan();
       setNetworks(results);
-      if (results.length === 0) toast.info("No networks found");
-    } catch {
-      toast.error("Scan failed");
+      toast[results.length ? "success" : "info"](
+        results.length
+          ? `Found ${results.length} networks`
+          : "No networks found",
+      );
+    } catch (err) {
+      toast.error(
+        `Scan failed — ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       setScanning(false);
     }
@@ -41,17 +49,29 @@ export function WifiScanCard({}: {}) {
   async function doConnect() {
     if (!selected) return;
     setConnecting(true);
+    const label = `${selected.ssid}${selected.band ? ` (${selected.band})` : ""}`;
     try {
       const res = await api.system.wifiConnect(
         selected.ssid,
         password,
         selected.bssid ?? undefined,
       );
-      toast[res.ok ? "success" : "error"](
-        res.ok ? `Connected to ${selected.ssid}` : res.message,
-      );
+      if (res.ok) {
+        toast.success(`Connected to ${label}`);
+        setPassword("");
+        setSelected(null);
+        fetchAll();
+      } else {
+        // nmcli's stderr is the only thing that says *why* — surface it
+        // rather than a generic failure.
+        toast.error(res.message || `Couldn't connect to ${label}`);
+      }
     } catch {
-      toast.info("Connect sent — Pi may be switching networks");
+      // Switching networks drops the Pi's LAN address mid-request, so a
+      // thrown fetch here is expected and not necessarily a failure.
+      toast.info(
+        `Connect sent to ${label} — the Pi may be switching networks now`,
+      );
     } finally {
       setConnecting(false);
     }
@@ -65,7 +85,7 @@ export function WifiScanCard({}: {}) {
         type="button"
         disabled={scanning}
         onClick={doScan}
-        className="w-full text-xs  px-4 py-3 rounded border border-gray-800 text-gray-800"
+        className="w-full text-xs  px-4 py-3 rounded border border-gray-800 text-gray-800 disabled:opacity-50"
       >
         {scanning ? "Scanning…" : "Scan for networks"}
         <span className="block text-[10px] text-black mt-0.5">
@@ -74,75 +94,72 @@ export function WifiScanCard({}: {}) {
       </button>
 
       {networks.length > 0 && (
-        <section>
+        <section className="mt-4">
           <Label as="h3" className="block mb-2">
             Available networks
           </Label>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5 max-h-72 overflow-y-auto pr-1">
             {networks.map((n) => {
               const key = `${n.ssid}-${n.band ?? ""}-${n.bssid ?? ""}`;
               const isSelected = selected?.bssid
                 ? selected.bssid === n.bssid
                 : selected?.ssid === n.ssid && selected?.band === n.band;
               return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => {
-                    setSelected(isSelected ? null : n);
-                    setPassword("");
-                  }}
-                  className={clsx(
-                    "w-full text-xs px-3 py-2 rounded border text-left border-gray-800 text-black",
-                    isSelected ? "bg-lime-200" : "",
+                <Fragment key={key}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelected(isSelected ? null : n);
+                      setPassword("");
+                    }}
+                    className={clsx(
+                      "w-full text-xs px-3 py-2 rounded border text-left border-gray-800 text-black",
+                      isSelected ? "bg-lime-200" : "",
+                    )}
+                  >
+                    <span className="flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <span>{n.ssid}</span>
+                        {n.band && <span>{n.band}</span>}
+                      </span>
+                      <span className="flex items-center gap-2">
+                        {n.security && <span>{n.security}</span>}
+                        <SignalBars signal={n.signal} />
+                      </span>
+                    </span>
+                  </button>
+
+                  {isSelected && (
+                    <div className="rounded border border-gray-800 p-3 flex flex-col gap-2">
+                      {needsPassword && (
+                        <input
+                          type="password"
+                          placeholder="Password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && password) doConnect();
+                          }}
+                          autoComplete="new-password"
+                          autoFocus
+                          className="w-full px-3 py-2 rounded border border-gray-800 bg-transparent text-black placeholder-gray-400"
+                        />
+                      )}
+                      <button
+                        type="button"
+                        disabled={connecting || (needsPassword && !password)}
+                        onClick={doConnect}
+                        className="w-full text-xs  px-4 py-3 rounded border border-accent bg-amber-600 text-black font-bold disabled:opacity-50"
+                      >
+                        {connecting ? "Connecting…" : `Connect to ${n.ssid}`}
+                      </button>
+                    </div>
                   )}
-                >
-                  <span className="flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <span>{n.ssid}</span>
-                      {n.band && <span>{n.band}</span>}
-                    </span>
-                    <span className="flex items-center gap-2">
-                      {n.security && <span>{n.security}</span>}
-                      <SignalBars signal={n.signal} />
-                    </span>
-                  </span>
-                </button>
+                </Fragment>
               );
             })}
           </div>
-        </section>
-      )}
 
-      {selected && (
-        <section>
-          <Label as="h3" className="block mb-2">
-            {selected.ssid}
-            {selected.band && (
-              <span className="text-zinc-500"> · {selected.band}</span>
-            )}
-          </Label>
-          {needsPassword && (
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && password) doConnect();
-              }}
-              autoComplete="new-password"
-              className="w-full px-3 py-2 mb-2 rounded border border-gray-800 bg-transparent text-zinc-300 placeholder-gray-400"
-            />
-          )}
-          <button
-            type="button"
-            disabled={connecting || (needsPassword && !password)}
-            onClick={doConnect}
-            className="w-full text-xs  px-4 py-3 rounded border border-accent bg-amber-600 text-black font-bold text-left"
-          >
-            {connecting ? "Connecting…" : `Connect to ${selected.ssid}`}
-          </button>
           <p className="text-[10px] text-black leading-relaxed mt-2">
             Connecting drops the Pi's LAN address. The dashboard reconnects over
             Tailscale; on the LAN you may need to rejoin the new network.
