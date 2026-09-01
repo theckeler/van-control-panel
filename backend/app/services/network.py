@@ -269,17 +269,37 @@ async def scan_networks() -> list[dict]:
     return sorted(best.values(), key=lambda n: n.get("signal") or 0, reverse=True)
 
 
+async def _find_profile_for_ssid(ssid: str) -> str | None:
+    """Name of an existing wireless profile broadcasting this SSID, if any."""
+    out = await _run("nmcli", "-t", "-f", "NAME,TYPE", "connection", "show")
+    for line in out.splitlines():
+        name, _, kind = line.rpartition(":")
+        if kind != "802-11-wireless":
+            continue
+        raw = await _run("nmcli", "-g", "802-11-wireless.ssid", "connection", "show", name)
+        if raw.strip() == ssid:
+            return name
+    return None
+
+
 async def connect_network(ssid: str, password: str, bssid: str | None = None) -> tuple[bool, str]:
     """
-    Connect wlan1 to a WiFi network, creating a new profile for it.
+    Connect wlan1 to a WiFi network, reusing or creating a profile for it.
 
-    bssid pins the connection to a specific radio when the SSID broadcasts
-    on both bands (e.g. OHeck 2.4GHz vs 5GHz) — without it nmcli picks
-    whichever BSSID it prefers, which is exactly the ambiguity this is for.
+    Deliberately does NOT use `nmcli device wifi connect`. That command builds
+    its connection internally and, on this Pi, fails with
+    "802-11-wireless-security.key-mgmt: property is missing" — reproduced
+    2026-09-01 both with and without a bssid, and for SSIDs that already had
+    perfectly valid profiles. Setting the properties explicitly sidesteps
+    whatever it is nmcli fails to infer.
+
+    bssid pins the connection to a specific radio when the SSID broadcasts on
+    both bands (e.g. OHeck 2.4GHz vs 5GHz) — without it NM picks whichever
+    BSSID it prefers, which is exactly the ambiguity this is for.
 
     Like switch_profile, this writes an override marker so the
     prefer-starlink dispatcher doesn't immediately undo the change.
-    The SSID and password are passed as argv, never through a shell.
+    Everything is passed as argv, never through a shell.
     """
     global _cache
 
@@ -289,14 +309,42 @@ async def connect_network(ssid: str, password: str, bssid: str | None = None) ->
     except OSError:
         pass
 
-    args = ["sudo", "nmcli", "device", "wifi", "connect", ssid,
-            "password", password, "ifname", IFACE]
-    if bssid:
-        args += ["bssid", bssid]
+    name = await _find_profile_for_ssid(ssid)
+
+    if name:
+        args = ["sudo", "nmcli", "connection", "modify", name]
+        if password:
+            args += ["wifi-sec.key-mgmt", "wpa-psk", "wifi-sec.psk", password]
+        # Clear a stale pin when reconnecting without one, or the profile
+        # stays locked to a BSSID the user didn't pick this time.
+        args += ["802-11-wireless.bssid", bssid or ""]
+    else:
+        name = ssid
+        args = ["sudo", "nmcli", "connection", "add", "type", "wifi",
+                "ifname", IFACE, "con-name", name, "ssid", ssid]
+        if password:
+            args += ["wifi-sec.key-mgmt", "wpa-psk", "wifi-sec.psk", password]
+        if bssid:
+            args += ["802-11-wireless.bssid", bssid]
 
     try:
         proc = await asyncio.create_subprocess_exec(
             *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        out, _ = await asyncio.wait_for(proc.communicate(), timeout=15.0)
+    except (OSError, asyncio.TimeoutError):
+        _cache = None
+        return False, "Timed out configuring the connection"
+
+    if proc.returncode != 0:
+        _cache = None
+        return False, out.decode(errors="replace").strip() or "Failed to configure the connection"
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "sudo", "nmcli", "connection", "up", name,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
         )
