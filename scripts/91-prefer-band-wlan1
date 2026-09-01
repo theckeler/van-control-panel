@@ -2,6 +2,14 @@
 # NetworkManager dispatcher: keep wlan1's OHeck connection on whichever band
 # actually has a usable signal.
 #
+# DISABLED 2026-09-01 — uninstalled from the Pi, kept here for later. It
+# down/up's the connection to switch bands, and NM re-firing this dispatcher
+# on that very reconnect (ACTION=up) was reported as repeated connection
+# drops shortly after install. Whether that's the down/up itself, the
+# percent-signal threshold being wrong, or something else wasn't diagnosed —
+# needs a fresh look before reinstalling. Until then: whatever band you
+# manually connect to via the dashboard stays put.
+#
 # OHeck broadcasts the same SSID on 2.4GHz and 5GHz. oheck-wlan1's
 # 802-11-wireless.band setting pins it to one or the other — NM does not
 # roam between bands (or BSSIDs) on its own once connected, same sticky
@@ -15,6 +23,8 @@
 # Install:
 #   sudo install -o root -g root -m 755 91-prefer-band-wlan1 \
 #        /etc/NetworkManager/dispatcher.d/91-prefer-band-wlan1
+
+exit 0   # disabled — see note above. Delete this line to re-enable.
 
 IFACE="$1"
 ACTION="$2"
