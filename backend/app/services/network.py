@@ -80,6 +80,29 @@ async def get_wifi() -> dict:
     return result
 
 
+async def get_eth0() -> dict:
+    """
+    Wired rescue-port status: is a cable physically connected and linked.
+
+    Reads the kernel carrier flag directly — /sys/class/net/eth0/carrier is
+    '1' when a cable is plugged in and the link is up, '0' otherwise. No
+    subprocess, no parsing, just a one-byte file read, so it's cheap enough
+    to include on every /system/ poll without a cache.
+
+    eth0 is the always-on wired fallback (10.55.0.1, shared/DHCP) for reaching
+    the Pi when WiFi is off — see scripts/setup-eth0-rescue.md.
+    """
+    connected = False
+    try:
+        with open("/sys/class/net/eth0/carrier") as f:
+            connected = f.read().strip() == "1"
+    except OSError:
+        # carrier read fails with EINVAL when the interface is fully down;
+        # that just means no link, which is the default anyway.
+        connected = False
+    return {"connected": connected}
+
+
 async def get_hotspot() -> dict:
     """
     wlan0 hotspot status — active state and the SSID it's broadcasting.
