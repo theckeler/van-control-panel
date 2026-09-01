@@ -179,11 +179,17 @@ async def scan_networks() -> list[dict]:
     """
     Return available WiFi networks on the uplink interface.
 
-    Uses --rescan auto so NM returns its cached results immediately.
-    --rescan yes forces a fresh scan that takes ~10s and exceeds the
-    nginx proxy_read_timeout, killing the request before it completes.
-    NM rescans in the background on its own schedule, so cached results
-    are already fresh enough for a UI picker.
+    Requests a rescan, waits briefly, then reads the cache. Relying on NM's
+    own background scanning (the old `--rescan auto`) is not enough: while
+    associated, wpa_supplicant runs `bgscan simple:30:-70:86400`, so once the
+    current link is stronger than -70 dBm it drops to an 86400s (24 hour)
+    scan interval and NM's AP list decays to almost nothing. Observed live
+    2026-09-01 on Starlink at -51 dBm: `iw dev wlan1 scan` saw 28 APs while
+    nmcli reported one. An explicit rescan brings it back to 27.
+
+    `--rescan yes` on the list call would do the same thing but blocks for
+    ~10s, which exceeds nginx's proxy_read_timeout. Splitting it into an
+    async rescan request plus a short wait keeps the whole call under that.
 
     A dual-band router broadcasts the same SSID on two different BSSIDs —
     deduplicating by SSID alone (the old behavior) hid whichever band nmcli
@@ -192,10 +198,23 @@ async def scan_networks() -> list[dict]:
     the strongest BSSID seen for each, and returns that BSSID so the caller
     can target it directly on connect.
     """
+    # Best-effort: fails harmlessly if NM refuses a scan this soon after the
+    # last one, in which case the cache we read below is already fresh.
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "sudo", "nmcli", "device", "wifi", "rescan", "ifname", IFACE,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        await asyncio.wait_for(proc.wait(), timeout=3.0)
+        await asyncio.sleep(4.0)
+    except (OSError, asyncio.TimeoutError):
+        pass
+
     try:
         proc = await asyncio.create_subprocess_exec(
             "nmcli", "-f", "SSID,BSSID,CHAN,SIGNAL,SECURITY", "-m", "multiline",
-            "device", "wifi", "list", "ifname", IFACE, "--rescan", "auto",
+            "device", "wifi", "list", "ifname", IFACE, "--rescan", "no",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.DEVNULL,
         )
