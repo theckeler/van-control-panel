@@ -115,10 +115,11 @@ const realApi = {
     health: () => get<PiHealth>("/system/health-detail"),
     wifiProfiles: () => get<WifiProfile[]>("/system/wifi/profiles"),
     wifiScan: () => get<WifiNetwork[]>("/system/wifi/scan"),
-    wifiConnect: (ssid: string, password: string) =>
+    wifiConnect: (ssid: string, password: string, bssid?: string) =>
       post<{ ok: boolean; message: string }>("/system/wifi/connect", {
         ssid,
         password,
+        bssid,
       }),
     hotspot: () => get<HotspotStatus>("/system/wifi/hotspot"),
     setHotspot: (on: boolean) =>

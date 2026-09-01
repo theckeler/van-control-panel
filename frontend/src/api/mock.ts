@@ -572,11 +572,12 @@ export const mockApi = {
       }),
     wifiScan: (): Promise<WifiNetwork[]> =>
       delay([
-        { ssid: "VanNet", signal: 92, security: "WPA2" },
-        { ssid: "Sir Salettelot", signal: 74, security: "WPA2" },
-        { ssid: "OHeck", signal: 61, security: "WPA2" },
+        { ssid: "VanNet", signal: 92, security: "WPA2", band: "5GHz", bssid: "AA:BB:CC:00:00:01" },
+        { ssid: "Sir Salettelot", signal: 74, security: "WPA2", band: "5GHz", bssid: "AA:BB:CC:00:00:02" },
+        { ssid: "OHeck", signal: 64, security: "WPA2", band: "2.4GHz", bssid: "AA:BB:CC:00:00:03" },
+        { ssid: "OHeck", signal: 45, security: "WPA2", band: "5GHz", bssid: "AA:BB:CC:00:00:04" },
       ]),
-    wifiConnect: (_ssid: string, _password: string) =>
+    wifiConnect: (_ssid: string, _password: string, _bssid?: string) =>
       delay({ ok: false, message: "Connect disabled in demo mode" }),
     hotspot: () => delay({ active: true, ssid: "TwitchWiFi" }),
     setHotspot: (_on: boolean) =>

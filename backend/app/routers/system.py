@@ -55,11 +55,14 @@ class WifiNetwork(BaseModel):
     ssid: str
     signal: int | None = None
     security: str | None = None
+    band: str | None = None
+    bssid: str | None = None
 
 
 class WifiConnectRequest(BaseModel):
     ssid: str
     password: str
+    bssid: str | None = None
 
 
 @router.get("/wifi/scan", response_model=list[WifiNetwork])
@@ -74,10 +77,11 @@ async def connect_wifi(body: WifiConnectRequest):
     """
     Connect the Pi to a new WiFi network.
 
-    Creates a new nmcli profile for the SSID and brings it up.
+    Creates a new nmcli profile for the SSID and brings it up. bssid pins a
+    specific radio when the SSID broadcasts on both 2.4GHz and 5GHz.
     The caller loses its LAN connection while this happens; Tailscale survives.
     """
-    ok, message = await network.connect_network(body.ssid, body.password)
+    ok, message = await network.connect_network(body.ssid, body.password, body.bssid)
     db.log_event("wifi", body.ssid, "connected" if ok else "connect_failed", message[:200] if message else None)
     return WifiSwitchResult(ok=ok, message=message or ("connected" if ok else "failed"))
 

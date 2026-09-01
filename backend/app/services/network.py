@@ -184,11 +184,17 @@ async def scan_networks() -> list[dict]:
     nginx proxy_read_timeout, killing the request before it completes.
     NM rescans in the background on its own schedule, so cached results
     are already fresh enough for a UI picker.
-    Deduplicates SSIDs, sorts by signal descending.
+
+    A dual-band router broadcasts the same SSID on two different BSSIDs —
+    deduplicating by SSID alone (the old behavior) hid whichever band nmcli
+    listed second, so there was no way to pick 2.4GHz vs 5GHz for a network
+    like OHeck from the UI. Now deduplicates by (SSID, band) instead, keeping
+    the strongest BSSID seen for each, and returns that BSSID so the caller
+    can target it directly on connect.
     """
     try:
         proc = await asyncio.create_subprocess_exec(
-            "nmcli", "-f", "SSID,SIGNAL,SECURITY", "-m", "multiline",
+            "nmcli", "-f", "SSID,BSSID,CHAN,SIGNAL,SECURITY", "-m", "multiline",
             "device", "wifi", "list", "ifname", IFACE, "--rescan", "auto",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.DEVNULL,
@@ -198,16 +204,17 @@ async def scan_networks() -> list[dict]:
     except (OSError, asyncio.TimeoutError):
         return []
 
-    networks: list[dict] = []
-    seen: set[str] = set()
+    raw: list[dict] = []
     current: dict = {}
 
     def _flush() -> None:
         ssid = current.get("ssid", "").strip()
-        if ssid and ssid != "--" and ssid not in seen:
-            seen.add(ssid)
-            networks.append({
+        chan = current.get("chan")
+        if ssid and ssid != "--" and chan is not None:
+            raw.append({
                 "ssid": ssid,
+                "bssid": current.get("bssid"),
+                "band": "2.4GHz" if chan <= 14 else "5GHz",
                 "signal": current.get("signal"),
                 "security": current.get("security"),
             })
@@ -222,6 +229,10 @@ async def scan_networks() -> list[dict]:
         if k == "ssid":
             _flush()   # save previous record before starting a new one
             current = {"ssid": value}
+        elif k == "bssid":
+            current["bssid"] = value
+        elif k == "chan":
+            current["chan"] = int(value) if value.isdigit() else None
         elif k == "signal":
             current["signal"] = int(value) if value.isdigit() else None
         elif k == "security":
@@ -229,12 +240,23 @@ async def scan_networks() -> list[dict]:
 
     _flush()  # save the last record
 
-    return sorted(networks, key=lambda n: n.get("signal") or 0, reverse=True)
+    # Keep the strongest BSSID per (ssid, band) pair.
+    best: dict[tuple[str, str], dict] = {}
+    for n in raw:
+        key = (n["ssid"], n["band"])
+        if key not in best or (n.get("signal") or 0) > (best[key].get("signal") or 0):
+            best[key] = n
+
+    return sorted(best.values(), key=lambda n: n.get("signal") or 0, reverse=True)
 
 
-async def connect_network(ssid: str, password: str) -> tuple[bool, str]:
+async def connect_network(ssid: str, password: str, bssid: str | None = None) -> tuple[bool, str]:
     """
     Connect wlan1 to a WiFi network, creating a new profile for it.
+
+    bssid pins the connection to a specific radio when the SSID broadcasts
+    on both bands (e.g. OHeck 2.4GHz vs 5GHz) — without it nmcli picks
+    whichever BSSID it prefers, which is exactly the ambiguity this is for.
 
     Like switch_profile, this writes an override marker so the
     prefer-starlink dispatcher doesn't immediately undo the change.
@@ -248,10 +270,14 @@ async def connect_network(ssid: str, password: str) -> tuple[bool, str]:
     except OSError:
         pass
 
+    args = ["sudo", "nmcli", "device", "wifi", "connect", ssid,
+            "password", password, "ifname", IFACE]
+    if bssid:
+        args += ["bssid", bssid]
+
     try:
         proc = await asyncio.create_subprocess_exec(
-            "sudo", "nmcli", "device", "wifi", "connect", ssid,
-            "password", password, "ifname", IFACE,
+            *args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
         )

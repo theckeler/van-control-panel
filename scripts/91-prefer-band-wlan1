@@ -1,0 +1,86 @@
+#!/bin/bash
+# NetworkManager dispatcher: keep wlan1's OHeck connection on whichever band
+# actually has a usable signal.
+#
+# OHeck broadcasts the same SSID on 2.4GHz and 5GHz. oheck-wlan1's
+# 802-11-wireless.band setting pins it to one or the other — NM does not
+# roam between bands (or BSSIDs) on its own once connected, same sticky
+# behavior as the Starlink/OHeck uplink choice 90-prefer-starlink handles.
+# Confirmed live 2026-09-01: band pinned to 5GHz at -72dBm while the same
+# router's 2.4GHz radio sat at -61dBm a few feet away, unused.
+#
+# Preference: 5GHz when it's actually good, 2.4GHz otherwise. Only touches
+# oheck-wlan1 — starlink-wlan1 is a single-band dish router, not ambiguous.
+#
+# Install:
+#   sudo install -o root -g root -m 755 91-prefer-band-wlan1 \
+#        /etc/NetworkManager/dispatcher.d/91-prefer-band-wlan1
+
+IFACE="$1"
+ACTION="$2"
+
+PROFILE="oheck-wlan1"
+SSID="OHeck"
+STATE="/run/prefer-band-wlan1.last"
+COOLDOWN=180
+
+case "$ACTION" in
+    up|dhcp4-change)
+        [ "$IFACE" = "wlan1" ] || exit 0
+        ;;
+    connectivity-change)
+        [ -z "$IFACE" ] || [ "$IFACE" = "wlan1" ] || exit 0
+        ;;
+    *)
+        exit 0
+        ;;
+esac
+
+ACTIVE=$(nmcli -t -f NAME,DEVICE connection show --active 2>/dev/null \
+         | awk -F: '$2=="wlan1"{print $1}')
+[ "$ACTIVE" = "$PROFILE" ] || exit 0   # only steer OHeck, not Starlink
+
+# A manual band pick from the dashboard writes an expiry timestamp here,
+# same mechanism as prefer-starlink's override — otherwise a deliberate
+# choice gets reverted on the next dispatcher event.
+OVERRIDE="/tmp/prefer-band-wlan1.override"
+if [ -f "$OVERRIDE" ]; then
+    UNTIL=$(cat "$OVERRIDE" 2>/dev/null || echo 0)
+    if [ "$(date +%s)" -lt "$UNTIL" ] 2>/dev/null; then
+        exit 0
+    fi
+    rm -f "$OVERRIDE"
+fi
+
+if [ -f "$STATE" ]; then
+    LAST=$(cat "$STATE" 2>/dev/null || echo 0)
+    NOW=$(date +%s)
+    [ $((NOW - LAST)) -lt "$COOLDOWN" ] && exit 0
+fi
+
+CURRENT_BAND=$(nmcli -g 802-11-wireless.band connection show "$PROFILE" 2>/dev/null)
+
+# Strongest 5GHz signal currently visible for this SSID (channel > 14).
+BEST_5GHZ=$(nmcli -t -f SSID,CHAN,SIGNAL device wifi list --rescan auto 2>/dev/null \
+    | awk -F: -v ssid="$SSID" '$1==ssid && $2+0>14 {print $3}' | sort -rn | head -1)
+
+WANT_BAND="bg"
+# nmcli SIGNAL is 0-100 (%), not dBm — this is the field the OHeck-only
+# override endpoint (network.py's connect_network) also has to work with,
+# so it stays a percent threshold rather than converting through dBm.
+GOOD_5GHZ_PCT=55
+if [ -n "$BEST_5GHZ" ] && [ "$BEST_5GHZ" -ge "$GOOD_5GHZ_PCT" ] 2>/dev/null; then
+    WANT_BAND="a"
+fi
+
+[ "$CURRENT_BAND" = "$WANT_BAND" ] && exit 0
+
+date +%s > "$STATE"
+logger -t prefer-band-wlan1 "OHeck band mismatch (on $CURRENT_BAND, want $WANT_BAND, 5GHz signal ${BEST_5GHZ:-none}%) — switching"
+nmcli connection modify "$PROFILE" 802-11-wireless.band "$WANT_BAND" \
+    && nmcli connection down "$PROFILE" >/dev/null 2>&1 \
+    && nmcli connection up "$PROFILE" >/dev/null 2>&1 \
+    && logger -t prefer-band-wlan1 "switched to $WANT_BAND" \
+    || logger -t prefer-band-wlan1 "switch to $WANT_BAND failed"
+
+exit 0

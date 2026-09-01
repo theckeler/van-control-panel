@@ -189,6 +189,8 @@ export interface WifiNetwork {
   ssid: string;
   signal: number | null;
   security: string | null;
+  band: string | null;
+  bssid: string | null;
 }
 
 export interface DiskImageStatus {
