@@ -712,6 +712,33 @@ layer that sees all networks equally. Rename the machine in the admin console
 network and from anywhere. Ugly `*.ts.net` name is the only downside, and the
 rename fixes that.
 
+### Resolved 2026-09-01: `http://van-pi` is the one URL, and it stays local
+
+This is now the single URL used for everything. Two things had to be true for
+it to work everywhere, and both are now in place:
+
+1. **The hotspot has internet** (via the `wlan1`→`wlan0` NAT — see the
+   internet-sharing entry). Tailscale needs a coordination path to establish
+   connections; before the NAT was restored, `van-pi` couldn't resolve on the
+   isolated hotspot. With internet on the hotspot, it does.
+
+2. **Same-network traffic routes directly, not through the internet.**
+   Verified: `tailscale ping van-pi` from a device on the same network as the
+   Pi returns `pong from van-pi via 192.168.1.206:41641` — the Pi's *local*
+   IP, not a Tailscale relay. 8ms, a local hop. So on OHeck, Starlink, or the
+   hotspot, `van-pi` traffic stays on the local network and never leaves it,
+   even though the name is resolved via Tailscale.
+
+**The honest caveat:** Tailscale discovers that direct local path via its
+coordination servers, which need internet. Once established the direct route
+persists even if internet drops. A true cold start with *never any* internet
+could fail to establish initially — but since the hotspot now always has
+internet, coordination always succeeds and direct local routing kicks in.
+In practice: `van-pi` works everywhere and is fast/local when you're near the
+Pi. If you're ever fully off-grid with a freshly-booted everything and it
+won't resolve, fall back to `http://10.42.0.1` (hotspot) or
+`http://van-pi.local` (OHeck/Starlink), which need no coordination at all.
+
 ---
 
 ## Tailscale not connecting
