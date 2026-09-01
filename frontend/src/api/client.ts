@@ -24,8 +24,8 @@ import { mockApi } from "./mock";
 
 const BASE = "/api";
 
-async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`);
+async function get<T>(path: string, opts?: { signal?: AbortSignal }): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, { signal: opts?.signal });
   if (!res.ok) throw new Error(`API error ${res.status}: ${path}`);
   return res.json();
 }
@@ -114,7 +114,8 @@ const realApi = {
     get: () => get<SystemData>("/system/"),
     health: () => get<PiHealth>("/system/health-detail"),
     wifiProfiles: () => get<WifiProfile[]>("/system/wifi/profiles"),
-    wifiScan: () => get<WifiNetwork[]>("/system/wifi/scan"),
+    wifiScan: (opts?: { signal?: AbortSignal }) =>
+      get<WifiNetwork[]>("/system/wifi/scan", opts),
     wifiConnect: (ssid: string, password: string, bssid?: string) =>
       post<{ ok: boolean; message: string }>("/system/wifi/connect", {
         ssid,

@@ -3,7 +3,6 @@ import { useModalBehavior } from "../../hooks/useModalBehavior";
 import { useVanStore } from "../../store/van";
 import { WifiScanCard } from "../cards/WifiScanCard";
 import { Button, Label } from "../ui";
-export { NetworkDetailsDrawer as WifiDetailsDrawer };
 
 function Row({
   label,
@@ -40,7 +39,7 @@ function Row({
  * the same rows. Room to grow: this is "the wifi settings drawer" for
  * whatever else needs adding later (hotspot password, static IP, etc.).
  */
-export function NetworkDetailsDrawer({
+export function WifiDetailsDrawer({
   open,
   onClose,
 }: {
@@ -50,7 +49,6 @@ export function NetworkDetailsDrawer({
   const panelRef = useModalBehavior(open, onClose);
   const system = useVanStore((s) => s.system);
   const hotspot = useVanStore((s) => s.hotspot);
-  // const ethernet = useVanStore((s) => s.ethernet);
 
   if (!open) return null;
 
@@ -142,7 +140,6 @@ export function NetworkDetailsDrawer({
             value={system?.eth0_connected ? "on" : "off"}
             tone={system?.eth0_connected ? undefined : "warn"}
           />
-          {/* <Row label="IP" value={ethernet?.ip ?? "—"} /> */}
         </section>
 
         <section>
