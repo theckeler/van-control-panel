@@ -1,10 +1,11 @@
 import clsx from "clsx";
-import { Fragment, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { api } from "../../api/client";
 import { toast } from "../../store/toast";
 import { useVanStore } from "../../store/van";
 import type { WifiNetwork } from "../../types";
 import { Label } from "../ui";
+import { ProgressModal } from "../modals/ProgressModal";
 
 function SignalBars({ signal }: { signal: number | null }) {
   const pct = signal ?? 0;
@@ -24,13 +25,16 @@ export function WifiScanCard() {
   const [password, setPassword] = useState("");
   const [connecting, setConnecting] = useState(false);
   const fetchAll = useVanStore((s) => s.fetchAll);
+  const abortRef = useRef<AbortController | null>(null);
 
   async function doScan() {
     setScanning(true);
     setSelected(null);
     setPassword("");
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
-      const results = await api.system.wifiScan();
+      const results = await api.system.wifiScan({ signal: controller.signal });
       setNetworks(results);
       toast[results.length ? "success" : "info"](
         results.length
@@ -38,12 +42,24 @@ export function WifiScanCard() {
           : "No networks found",
       );
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        // Cancel button — this is the expected path, not a failure.
+        return;
+      }
       toast.error(
         `Scan failed — ${err instanceof Error ? err.message : String(err)}`,
       );
     } finally {
       setScanning(false);
+      abortRef.current = null;
     }
+  }
+
+  function cancelScan() {
+    // Genuinely aborts the in-flight request — scan is read-only, so there
+    // is nothing on the Pi side to revert. See ProgressModal's PR notes for
+    // why connect does NOT get the same treatment.
+    abortRef.current?.abort();
   }
 
   async function doConnect() {
@@ -81,13 +97,20 @@ export function WifiScanCard() {
 
   return (
     <div>
+      <ProgressModal
+        open={scanning}
+        title="Scanning for networks"
+        message="Rescanning wlan1 — takes a few seconds"
+        onCancel={cancelScan}
+      />
+
       <button
         type="button"
         disabled={scanning}
         onClick={doScan}
         className="w-full text-xs  px-4 py-3 rounded border border-gray-800 text-gray-800 disabled:opacity-50"
       >
-        {scanning ? "Scanning…" : "Scan for networks"}
+        Scan for networks
         <span className="block text-[10px] text-black mt-0.5">
           Shows nearby networks
         </span>
