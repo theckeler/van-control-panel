@@ -208,4 +208,6 @@ export interface SystemData {
   band: string | null;
   wifi_signal_dbm: number | null;
   wifi_ip: string | null;
+  /** True when an Ethernet cable is plugged into the wired rescue port. */
+  eth0_connected: boolean;
 }

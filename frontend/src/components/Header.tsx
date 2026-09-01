@@ -1,4 +1,5 @@
 import { WifiBadge } from "./WifiBadge";
+import { EthBadge } from "./EthBadge";
 import { Button } from "./ui";
 
 export function Header({
@@ -32,7 +33,10 @@ export function Header({
               {lastUpdated.toLocaleTimeString()}
             </div>
           )}
-          <WifiBadge className="block" />
+          <div className="flex items-center justify-end gap-2">
+            <EthBadge />
+            <WifiBadge className="block" />
+          </div>
         </div>
         <Button
           variant="ghost"

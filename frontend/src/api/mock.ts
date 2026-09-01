@@ -532,6 +532,7 @@ export const mockApi = {
         band: "5GHz",
         wifi_signal_dbm: -54,
         wifi_ip: "10.0.0.42",
+        eth0_connected: false,
       });
     },
     health: () =>

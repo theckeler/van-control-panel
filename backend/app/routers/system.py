@@ -293,6 +293,9 @@ class SystemData(BaseModel):
     wifi_signal_dbm: int | None = None
     wifi_ip: str | None = None
 
+    # Wired rescue port: True when an Ethernet cable is plugged in and linked.
+    eth0_connected: bool = False
+
 
 @router.get("/", response_model=SystemData)
 async def get_system():
@@ -412,12 +415,14 @@ async def get_system():
     # Cheap: network.get_wifi() caches for 15s, so polling /system/ every
     # 5s does not spawn a subprocess every time.
     wifi = await network.get_wifi()
+    eth0 = await network.get_eth0()
 
     return SystemData(
         ssid=wifi["ssid"],
         band=wifi["band"],
         wifi_signal_dbm=wifi["signal_dbm"],
         wifi_ip=wifi["ip"],
+        eth0_connected=eth0["connected"],
         net_power_w=battery_power_w,
         solar_watts=round(solar_watts, 1),
         load_watts=load_watts,
