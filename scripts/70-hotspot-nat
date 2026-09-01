@@ -1,0 +1,30 @@
+#!/bin/bash
+# NetworkManager dispatcher: restore hotspot internet-sharing NAT.
+#
+# The VanControlPanel/TwitchWiFi hotspot on wlan0 shares wlan1's internet
+# via NAT. These rules live only in the kernel and are wiped by any reboot
+# or hotspot recreation -- which is exactly how internet-sharing silently
+# broke (2026-09-01). This reinstates them whenever wlan0 comes up as the AP.
+#
+# Idempotent: -C checks before -A so re-runs don't stack duplicates.
+#
+# Install:
+#   sudo install -o root -g root -m 755 70-hotspot-nat \
+#        /etc/NetworkManager/dispatcher.d/70-hotspot-nat
+
+IFACE="$1"
+ACTION="$2"
+
+HOTSPOT_SUBNET="10.42.0.0/24"
+UPLINK="wlan1"
+
+if [ "$ACTION" = "up" ] && [ "$IFACE" = "wlan0" ]; then
+  echo 1 > /proc/sys/net/ipv4/ip_forward
+  iptables -t nat -C POSTROUTING -s "$HOTSPOT_SUBNET" -o "$UPLINK" -j MASQUERADE 2>/dev/null \
+    || iptables -t nat -A POSTROUTING -s "$HOTSPOT_SUBNET" -o "$UPLINK" -j MASQUERADE
+  iptables -C FORWARD -i wlan0 -o "$UPLINK" -j ACCEPT 2>/dev/null \
+    || iptables -A FORWARD -i wlan0 -o "$UPLINK" -j ACCEPT
+  iptables -C FORWARD -i "$UPLINK" -o wlan0 -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null \
+    || iptables -A FORWARD -i "$UPLINK" -o wlan0 -m state --state RELATED,ESTABLISHED -j ACCEPT
+  logger -t hotspot-nat "restored hotspot NAT: $HOTSPOT_SUBNET via $UPLINK"
+fi
