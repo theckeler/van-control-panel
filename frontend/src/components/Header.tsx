@@ -15,7 +15,7 @@ export function Header({
   setSettingsOpen: (open: boolean) => void;
 }) {
   return (
-    <header className="flex items-center justify-between pt-6">
+    <header className="flex items-center justify-between pt-4">
       <h1 className="text-lg  font-bold text-black tracking-tight">
         {(isDemo && "Demo Van") || vanName}
         {isDemo && (

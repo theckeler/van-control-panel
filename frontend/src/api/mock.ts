@@ -161,7 +161,7 @@ function jitter(v: number, pct = 0.015): number {
 let shellys: ShellyUnit[] = [
   {
     id: "usb",
-    label: "USB Outlets",
+    label: "USB",
     on: true,
     ip: "shelly-usb.local",
     installed: true,
@@ -170,10 +170,26 @@ let shellys: ShellyUnit[] = [
   {
     id: "garage",
     label: "Garage",
-    on: false,
+    on: true,
     ip: "shelly-garage.local",
     installed: true,
     reachable: true,
+  },
+  {
+    id: "roof",
+    label: "Roof",
+    on: false,
+    ip: "shelly-roof.local",
+    installed: true,
+    reachable: true,
+  },
+  {
+    id: "side",
+    label: "Side",
+    on: false,
+    ip: "shelly-side.local",
+    installed: true,
+    reachable: false,
   },
 ];
 
