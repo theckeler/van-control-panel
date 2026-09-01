@@ -9,7 +9,7 @@ import { Button, Label } from "../ui";
 function SignalBars({ signal }: { signal: number | null }) {
   const pct = signal ?? 0;
   const tone =
-    pct >= 70 ? "text-zinc-300" : pct >= 45 ? "text-amber-400" : "text-red-400";
+    pct >= 70 ? "text-black" : pct >= 45 ? "text-black/75" : "text-black/50";
   return (
     <span className={clsx("text-[10px]  tabular-nums", tone)}>
       {signal != null ? `${signal}%` : "—"}
@@ -115,7 +115,7 @@ export function WifiScanDrawer({
           type="button"
           disabled={scanning}
           onClick={doScan}
-          className="w-full text-xs  px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+          className="w-full text-xs  px-4 py-3 rounded border border-gray-800 text-gray-800"
         >
           {scanning ? "Scanning…" : "Scan for networks"}
           <span className="block text-[10px] text-black mt-0.5">
@@ -143,28 +143,17 @@ export function WifiScanDrawer({
                       setPassword("");
                     }}
                     className={clsx(
-                      "w-full text-[11px]  px-3 py-2 rounded border text-left transition-colors",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface",
-                      isSelected
-                        ? "bg-accent border-accent text-zinc-100"
-                        : "border-panel-border text-zinc-400 hover:border-zinc-500 hover:text-zinc-200",
+                      "w-full text-xs px-3 py-2 rounded border text-left border-gray-800 text-black",
+                      isSelected ? "bg-lime-200" : "",
                     )}
                   >
                     <span className="flex items-center justify-between">
                       <span className="flex items-center gap-2">
                         <span>{n.ssid}</span>
-                        {n.band && (
-                          <span className="text-[10px]  text-zinc-500">
-                            {n.band}
-                          </span>
-                        )}
+                        {n.band && <span>{n.band}</span>}
                       </span>
                       <span className="flex items-center gap-2">
-                        {n.security && (
-                          <span className="text-[10px]  text-black">
-                            {n.security}
-                          </span>
-                        )}
+                        {n.security && <span>{n.security}</span>}
                         <SignalBars signal={n.signal} />
                       </span>
                     </span>
@@ -193,18 +182,18 @@ export function WifiScanDrawer({
                   if (e.key === "Enter" && password) doConnect();
                 }}
                 autoComplete="new-password"
-                className="w-full text-[11px]  px-3 py-2 mb-2 rounded border border-panel-border bg-transparent text-zinc-300 placeholder-zinc-600 focus:outline-none focus:border-zinc-500 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+                className="w-full px-3 py-2 mb-2 rounded border border-gray-800 bg-transparent text-zinc-300 placeholder-gray-400"
               />
             )}
             <button
               type="button"
               disabled={connecting || (needsPassword && !password)}
               onClick={doConnect}
-              className="w-full text-xs  px-4 py-3 rounded border border-accent bg-accent text-white text-left disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+              className="w-full text-xs  px-4 py-3 rounded border border-accent bg-amber-600 text-black font-bold text-left"
             >
               {connecting ? "Connecting…" : `Connect to ${selected.ssid}`}
             </button>
-            <p className="text-[10px]  text-black leading-relaxed mt-2">
+            <p className="text-[10px] text-black leading-relaxed mt-2">
               Connecting drops the Pi's LAN address. The dashboard reconnects
               over Tailscale; on the LAN you may need to rejoin the new network.
             </p>

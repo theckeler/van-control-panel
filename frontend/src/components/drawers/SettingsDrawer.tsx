@@ -7,7 +7,7 @@ import { useVanStore } from "../../store/van";
 import type { BackupStatus, DiskImageStatus, PiHealth } from "../../types";
 import { HistoryCard } from "../cards/HistoryCard";
 import { Button, Label } from "../ui";
-import { WifiDetailsDrawer } from "./WifiDetailsDrawer";
+import { WifiDetailsDrawer } from "./NetworkDetailsDrawer";
 
 function fmtUptime(s: number) {
   const d = Math.floor(s / 86400);
@@ -59,7 +59,7 @@ export function SettingsDrawer({
   const [downloading, setDownloading] = useState(false);
   const [wifiDetailsOpen, setWifiDetailsOpen] = useState(false);
   const [imageStatus, setImageStatus] = useState<DiskImageStatus | null>(null);
-  const [imageBusy, setImageBusy] = useState(false);
+  // const [imageBusy, setImageBusy] = useState(false);
 
   async function doDownload() {
     setDownloading(true);
@@ -88,43 +88,43 @@ export function SettingsDrawer({
       setDownloading(false);
     }
   }
-
-  async function doCreateImage() {
-    setImageBusy(true);
-    try {
-      const r = await api.system.diskImageStart();
-      if (!r.ok) {
-        toast.error(r.message);
-      } else {
-        setImageStatus({
-          state: "running",
-          bytes_written: 0,
-          filename: null,
-          error: null,
-        });
-      }
-    } catch (err) {
-      toast.error(
-        `Failed to start — ${err instanceof Error ? err.message : String(err)}`,
-      );
-    } finally {
-      setImageBusy(false);
-    }
-  }
-
-  async function doCancelImage() {
-    setImageBusy(true);
-    try {
-      await api.system.diskImageCancel();
-      setImageStatus(null);
-    } catch (err) {
-      toast.error(
-        `Cancel failed — ${err instanceof Error ? err.message : String(err)}`,
-      );
-    } finally {
-      setImageBusy(false);
-    }
-  }
+  //
+  //   async function doCreateImage() {
+  //     setImageBusy(true);
+  //     try {
+  //       const r = await api.system.diskImageStart();
+  //       if (!r.ok) {
+  //         toast.error(r.message);
+  //       } else {
+  //         setImageStatus({
+  //           state: "running",
+  //           bytes_written: 0,
+  //           filename: null,
+  //           error: null,
+  //         });
+  //       }
+  //     } catch (err) {
+  //       toast.error(
+  //         `Failed to start — ${err instanceof Error ? err.message : String(err)}`,
+  //       );
+  //     } finally {
+  //       setImageBusy(false);
+  //     }
+  //   }
+  //
+  //   async function doCancelImage() {
+  //     setImageBusy(true);
+  //     try {
+  //       await api.system.diskImageCancel();
+  //       setImageStatus(null);
+  //     } catch (err) {
+  //       toast.error(
+  //         `Cancel failed — ${err instanceof Error ? err.message : String(err)}`,
+  //       );
+  //     } finally {
+  //       setImageBusy(false);
+  //     }
+  //   }
 
   const battery = useVanStore((s) => s.battery);
   const releaseBms = useVanStore((s) => s.releaseBms);
@@ -310,17 +310,6 @@ export function SettingsDrawer({
             value={system?.ssid ?? "not connected"}
             tone={system?.ssid ? undefined : "bad"}
           />
-
-          <button
-            type="button"
-            onClick={() => setWifiDetailsOpen(true)}
-            className="mt-3 w-full text-xs  px-4 py-3 rounded border border-gray-800 text-gray-900"
-          >
-            WiFi settings
-            <span className="block text-[10px] text-black mt-0.5">
-              Signal, IP, hotspot status, connect to a new network
-            </span>
-          </button>
         </section>
 
         <section>
@@ -355,21 +344,9 @@ export function SettingsDrawer({
               tone="warn"
             />
           )}
-
-          <button
-            type="button"
-            disabled={downloading}
-            onClick={doDownload}
-            className="mt-3 w-full text-xs  px-4 py-3 rounded border border-gray-800 text-gray-900"
-          >
-            {downloading ? "Preparing…" : "Download database"}
-            <span className="block text-[10px] text-black mt-0.5">
-              Gzipped snapshot. Readings only, no credentials
-            </span>
-          </button>
         </section>
 
-        <section>
+        {/* <section>
           <Label as="h3" className="block mb-2">
             SD Image
           </Label>
@@ -398,7 +375,7 @@ export function SettingsDrawer({
             type="button"
             disabled={imageBusy || imageStatus?.state === "running"}
             onClick={doCreateImage}
-            className="mt-3 w-full text-xs  px-4 py-3 rounded border border-gray-800 text-gray-900"
+            className="mt-3 w-full text-sm px-4 py-3 rounded border border-gray-800 text-gray-900"
           >
             {imageStatus?.state === "running"
               ? "Creating image…"
@@ -412,7 +389,7 @@ export function SettingsDrawer({
             <a
               href={api.system.diskImageUrl()}
               download={imageStatus.filename ?? "van-pi.img.gz"}
-              className="mt-2 block w-full text-xs  px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+              className="mt-2 block w-full text-sm px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
             >
               Download image
               <span className="block text-[11px] text-black mt-0.5">
@@ -427,7 +404,7 @@ export function SettingsDrawer({
               type="button"
               disabled={imageBusy}
               onClick={doCancelImage}
-              className="mt-1 w-full text-xs  px-4 py-2 rounded border border-panel-border text-gray-800 hover:text-red-400 hover:border-red-800 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+              className="mt-1 w-full text-sm px-4 py-2 rounded border border-panel-border text-gray-800 hover:text-red-400 hover:border-red-800 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
             >
               {imageStatus.state === "running" ? "Cancel" : "Delete image"}
               <span className="block text-[11px] text-black mt-0.5">
@@ -437,17 +414,40 @@ export function SettingsDrawer({
               </span>
             </button>
           )}
-        </section>
+        </section> */}
 
         <section className="flex flex-col gap-2 mt-auto">
           <Label as="h3" className="block mb-1">
-            Controls
+            OPtions
           </Label>
 
           <button
             type="button"
+            onClick={() => setWifiDetailsOpen(true)}
+            className="w-full text-sm px-4 py-3 rounded border border-gray-800 text-gray-900"
+          >
+            WiFi settings
+            <span className="block text-[10px] text-black mt-0.5">
+              Signal, IP, hotspot status, connect to a new network
+            </span>
+          </button>
+
+          <button
+            type="button"
+            disabled={downloading}
+            onClick={doDownload}
+            className="w-full text-sm px-4 py-3 rounded border border-gray-800 text-gray-900"
+          >
+            {downloading ? "Preparing…" : "Download database"}
+            <span className="block text-[10px] text-black mt-0.5">
+              Gzipped snapshot. Readings only, no credentials
+            </span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => (released ? connectBms() : releaseBms())}
-            className="w-full text-xs  px-4 py-3 rounded border border-gray-800 text-gray-900"
+            className="w-full text-sm px-4 py-3 rounded border border-gray-800 text-gray-900"
           >
             {released ? "Reconnect BMS" : "Release BMS"}
             <span className="block text-[11px] text-black mt-0.5">
@@ -460,7 +460,7 @@ export function SettingsDrawer({
           <button
             type="button"
             onClick={onPower}
-            className="w-full text-xs  px-4 py-3 rounded border border-amber-800 bg-amber-400 text-black font-bold"
+            className="w-full px-4 py-3 rounded border border-amber-800 bg-amber-400 text-black font-bold"
           >
             Power options
           </button>

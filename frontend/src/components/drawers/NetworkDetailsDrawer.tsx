@@ -1,9 +1,9 @@
 import clsx from "clsx";
-import { useState } from "react";
 import { useModalBehavior } from "../../hooks/useModalBehavior";
 import { useVanStore } from "../../store/van";
+import { WifiScanCard } from "../cards/WifiScanCard";
 import { Button, Label } from "../ui";
-import { WifiScanDrawer } from "./WifiScanDrawer";
+export { NetworkDetailsDrawer as WifiDetailsDrawer };
 
 function Row({
   label,
@@ -40,7 +40,7 @@ function Row({
  * the same rows. Room to grow: this is "the wifi settings drawer" for
  * whatever else needs adding later (hotspot password, static IP, etc.).
  */
-export function WifiDetailsDrawer({
+export function NetworkDetailsDrawer({
   open,
   onClose,
 }: {
@@ -50,7 +50,7 @@ export function WifiDetailsDrawer({
   const panelRef = useModalBehavior(open, onClose);
   const system = useVanStore((s) => s.system);
   const hotspot = useVanStore((s) => s.hotspot);
-  const [wifiScanOpen, setWifiScanOpen] = useState(false);
+  // const ethernet = useVanStore((s) => s.ethernet);
 
   if (!open) return null;
 
@@ -119,17 +119,6 @@ export function WifiDetailsDrawer({
             }
           />
           <Row label="IP" value={system?.wifi_ip ?? "—"} />
-
-          <button
-            type="button"
-            onClick={() => setWifiScanOpen(true)}
-            className="mt-3 w-full text-xs  px-4 py-3 rounded border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
-          >
-            Connect to new WiFi
-            <span className="block text-[10px] text-black mt-0.5">
-              Scan for and join a new network
-            </span>
-          </button>
         </section>
 
         <section>
@@ -143,12 +132,23 @@ export function WifiDetailsDrawer({
           />
           <Row label="Broadcasting" value={hotspot?.ssid ?? "—"} />
         </section>
-      </div>
 
-      <WifiScanDrawer
-        open={wifiScanOpen}
-        onClose={() => setWifiScanOpen(false)}
-      />
+        <section>
+          <Label as="h3" className="block mb-2">
+            Ethernet (eth0)
+          </Label>
+          <Row
+            label="Status"
+            value={system?.eth0_connected ? "on" : "off"}
+            tone={system?.eth0_connected ? undefined : "warn"}
+          />
+          {/* <Row label="IP" value={ethernet?.ip ?? "—"} /> */}
+        </section>
+
+        <section>
+          <WifiScanCard />
+        </section>
+      </div>
     </div>
   );
 }

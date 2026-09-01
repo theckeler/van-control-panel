@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useVanStore } from "../store/van";
-import { WifiDetailsDrawer } from "./drawers/WifiDetailsDrawer";
+import { WifiDetailsDrawer } from "./drawers/NetworkDetailsDrawer";
 import { ConfirmModal } from "./modals/ConfirmModal";
 import { Panel, StatusDot } from "./ui";
 
