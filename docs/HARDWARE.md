@@ -1,5 +1,7 @@
 # Hardware Reference — Van Control Panel
 
+
+**Last updated:** 2026-08-27
 ## Vehicle
 
 **2023 Mercedes Sprinter VS30 AWD 144" High Roof** — cargo conversion.

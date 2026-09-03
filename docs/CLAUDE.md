@@ -1,5 +1,7 @@
 # CLAUDE.md — Van Control Panel
 
+
+**Last updated:** 2026-08-31
 Context file for Claude Code. Gives full project context so sessions don't require re-explaining the architecture.
 
 **Jump to:** [Quick Start](#quick-start) · [Workflow](#workflow) · [Recovery](#recovery) · [Auth](#auth) ·

@@ -1,5 +1,7 @@
 # Van Control Panel — Project Overview
 
+
+**Last updated:** 2026-08-22
 A Python FastAPI backend + React/TypeScript frontend dashboard for monitoring and controlling the van's 12V electrical system. Runs on a Raspberry Pi mounted in the van, accessible locally and remotely via Tailscale.
 
 Built as a real-world learning project for Python and as a portfolio piece demonstrating full-stack development with IoT hardware integration.

@@ -1,5 +1,7 @@
 # Rubber Duck Review — BLE Service Code Audit
 
+
+**Last updated:** 2026-08-27
 A code review session conducted after the BLE stack stabilised. Named after rubber duck debugging — the practice of explaining your code out loud (to a duck, a colleague, or an AI) to surface issues that aren't visible when you're heads-down writing.
 
 Reviewed files: `battery_ble.py`, `victron_ble.py`, `ble_orchestrator.py`, `system.py`, `main.py`

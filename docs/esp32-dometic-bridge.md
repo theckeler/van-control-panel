@@ -1,5 +1,7 @@
 # ESP32-S3 → Dometic CFX5 BLE Bridge — Setup Guide
 
+
+**Last updated:** 2026-08-31
 **Goal:** Get an ESP32-S3 talking to the Dometic CFX5 over BLE (bypassing the
 Pi's BlueZ stack, which can't hold a stable connection to it), publishing
 fridge state to `van-api` over WiFi like every other device.

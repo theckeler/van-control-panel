@@ -1,5 +1,7 @@
 # Van Control Panel — Portfolio
 
+
+**Last updated:** 2026-08-30
 ## Project Overview
 
 A fully self-hosted IoT monitoring and automation system for a converted 2023 Mercedes Sprinter VS30 AWD van. Built from the ground up combining React/TypeScript front-end development, Python backend engineering, Bluetooth hardware integration, and 12V electrical system design.

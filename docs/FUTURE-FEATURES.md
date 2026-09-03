@@ -1,5 +1,7 @@
 # Future Features
 
+
+**Last updated:** 2026-08-24
 This roadmap captures the next useful improvements for the Van Control Panel.
 The focus is reliability, visibility, and recoverable automation rather than
 adding hardware faster than the system can safely support it.

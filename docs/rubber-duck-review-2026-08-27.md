@@ -1,5 +1,7 @@
 # Rubber Duck Review — Dometic CFX5, EcoFlow Telemetry, Garmin PowerSwitch
 
+
+**Last updated:** 2026-08-27
 **Date:** 2026-08-27
 
 Three questions drove this session:

@@ -1,5 +1,7 @@
 # Van Control Panel
 
+
+**Last updated:** 2026-08-31
 > A self-hosted monitoring and control dashboard for a 2023 Mercedes Sprinter VS30 AWD 144" High Roof conversion.
 
 ![Stack](https://img.shields.io/badge/stack-React%20%2B%20FastAPI-orange)

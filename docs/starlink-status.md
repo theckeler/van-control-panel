@@ -1,5 +1,7 @@
 # Starlink Mini — Local Status on the Dashboard
 
+
+**Last updated:** 2026-08-27
 **Status:** implemented, not yet tested against the dish.
 
 `backend/app/services/starlink.py`, `/starlink/` and `/starlink/raw`,

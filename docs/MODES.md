@@ -1,5 +1,7 @@
 # Operating Modes — Van Control Panel
 
+
+**Last updated:** 2026-08-13
 Modes let you switch the van's behavior based on context — parked for storage, at a campsite, on the trail, or in town. Each mode adjusts camera capture intervals, Shelly automation, and (planned) notification behavior.
 
 ---

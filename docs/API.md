@@ -1,5 +1,7 @@
 # API Reference — Van Control Panel
 
+
+**Last updated:** 2026-08-30
 Base URL (local): `http://van-pi.local/api`
 Base URL (Tailscale): `http://van-pi.tailba93b9.ts.net/api`
 

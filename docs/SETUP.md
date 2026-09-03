@@ -1,5 +1,7 @@
 # Rebuilding the Pi from scratch
 
+
+**Last updated:** 2026-08-31
 Recovery checklist for a dead SD card or a fresh Pi. Written as an ordered
 walkthrough rather than a script, because several steps need a token, a
 password, or a decision that cannot be committed to the repo.

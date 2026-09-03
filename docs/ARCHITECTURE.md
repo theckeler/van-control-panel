@@ -1,5 +1,7 @@
 # Architecture — Van Control Panel
 
+
+**Last updated:** 2026-08-30
 ## Overview
 
 The system has three physical layers: the van's 12V electrical hardware, a Raspberry Pi 4B that reads and controls it, and a PWA dashboard that the user interacts with from any device on the local network or remotely via Tailscale.

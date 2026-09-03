@@ -1,5 +1,7 @@
 # Garmin PowerSwitch — Control Input Wiring and Test Plan
 
+
+**Last updated:** 2026-08-27
 **Status:** planning and bench-test guide. Nothing here is wired yet.
 
 **Related:** `rubber-duck-review-2026-08-27.md` Part 3 for why this path exists

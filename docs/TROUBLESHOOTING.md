@@ -1,5 +1,7 @@
 # Troubleshooting
 
+
+**Last updated:** 2026-09-01
 Common issues and their fixes for the Van Control Panel system.
 
 ---
