@@ -318,10 +318,22 @@ async def connect_network(ssid: str, password: str, bssid: str | None = None) ->
         # Clear a stale pin when reconnecting without one, or the profile
         # stays locked to a BSSID the user didn't pick this time.
         args += ["802-11-wireless.bssid", bssid or ""]
+        # Priority 75: below Starlink (100, still the preferred uplink when
+        # available) but above the old fixed fallback profiles like OHeck
+        # (50). Without this, a network connected on the road — a hostel,
+        # a coffee shop — sits at whatever priority it already had (often 0
+        # for a pre-existing low-priority profile), so if Starlink then
+        # drops, NM tries OHeck first even though it's hundreds of miles
+        # out of range, rather than the network actually in reach. This
+        # makes "last manually connected" the natural second choice, using
+        # NM's own reconnect-by-priority behavior rather than a separate
+        # history mechanism.
+        args += ["connection.autoconnect-priority", "75"]
     else:
         name = ssid
         args = ["sudo", "nmcli", "connection", "add", "type", "wifi",
-                "ifname", IFACE, "con-name", name, "ssid", ssid]
+                "ifname", IFACE, "con-name", name, "ssid", ssid,
+                "connection.autoconnect-priority", "75"]
         if password:
             args += ["wifi-sec.key-mgmt", "wpa-psk", "wifi-sec.psk", password]
         if bssid:
