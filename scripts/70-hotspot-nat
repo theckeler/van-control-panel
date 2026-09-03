@@ -1,12 +1,26 @@
 #!/bin/bash
-# NetworkManager dispatcher: restore hotspot internet-sharing NAT.
+# NetworkManager dispatcher: restore internet-sharing NAT AND static hostname
+# resolution for known local devices, both of which are only ever wiped
+# because they live in mutable state (kernel NAT rules, /etc/hosts) rather
+# than a config file NetworkManager itself manages.
 #
-# The VanControlPanel/TwitchWiFi hotspot on wlan0 shares wlan1's internet
-# via NAT. These rules live only in the kernel and are wiped by any reboot
-# or hotspot recreation -- which is exactly how internet-sharing silently
-# broke (2026-09-01). This reinstates them whenever wlan0 comes up as the AP.
+# Two things restored here, both confirmed 2026-09-03 to NOT survive a
+# reboot on their own:
 #
-# Idempotent: -C checks before -A so re-runs don't stack duplicates.
+# 1. NAT: wlan0 (hotspot, 10.42.0.0/24) and eth0 (wired rescue, 10.55.0.0/24)
+#    share wlan1's internet. Rules only ever existed live in the kernel --
+#    this is the SAME bug fixed once already for wlan0-only; eth0 support
+#    apparently didn't make it into this file's last deploy.
+#
+# 2. /etc/hosts: static entries for the Shellys and the ESP32 fridge bridge,
+#    pinned to their DHCP-reserved hotspot IPs (see known-devices.conf).
+#    Added earlier 2026-09-03 to bypass an avahi allow-interfaces
+#    restriction that broke mDNS resolution for devices living on wlan0 --
+#    but /etc/hosts itself did not survive a reboot, so the Shellys went
+#    dark again on the very next boot. This is why it kept recurring.
+#    Self-healing here instead of a one-time manual edit.
+#
+# Idempotent throughout: -C checks before -A, grep-check before appending.
 #
 # Install:
 #   sudo install -o root -g root -m 755 70-hotspot-nat \
@@ -15,16 +29,42 @@
 IFACE="$1"
 ACTION="$2"
 
-HOTSPOT_SUBNET="10.42.0.0/24"
 UPLINK="wlan1"
 
-if [ "$ACTION" = "up" ] && [ "$IFACE" = "wlan0" ]; then
+restore_nat() {
+  local iface="$1" subnet="$2"
   echo 1 > /proc/sys/net/ipv4/ip_forward
-  iptables -t nat -C POSTROUTING -s "$HOTSPOT_SUBNET" -o "$UPLINK" -j MASQUERADE 2>/dev/null \
-    || iptables -t nat -A POSTROUTING -s "$HOTSPOT_SUBNET" -o "$UPLINK" -j MASQUERADE
-  iptables -C FORWARD -i wlan0 -o "$UPLINK" -j ACCEPT 2>/dev/null \
-    || iptables -A FORWARD -i wlan0 -o "$UPLINK" -j ACCEPT
-  iptables -C FORWARD -i "$UPLINK" -o wlan0 -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null \
-    || iptables -A FORWARD -i "$UPLINK" -o wlan0 -m state --state RELATED,ESTABLISHED -j ACCEPT
-  logger -t hotspot-nat "restored hotspot NAT: $HOTSPOT_SUBNET via $UPLINK"
+  iptables -t nat -C POSTROUTING -s "$subnet" -o "$UPLINK" -j MASQUERADE 2>/dev/null \
+    || iptables -t nat -A POSTROUTING -s "$subnet" -o "$UPLINK" -j MASQUERADE
+  iptables -C FORWARD -i "$iface" -o "$UPLINK" -j ACCEPT 2>/dev/null \
+    || iptables -A FORWARD -i "$iface" -o "$UPLINK" -j ACCEPT
+  iptables -C FORWARD -i "$UPLINK" -o "$iface" -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null \
+    || iptables -A FORWARD -i "$UPLINK" -o "$iface" -m state --state RELATED,ESTABLISHED -j ACCEPT
+  logger -t hotspot-nat "restored NAT: $subnet ($iface) via $UPLINK"
+}
+
+restore_hosts() {
+  local marker="# van-control-panel: known local devices (managed by 70-hotspot-nat)"
+  grep -qF "$marker" /etc/hosts && return 0
+  {
+    echo "$marker"
+    echo "10.42.0.37   dometic-bridge.local"
+    echo "10.42.0.102  shelly1g4-d885acec6aac.local"
+    echo "10.42.0.215  shelly1g4-d885acf36a28.local"
+    echo "10.42.0.27   shelly1g4-98a31677ca34.local"
+    echo "10.42.0.26   shelly1g4-48f6eed0a89c.local"
+  } >> /etc/hosts
+  logger -t hotspot-nat "restored /etc/hosts entries for known local devices"
+}
+
+if [ "$ACTION" = "up" ]; then
+  case "$IFACE" in
+    wlan0)
+      restore_nat wlan0 "10.42.0.0/24"
+      restore_hosts
+      ;;
+    eth0)
+      restore_nat eth0 "10.55.0.0/24"
+      ;;
+  esac
 fi
