@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { api } from "../api/client";
-import type { Photo } from "../types";
-import { Panel } from "./ui";
+import { api } from "../../api/client";
+import type { Photo } from "../../types";
+import { Panel } from "../ui";
 
 const STORAGE_KEY = "van-camera-enabled";
 
@@ -43,14 +43,14 @@ export function Cameras({ className }: { className?: string }) {
       ) : enabled ? (
         <CameraPane photo={interiorLatest} />
       ) : (
-        <div className="flex items-center justify-center h-40 text-xs  text-black">
+        <div className="flex items-center justify-center h-40 text-xs text-black">
           Camera off
         </div>
       )}
       <button
         type="button"
         onClick={toggle}
-        className="w-full text-xs  px-4 py-3 rounded-lg border border-panel-border text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+        className="w-full text-xs px-4 py-3 rounded-lg border border-panel-border text-gray-600 hover:border-gray-500 hover:text-gray-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
       >
         {enabled ? "Turn camera off" : "Turn camera on"}
       </button>
@@ -61,7 +61,7 @@ export function Cameras({ className }: { className?: string }) {
 function Skeleton() {
   return (
     <div className="bg-panel-surface border border-panel-border rounded-xl overflow-hidden">
-      <div className="h-40 bg-zinc-800 animate-pulse" />
+      <div className="h-40 bg-gray-800 animate-pulse" />
     </div>
   );
 }
@@ -79,12 +79,12 @@ function CameraPane({ label, photo }: { label?: string; photo: Photo | null }) {
     <div className="bg-panel-surface border border-panel-border rounded-xl overflow-hidden">
       <div className="flex items-center justify-between border-b border-panel-border">
         {label && (
-          <span className="text-xs  text-gray-800 uppercase tracking-widest">
+          <span className="text-xs text-gray-800 uppercase tracking-widest">
             {label}
           </span>
         )}
         {photo && (
-          <span className="text-xs  text-black">
+          <span className="text-xs text-black">
             {formatCaptureTime(photo.timestamp)}
           </span>
         )}
@@ -97,12 +97,12 @@ function CameraPane({ label, photo }: { label?: string; photo: Photo | null }) {
           style={{ maxHeight: "280px" }}
         />
       ) : (
-        <div className="flex items-center justify-center h-40 text-xs  text-black">
+        <div className="flex items-center justify-center h-40 text-xs text-black">
           No photo available
         </div>
       )}
       {photo && (
-        <div className="text-xs  text-black text-center py-2 border-t border-panel-border">
+        <div className="text-xs text-black text-center py-2 border-t border-panel-border">
           Captured {formatCaptureTime(photo.timestamp)}
         </div>
       )}

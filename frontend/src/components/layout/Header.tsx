@@ -1,6 +1,6 @@
-import { WifiBadge } from "./WifiBadge";
-import { EthBadge } from "./EthBadge";
-import { Button } from "./ui";
+import { EthBadge } from "../badges/EthBadge";
+import { WifiBadge } from "../badges/WifiBadge";
+import { Button } from "../ui";
 
 export function Header({
   isDemo,
@@ -17,19 +17,19 @@ export function Header({
 }) {
   return (
     <header className="flex items-center justify-between pt-4">
-      <h1 className="text-lg  font-bold text-black tracking-tight">
+      <h1 className="text-lg font-bold text-black tracking-tight">
         {(isDemo && "Demo Van") || vanName}
         {isDemo && (
-          <span className="ml-2 px-1.5 py-0.5 text-[10px]  uppercase tracking-widest text-amber-500 border border-amber-500/40 rounded align-middle">
+          <span className="ml-2 px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-amber-500 border border-amber-500/40 rounded align-middle">
             demo
           </span>
         )}
       </h1>
       <div className="flex items-center gap-2">
         <div className="text-right">
-          {error && <div className="text-xs  text-red-500 mb-1">⚠ {error}</div>}
+          {error && <div className="text-xs text-red-500 mb-1">⚠ {error}</div>}
           {lastUpdated && (
-            <div className="text-xs  text-black">
+            <div className="text-xs text-black">
               {lastUpdated.toLocaleTimeString()}
             </div>
           )}

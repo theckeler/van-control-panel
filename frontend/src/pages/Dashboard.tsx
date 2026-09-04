@@ -1,18 +1,18 @@
 import { useState } from "react";
 import { isDemo } from "../api/client";
 import { BatteryCard } from "../components/cards/BatteryCard";
-// import { Cameras } from "../components/Cameras"; // disabled 2026-08-31 — needs ffmpeg, which OOM-crashed the Pi (1GB RAM) mid-install. Revisit before re-enabling.
+// import { Cameras } from "../components/cards/Cameras"; // disabled 2026-08-31 — needs ffmpeg, which OOM-crashed the Pi (1GB RAM) mid-install. Revisit before re-enabling.
 import { ChargeSourcesCard } from "../components/cards/ChargeSourcesCard";
 import { EcoflowCard } from "../components/cards/EcoflowCard";
 import { FridgeCard } from "../components/cards/FridgeCard";
 import { ShellyCard } from "../components/cards/ShellyCard";
 import { StarlinkCard } from "../components/cards/StarlinkCard";
+import { WifiCard } from "../components/cards/WifiCard";
 import { SettingsDrawer } from "../components/drawers/SettingsDrawer";
-import { Header } from "../components/Header";
+import { Header } from "../components/layout/Header";
 import { PowerModal } from "../components/modals/PowerModal";
-import { Toaster } from "../components/Toaster";
+import { Toaster } from "../components/layout/Toaster";
 import { Stack } from "../components/ui";
-import { WifiPanel } from "../components/WifiPanel";
 import { usePolling } from "../hooks/usePolling";
 import { useSettingsStore } from "../store/settings";
 import { useVanStore } from "../store/van";
@@ -27,7 +27,7 @@ export function Dashboard() {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
-    <Stack className="min-h-dvh bg-panel-bg text-zinc-100 max-w-2xl mx-auto items-stretch last:mb-8">
+    <Stack className="min-h-dvh bg-panel-bg text-gray-900 max-w-2xl mx-auto items-stretch last:mb-8">
       <PowerModal open={powerOpen} onClose={() => setPowerOpen(false)} />
       <Toaster />
 
@@ -40,14 +40,13 @@ export function Dashboard() {
       />
 
       <ShellyCard />
-      <WifiPanel />
+      <WifiCard />
       <BatteryCard />
       <ChargeSourcesCard />
       <EcoflowCard />
       <FridgeCard />
       <StarlinkCard />
       {/* <Cameras /> */}
-      {/* <ModeSelector /> */}
 
       <SettingsDrawer
         open={settingsOpen}

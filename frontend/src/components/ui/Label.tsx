@@ -10,14 +10,5 @@ export function Label({
   className?: string;
   children: React.ReactNode;
 }) {
-  return (
-    <Tag
-      className={clsx(
-        "text-xs  text-gray-800 uppercase tracking-widest",
-        className,
-      )}
-    >
-      {children}
-    </Tag>
-  );
+  return <Tag className={clsx("text-gray-800", className)}>{children}</Tag>;
 }

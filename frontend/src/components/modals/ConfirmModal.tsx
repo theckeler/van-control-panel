@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import { useModalBehavior } from "../../hooks/useModalBehavior";
+import { Button } from "../ui/Button";
 
 interface ConfirmModalProps {
   open: boolean;
@@ -45,7 +46,7 @@ export function ConfirmModal({
       >
         <h2
           id="confirm-modal-title"
-          className="text-sm  font-semibold text-zinc-100 mb-2"
+          className="text-sm font-semibold text-gray-900 mb-2"
         >
           {title}
         </h2>
@@ -56,24 +57,14 @@ export function ConfirmModal({
           {message}
         </p>
         <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 rounded border border-gray-800 text-gray-800"
-          >
-            {cancelLabel}
-          </button>
-          <button
-            type="button"
+          <Button onClick={onCancel}>{cancelLabel}</Button>
+          <Button
             onClick={onConfirm}
-            className={clsx(
-              "px-4 py-2 rounded transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface",
-              danger ? "bg-red-900" : "bg-amber-900",
-            )}
+            variant={danger ? "danger" : "ghost"}
+            className={clsx(!danger && "bg-amber-900 text-white")}
           >
             {confirmLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

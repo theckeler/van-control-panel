@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useVanStore } from "../store/van";
+import { useVanStore } from "../../store/van";
 
 /**
  * Which WiFi network the Pi is on.

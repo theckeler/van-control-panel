@@ -6,8 +6,8 @@ type Size = "icon" | "sm" | "md";
 
 const VARIANT: Record<Variant, string> = {
   outline: "border border-panel-border text-gray-800",
-  ghost: "border border-panel-border text-gray-800",
-  danger: "border bg-amber-900 text-white",
+  ghost: "border-transparent text-gray-800",
+  danger: "border bg-red-900 text-red-100",
 };
 
 const SIZE: Record<Size, string> = {
@@ -20,18 +20,36 @@ export function Button({
   variant = "outline",
   size = "md",
   className,
+  bold = false,
+  uppercase = false,
+  fullWidth,
   children,
   ...props
 }: {
   variant?: Variant;
   size?: Size;
   className?: string;
+  bold?: boolean;
+  uppercase?: boolean;
+  fullWidth?: boolean;
   children: React.ReactNode;
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  // Icon buttons default to hugging their content — an icon stretched to
+  // fill its row is always wrong. Explicit fullWidth still wins either way.
+  const isFullWidth = fullWidth ?? size !== "icon";
+
   return (
     <button
       type="button"
-      className={clsx("rounded", VARIANT[variant], SIZE[size], className)}
+      className={clsx(
+        "px-4 py-3 rounded border",
+        VARIANT[variant],
+        SIZE[size],
+        className,
+        bold && "font-bold",
+        uppercase && "uppercase",
+        isFullWidth && "w-full",
+      )}
       {...props}
     >
       {children}

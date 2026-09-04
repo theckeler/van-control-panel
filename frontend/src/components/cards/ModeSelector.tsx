@@ -1,5 +1,5 @@
-import { useVanStore } from "../store/van";
-import { Panel, SelectableTile } from "./ui";
+import { useVanStore } from "../../store/van";
+import { Panel, SelectableTile } from "../ui";
 
 export function ModeSelector({ className }: { className?: string }) {
   const mode = useVanStore((s) => s.mode);
@@ -21,7 +21,7 @@ export function ModeSelector({ className }: { className?: string }) {
             onClick={() => setMode(m)}
             className="text-center"
           >
-            <div className="text-xs  capitalize">{m.replace("_", " ")}</div>
+            <div className="text-xs capitalize">{m.replace("_", " ")}</div>
           </SelectableTile>
         ))}
       </div>

@@ -1,45 +1,16 @@
-import clsx from "clsx";
 import { useModalBehavior } from "../../hooks/useModalBehavior";
 import { useVanStore } from "../../store/van";
-import { WifiScanCard } from "../cards/WifiScanCard";
-import { Button, Label } from "../ui";
-
-function Row({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone?: "warn" | "bad";
-}) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 py-1.5 border-b border-panel-border/50 last:border-0">
-      <span className="text-[11px]  text-gray-800">{label}</span>
-      <span
-        className={clsx(
-          "text-[11px]  tabular-nums",
-          tone === "bad"
-            ? "text-red-400"
-            : tone === "warn"
-              ? "text-amber-400"
-              : "text-zinc-300",
-        )}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
+import { Button, Label, Row } from "../ui";
+import { WifiScanCard } from "./WifiScanCard";
 
 /**
  * The WiFi settings surface — network detail for both radios plus the entry
- * point to scan/connect. Opened from WifiPanel's Uplink row and from
+ * point to scan/connect. Opened from WifiCard's Uplink row and from
  * SettingsDrawer, so there's one place for this instead of two copies of
  * the same rows. Room to grow: this is "the wifi settings drawer" for
  * whatever else needs adding later (hotspot password, static IP, etc.).
  */
-export function WifiDetailsDrawer({
+export function NetworkDetailsDrawer({
   open,
   onClose,
 }: {
@@ -75,6 +46,7 @@ export function WifiDetailsDrawer({
             size="icon"
             onClick={onClose}
             aria-label="Close"
+            fullWidth={false}
           >
             <svg
               viewBox="0 0 24 24"
@@ -131,18 +103,7 @@ export function WifiDetailsDrawer({
           <Row label="Broadcasting" value={hotspot?.ssid ?? "—"} />
         </section>
 
-        <section>
-          <Label as="h3" className="block mb-2">
-            Ethernet (eth0)
-          </Label>
-          <Row
-            label="Status"
-            value={system?.eth0_connected ? "on" : "off"}
-            tone={system?.eth0_connected ? undefined : "warn"}
-          />
-        </section>
-
-        <section>
+        <section className="flex-1 min-h-0">
           <WifiScanCard />
         </section>
       </div>

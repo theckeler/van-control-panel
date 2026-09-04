@@ -54,13 +54,13 @@ export function FridgeCard({ className }: { className?: string }) {
         <div className="text-right">
           <div
             className={clsx(
-              "text-sm  font-semibold",
+              "text-sm font-semibold",
               reachable ? "text-charge-dc" : "text-gray-800",
             )}
           >
             {fridge.temp_f != null ? `${fridge.temp_f.toFixed(1)}°F` : "—"}
           </div>
-          <div className="text-xs  text-black">
+          <div className="text-xs text-black">
             {fridge.set_temp_f != null
               ? `Set to ${fridge.set_temp_f.toFixed(1)}°F`
               : hasCache
@@ -91,7 +91,7 @@ export function FridgeCard({ className }: { className?: string }) {
 function CardSkeleton() {
   return (
     <div className="bg-panel-surface border border-panel-border rounded-xl p-5 animate-pulse">
-      <div className="text-xs  text-black uppercase tracking-widest mb-4">
+      <div className="text-xs text-black uppercase tracking-widest mb-4">
         Fridge
       </div>
       <div className="h-12 bg-panel-bg rounded-lg" />

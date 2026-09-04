@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useVanStore } from "../store/van";
+import { useVanStore } from "../../store/van";
 
 /**
  * Wired rescue-port indicator: a dot that's green when an Ethernet cable is
