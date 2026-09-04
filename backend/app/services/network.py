@@ -266,7 +266,19 @@ async def scan_networks() -> list[dict]:
         if key not in best or (n.get("signal") or 0) > (best[key].get("signal") or 0):
             best[key] = n
 
-    return sorted(best.values(), key=lambda n: n.get("signal") or 0, reverse=True)
+    # wlan1 (the uplink radio) can physically see wlan0's own hotspot
+    # broadcasting, since they're two radios in the same box. Offering
+    # "connect the uplink to the Pi's own hotspot" is meaningless — filter
+    # it out. Read the configured SSID dynamically, same as get_hotspot(),
+    # rather than hardcoding a name that's already been changed once.
+    hotspot_raw = await _run(
+        "nmcli", "-t", "-f", "802-11-wireless.ssid", "connection", "show", HOTSPOT_CONNECTION
+    )
+    _, _, hotspot_ssid = hotspot_raw.strip().partition(":")
+    hotspot_ssid = hotspot_ssid or HOTSPOT_CONNECTION
+
+    results = [n for n in best.values() if n["ssid"] != hotspot_ssid]
+    return sorted(results, key=lambda n: n.get("signal") or 0, reverse=True)
 
 
 async def _find_profile_for_ssid(ssid: str) -> str | None:
