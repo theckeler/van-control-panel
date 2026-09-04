@@ -122,6 +122,44 @@ drive the system either. Implement incrementally:
 The UI should show exactly what a mode changed and provide temporary overrides
 without silently rewriting the selected mode.
 
+### Pre-switch checklist (discussed 2026-09-04, not built)
+
+A gate, not just a reminder: switching into a mode with a configured
+checklist opens a modal with checkboxes (reuse `<Modal>`), and the actual
+`POST /mode/{name}` only fires once every item is checked. Nothing
+persisted — the checked state resets every time the modal opens, it's a
+one-time gate per switch, not a to-do list.
+
+Born from real mistakes: things left on the roof, gear left on the ground
+near the van, the rear window left open — each learned the hard way, per
+Todd.
+
+**Which modes get one is genuinely mode-dependent, decided by whether that
+mode has a config entry, not hardcoded to a fixed set.** At minimum
+`trail` and `storage` (leaving the van unattended for a while), but also
+`in_town` — a 30 min–2 hr lunch/sightseeing stop turns out to carry the
+same "about to walk away" risk as trail does. `camp` is the one mode
+where you're not going anywhere, so it's the natural default to leave
+without an entry.
+
+Config: a plain JSON file (sibling to `mode.json`, not `.env` — not a
+secret, but still hand-edited directly on the Pi, no admin UI for
+managing entries), keyed by target mode:
+
+```json
+{
+  "trail":   ["Chair put away", "Check ground around van for left items", "Check roof/tires for things placed on top", "Rear window closed"],
+  "storage": ["Chair put away", "Check ground around van for left items", "Check roof/tires for things placed on top", "Rear window closed"],
+  "in_town": ["Chair put away", "Check ground around van for left items", "Rear window closed"]
+}
+```
+
+A mode with no key (or an empty list) skips the checklist entirely — purely
+config-driven, no code change needed to add/remove which modes gate on one.
+
+Depends on the "wire `ModeSelector` back into `Dashboard.tsx`" prerequisite
+above — same piece of work, not worth splitting into two passes.
+
 ## Priority 6: Improve Power History and Diagnostics
 
 - Graph net battery power over time.
