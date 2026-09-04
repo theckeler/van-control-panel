@@ -7,7 +7,7 @@ import { useVanStore } from "../../store/van";
 import type { BackupStatus, PiHealth } from "../../types";
 import { HistoryCard } from "../cards/HistoryCard";
 import { Button, Label } from "../ui";
-import { WifiDetailsDrawer } from "./NetworkDetailsDrawer";
+import { NetworkDetailsDrawer } from "./NetworkDetailsDrawer";
 
 function fmtUptime(s: number) {
   const d = Math.floor(s / 86400);
@@ -30,7 +30,7 @@ function Row({
       <span className="text-[11px] text-gray-800">{label}</span>
       <span
         className={clsx(
-          "text-[11px]  tabular-nums",
+          "text-[11px] tabular-nums",
           tone === "bad"
             ? "text-red-400"
             : tone === "warn"
@@ -238,7 +238,7 @@ export function SettingsDrawer({
               )}
             </>
           ) : (
-            <div className="text-[11px]  text-black">unavailable</div>
+            <div className="text-[11px] text-black">unavailable</div>
           )}
         </section>
 
@@ -292,55 +292,42 @@ export function SettingsDrawer({
             Options
           </Label>
 
-          <button
-            type="button"
-            onClick={() => setWifiDetailsOpen(true)}
-            className="w-full text-sm px-4 py-3 rounded border border-gray-800 text-gray-900"
-          >
+          <Button onClick={() => setWifiDetailsOpen(true)}>
             WiFi settings
             <span className="block text-[10px] text-black mt-0.5">
               Signal, IP, hotspot status, connect to a new network
             </span>
-          </button>
+          </Button>
 
-          <button
-            type="button"
-            disabled={downloading}
-            onClick={doDownload}
-            className="w-full text-sm px-4 py-3 rounded border border-gray-800 text-gray-900"
-          >
+          <Button disabled={downloading} onClick={doDownload}>
             {downloading ? "Preparing…" : "Download database"}
             <span className="block text-[10px] text-black mt-0.5">
               Gzipped snapshot. Readings only, no credentials
             </span>
-          </button>
+          </Button>
 
-          <button
-            type="button"
-            onClick={() => (released ? connectBms() : releaseBms())}
-            className="w-full text-sm px-4 py-3 rounded border border-gray-800 text-gray-900"
-          >
+          <Button onClick={() => (released ? connectBms() : releaseBms())}>
             {released ? "Reconnect BMS" : "Release BMS"}
             <span className="block text-[11px] text-black mt-0.5">
               {released
                 ? "Resume monitoring from the Pi"
                 : "Free the Bluetooth link for the Power Queen app"}
             </span>
-          </button>
+          </Button>
 
-          <button
-            type="button"
+          <Button
             onClick={onPower}
-            className="w-full px-4 py-3 rounded border border-amber-800 bg-amber-400 text-black font-bold"
+            className="border-amber-800 bg-amber-400 text-black"
+            bold
           >
             Power options
-          </button>
+          </Button>
         </section>
 
         <HistoryCard />
       </div>
 
-      <WifiDetailsDrawer
+      <NetworkDetailsDrawer
         open={wifiDetailsOpen}
         onClose={() => setWifiDetailsOpen(false)}
       />

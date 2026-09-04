@@ -1,11 +1,11 @@
 import clsx from "clsx";
-import type { ToastKind } from "../store/toast";
-import { useToastStore } from "../store/toast";
+import type { ToastKind } from "../../store/toast";
+import { useToastStore } from "../../store/toast";
 
 const STYLES: Record<ToastKind, string> = {
   success: "bg-emerald-950/90 border-emerald-800 text-emerald-300",
   error: "bg-red-950/90 border-red-800 text-red-300",
-  info: "bg-zinc-900/90 border-panel-border text-zinc-300",
+  info: "bg-gray-900/90 border-panel-border text-gray-300",
 };
 
 const GLYPH: Record<ToastKind, string> = {

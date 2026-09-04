@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useVanStore } from "../store/van";
-import { WifiDetailsDrawer } from "./drawers/NetworkDetailsDrawer";
-import { ConfirmModal } from "./modals/ConfirmModal";
-import { Panel, StatusDot } from "./ui";
+import { useVanStore } from "../../store/van";
+import { NetworkDetailsDrawer } from "../drawers/NetworkDetailsDrawer";
+import { ConfirmModal } from "../modals/ConfirmModal";
+import { Button, Panel, StatusDot } from "../ui";
 
 function NetworkInfoIcon() {
   return (
@@ -24,7 +24,7 @@ function NetworkInfoIcon() {
   );
 }
 
-export function WifiPanel({ className }: { className?: string }) {
+export function WifiCard({ className }: { className?: string }) {
   const system = useVanStore((s) => s.system);
   const hotspot = useVanStore((s) => s.hotspot);
   const toggleHotspot = useVanStore((s) => s.toggleHotspot);
@@ -53,7 +53,7 @@ export function WifiPanel({ className }: { className?: string }) {
         <div className="flex items-center justify-between rounded-lg p-3 border bg-panel-bg border-panel-border">
           <div className="flex items-center gap-3">
             <StatusDot on={hotspotOn} tone="success" />
-            <div className="text-sm  font-semibold text-charge-dc">
+            <div className="text-sm font-semibold text-charge-dc">
               {hotspotOn ? (hotspot?.ssid ?? "on") : "off"}
             </div>
           </div>
@@ -71,22 +71,22 @@ export function WifiPanel({ className }: { className?: string }) {
         <div className="flex items-center justify-between rounded-lg p-3 border bg-panel-bg border-panel-border">
           <div className="flex items-center gap-3">
             <StatusDot on={uplinkOn} tone="success" />
-            <div className="text-sm  font-semibold text-charge-dc">
+            <div className="text-sm font-semibold text-charge-dc">
               {system?.ssid ?? "not connected"}
             </div>
           </div>
-          <button
+          <Button
             type="button"
             onClick={() => setDetailsOpen(true)}
             aria-label="WiFi network details"
-            className="rounded p-1.5 border border-gray-800 text-black"
+            fullWidth={false}
           >
             <NetworkInfoIcon />
-          </button>
+          </Button>
         </div>
       </div>
 
-      <WifiDetailsDrawer
+      <NetworkDetailsDrawer
         open={detailsOpen}
         onClose={() => setDetailsOpen(false)}
       />

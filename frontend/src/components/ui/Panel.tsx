@@ -1,5 +1,5 @@
-import React from "react";
 import clsx from "clsx";
+import React from "react";
 import { useSettingsStore } from "../../store/settings";
 
 export function Panel({
@@ -36,7 +36,10 @@ export function Stack({
   const px = `${gap * 4}px`;
 
   return (
-    <div className={clsx("flex flex-col", className)} style={{ padding: px, gap: px }}>
+    <div
+      className={clsx("flex flex-col", className)}
+      style={{ padding: px, gap: px }}
+    >
       {children}
     </div>
   );

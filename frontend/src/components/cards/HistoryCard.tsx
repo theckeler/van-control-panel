@@ -14,7 +14,7 @@ import {
 import colors from "tailwindcss/colors";
 import { useVisibleInterval } from "../../hooks/useVisibleInterval";
 import { useVanStore } from "../../store/van";
-import { Panel } from "../ui";
+import { Panel, SelectableTile } from "../ui";
 
 type Tab = "soc" | "solar";
 
@@ -111,19 +111,20 @@ export function HistoryCard({ className }: { className?: string }) {
   return (
     <Panel className={className}>
       <div className="flex items-center justify-between mb-4">
-        <span className="text-xs  text-gray-800 uppercase tracking-widest">
+        <span className="text-xs text-gray-800 uppercase tracking-widest">
           History
         </span>
         <div className="flex gap-1">
           {(["soc", "solar"] as Tab[]).map((t) => (
-            <button
+            <SelectableTile
               key={t}
+              selected={tab === t}
               onClick={() => setTab(t)}
               className={clsx(
-                "text-xs  px-3 py-1 rounded-md transition-colors",
+                "text-xs px-3 py-1 rounded-md transition-colors",
                 tab === t
-                  ? "bg-zinc-700 text-zinc-100"
-                  : "text-gray-800 hover:text-zinc-300",
+                  ? "bg-gray-700 text-white"
+                  : "text-gray-800 hover:text-gray-900",
               )}
             >
               {t === "soc"
@@ -131,13 +132,13 @@ export function HistoryCard({ className }: { className?: string }) {
                 : hasDailyData
                   ? "Solar 30d"
                   : "Solar today"}
-            </button>
+            </SelectableTile>
           ))}
         </div>
       </div>
 
       {!historyLoaded ? (
-        <div className="h-32 flex items-center justify-center text-black  text-sm animate-pulse">
+        <div className="h-32 flex items-center justify-center text-black text-sm animate-pulse">
           Loading...
         </div>
       ) : tab === "soc" ? (
@@ -269,7 +270,7 @@ export function HistoryCard({ className }: { className?: string }) {
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="h-40 flex items-center justify-center text-black  text-xs text-center px-4">
+    <div className="h-40 flex items-center justify-center text-black text-xs text-center px-4">
       {message}
     </div>
   );

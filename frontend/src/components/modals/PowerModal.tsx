@@ -1,7 +1,6 @@
-import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
-import { useModalBehavior } from "../../hooks/useModalBehavior";
+import { Button, Modal, Spinner } from "../ui";
 
 type Action = "reboot" | "shutdown";
 type Phase = "pick" | "confirm" | "acting" | "offline" | "back";
@@ -112,183 +111,106 @@ export function PowerModal({ open, onClose }: PowerModalProps) {
   // Escape only where there is something sensible to return to. Mid-reboot or
   // mid-shutdown the Pi is already going down, so dismissing would just hide
   // the status without stopping anything.
-  const dismissible = phase === "pick" || phase === "confirm";
-  const dialogRef = useModalBehavior(
-    open,
-    dismissible ? handleClose : undefined,
-  );
+  // const dismissible = phase === "pick" || phase === "confirm";
+  // const dialogRef = useModalBehavior(
+  //   open,
+  //   dismissible ? handleClose : undefined,
+  // );
 
   if (!open) return null;
   const act = action ?? "reboot";
 
-  const dialogLabel =
-    phase === "pick"
-      ? "Power options"
-      : phase === "confirm" && action
-        ? COPY[action].confirm.title
-        : COPY[act].acting;
+  // const dialogLabel =
+  //   phase === "pick"
+  //     ? "Power options"
+  //     : phase === "confirm" && action
+  //       ? COPY[action].confirm.title
+  //       : COPY[act].acting;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={phase === "pick" ? handleClose : undefined}
-        aria-hidden="true"
-      />
+    <Modal open={open} className="gap-2 justify-stretch">
+      {phase === "pick" && (
+        <>
+          <h2 className="font-semibold text-black">Power options</h2>
 
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={dialogLabel}
-        tabIndex={-1}
-        className="relative bg-panel-surface border border-panel-border rounded-xl p-6 w-full max-w-sm shadow-xl focus:outline-none"
-      >
-        {/* PICK */}
-        {phase === "pick" && (
-          <>
-            <h2 className="text-sm  font-semibold text-zinc-100 mb-1">
-              Power options
-            </h2>
-            <p className="text-gray-800 mb-5">
-              Choose an action for the Raspberry Pi.
-            </p>
-            <div className="flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => handleAction("reboot")}
-                className="w-full px-4 py-3 rounded border border-gray-900 text-gray-900"
-              >
-                ↺ Reboot
-              </button>
-              <button
-                type="button"
-                onClick={() => handleAction("shutdown")}
-                className="w-full px-4 py-3 rounded bg-red-900 text-red-100"
-              >
-                ⏻ Shut Down
-              </button>
-              <button
-                type="button"
-                onClick={handleClose}
-                className="w-full px-4 py-3 rounded border border-gray-800 text-gray-800"
-              >
-                Cancel
-              </button>
-            </div>
-          </>
-        )}
+          <p className="text-gray-800">
+            Choose an action for the Raspberry Pi.
+          </p>
 
-        {/* CONFIRM */}
-        {phase === "confirm" && action && (
-          <>
-            <h2 className="text-sm  font-semibold text-zinc-100 mb-2">
-              {COPY[action].confirm.title}
-            </h2>
-            <p className="text-xs  text-zinc-400 leading-relaxed mb-6">
-              {COPY[action].confirm.body}
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                type="button"
-                onClick={() => setPhase("pick")}
-                className="text-xs  px-4 py-2 rounded border border-panel-border text-zinc-400 hover:text-zinc-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirm}
-                className={clsx(
-                  "text-xs  px-4 py-2 rounded border transition-colors",
-                  action === "shutdown"
-                    ? "bg-red-900/60 hover:bg-red-800/60 text-red-300 border-red-800"
-                    : "bg-amber-900/60 hover:bg-amber-800/60 text-amber-300 border-amber-800",
-                )}
-              >
-                {action === "reboot" ? "↺ Reboot" : "⏻ Shut Down"}
-              </button>
-            </div>
-          </>
-        )}
-
-        {/* ACTING / OFFLINE / BACK */}
-        {(phase === "acting" || phase === "offline" || phase === "back") && (
-          <div className="flex flex-col items-center gap-4 py-2">
-            {phase === "acting" && (
-              <>
-                <Spinner />
-                <p className="text-xs  text-zinc-400">
-                  {COPY[act].acting}
-                  <Dots />
-                </p>
-              </>
-            )}
-            {phase === "offline" && act === "reboot" && (
-              <>
-                <Spinner />
-                <p className="text-xs  text-zinc-400 text-center">
-                  {COPY[act].offline}
-                  <Dots />
-                </p>
-              </>
-            )}
-            {phase === "offline" && act === "shutdown" && (
-              <>
-                <span className="text-2xl">⏻</span>
-                <p className="text-xs  text-zinc-400 text-center">
-                  {COPY[act].offline}
-                </p>
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="text-xs  px-4 py-2 rounded border border-panel-border text-zinc-400 hover:text-zinc-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
-                >
-                  Close
-                </button>
-              </>
-            )}
-            {phase === "back" && (
-              <>
-                <span className="text-2xl text-lime-600">✓</span>
-                <p className="text-xs  text-lime-600">{COPY[act].back}</p>
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="text-xs  px-4 py-2 rounded border border-panel-border text-zinc-400 hover:text-zinc-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
-                >
-                  Close
-                </button>
-              </>
-            )}
+          <div className="flex flex-col gap-2 w-full">
+            <Button onClick={() => handleAction("reboot")}>↺ Reboot</Button>
+            <Button
+              onClick={() => handleAction("shutdown")}
+              variant="danger"
+            >
+              ⏻ Shut Down
+            </Button>
+            <Button onClick={handleClose}>Cancel</Button>
           </div>
-        )}
-      </div>
-    </div>
-  );
-}
+        </>
+      )}
 
-function Spinner() {
-  return (
-    <svg
-      className="w-8 h-8 animate-spin text-black"
-      viewBox="0 0 24 24"
-      fill="none"
-    >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="3"
-      />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-      />
-    </svg>
+      {/* CONFIRM */}
+      {phase === "confirm" && action && (
+        <>
+          <h2 className="font-semibold text-black">
+            {COPY[action].confirm.title}
+          </h2>
+          <p className="text-black">{COPY[action].confirm.body}</p>
+          <div className="flex flex-col gap-2 w-full">
+            <Button onClick={() => setPhase("pick")}>Back</Button>
+            <Button onClick={handleConfirm} variant="danger">
+              {action === "reboot" ? "↺ Reboot" : "⏻ Shut Down"}
+            </Button>
+          </div>
+        </>
+      )}
+
+      {/* ACTING / OFFLINE / BACK */}
+      {(phase === "acting" || phase === "offline" || phase === "back") && (
+        <div className="flex flex-col items-center gap-4 py-2">
+          {phase === "acting" && (
+            <>
+              <Spinner />
+              <p className="text-gray-600">
+                {COPY[act].acting}
+                <Dots />
+              </p>
+            </>
+          )}
+          {phase === "offline" && act === "reboot" && (
+            <>
+              <Spinner />
+              <p className="text-gray-600 text-center">
+                {COPY[act].offline}
+                <Dots />
+              </p>
+            </>
+          )}
+          {phase === "offline" && act === "shutdown" && (
+            <>
+              <span className="text-2xl">⏻</span>
+              <p className="text-gray-600 text-center">{COPY[act].offline}</p>
+              <Button
+                onClick={handleClose}
+                className="hover:text-gray-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+              >
+                Close
+              </Button>
+            </>
+          )}
+          {phase === "back" && (
+            <>
+              <span className="text-2xl text-lime-600">✓</span>
+              <p className="text-lime-600">{COPY[act].back}</p>
+              <Button onClick={handleClose}>
+                Close
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+    </Modal>
   );
 }
 

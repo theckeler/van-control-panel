@@ -4,13 +4,12 @@ import { Label, Panel, SelectableTile, StatusDot } from "../ui";
 export function ShellyCard({ className }: { className?: string }) {
   const shellys = useVanStore((s) => s.shellys);
   const toggleShelly = useVanStore((s) => s.toggleShelly);
-
   const installed = shellys.filter((u) => u.installed !== false);
 
   return (
     <Panel className={className}>
       {!installed.length ? (
-        <div className="text-xs  text-black">Loading circuits...</div>
+        <div className="text-xs text-black">Loading circuits...</div>
       ) : (
         <div className="grid grid-cols-2 gap-2">
           {installed.map((unit) => {
@@ -27,7 +26,7 @@ export function ShellyCard({ className }: { className?: string }) {
               >
                 <div className="flex items-center justify-between">
                   <Label
-                    className={`text-lg font-bold ${unit.on ? "text-white/100" : "text-gray-400"}`}
+                    className={`truncate text-lg font-bold ${unit.on ? "text-white/100" : "text-gray-400"}`}
                   >
                     {unit.label}
                   </Label>

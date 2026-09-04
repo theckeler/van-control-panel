@@ -95,11 +95,11 @@ export function BatteryCard({ className }: { className?: string }) {
       />
       {isOffline && !hasCache ? (
         <div className="flex flex-col gap-1 py-2">
-          <span className="text-xs  text-amber-500">
+          <span className="text-xs text-amber-500">
             ○ offline — no data yet
           </span>
           {countdown !== null && countdown > 0 && (
-            <span className="text-xs  text-black">
+            <span className="text-xs text-black">
               connecting in {formatCountdown(countdown)}
             </span>
           )}
@@ -118,7 +118,7 @@ export function BatteryCard({ className }: { className?: string }) {
         <>
           <div className="flex items-end justify-between">
             <div
-              className={clsx("text-4xl  font-bold tracking-tight", socColor)}
+              className={clsx("text-4xl font-bold tracking-tight", socColor)}
             >
               {battery.soc.toFixed(1)}
               <span className="text-2xl ml-1">%</span>
@@ -138,7 +138,7 @@ export function BatteryCard({ className }: { className?: string }) {
               </span>
 
               {isOffline && battery.last_seen && (
-                <span className="text-xs  text-black">
+                <span className="text-xs text-black">
                   last seen {formatLastSeen(battery.last_seen)}
                 </span>
               )}
@@ -147,7 +147,7 @@ export function BatteryCard({ className }: { className?: string }) {
                 !isReleased &&
                 countdown !== null &&
                 countdown > 0 && (
-                  <span className="text-xs  text-black">
+                  <span className="text-xs text-black">
                     retry in {formatCountdown(countdown)}
                   </span>
                 )}
@@ -208,7 +208,7 @@ function Stat({
   return (
     <div className="bg-panel-bg rounded" style={{ padding: `${pad}px` }}>
       <div
-        className={clsx("text-center text-sm  font-semibold", {
+        className={clsx("text-center text-sm font-semibold", {
           "text-charge-solar": highlight === "charge",
           "text-soc-low": highlight === "draw",
           "text-gray-800": !highlight,
