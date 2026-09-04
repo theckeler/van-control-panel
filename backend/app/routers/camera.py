@@ -57,7 +57,9 @@ async def _apply_tuning(cam: str, device: str) -> None:
     if controls:
         await asyncio.sleep(0.4)
 
-async def _capture(cam: str) -> dict:
+async def capture(cam: str) -> dict:
+    """Capture one frame for `cam`. Called from the routes below and from
+    services/camera_loop.py's periodic background capture."""
     device = DEVICE_MAP.get(cam)
     if not device or not os.path.exists(device):
         raise HTTPException(status_code=503, detail=f"{cam} camera not connected")
@@ -123,11 +125,13 @@ def get_photos(camera: str, limit: int = 20) -> list[dict]:
 @router.get("/latest")
 async def get_latest(cam: str = "interior"):
     """Get most recent photo for a camera. Only one camera exists today
-    (interior, /dev/video0), so this captures fresh rather than serving a
-    stale file — there's no background capture loop yet."""
+    (interior, /dev/video0). Captures fresh on every call rather than
+    trusting the background loop's last frame — the loop's interval can be
+    minutes long, and a request for "latest" should mean now, not whenever
+    the loop last happened to run."""
     if cam not in ("interior", "exterior"):
         raise HTTPException(status_code=400, detail="cam must be interior or exterior")
-    return await _capture(cam)
+    return await capture(cam)
 
 @router.get("/recent")
 async def get_recent(cam: str = "interior", limit: int = 20):
@@ -141,4 +145,4 @@ async def trigger_capture(cam: str = "interior"):
     """Trigger an on-demand capture (e.g. from Shelly motion event)."""
     if cam not in ("interior", "exterior"):
         raise HTTPException(status_code=400, detail="cam must be interior or exterior")
-    return await _capture(cam)
+    return await capture(cam)

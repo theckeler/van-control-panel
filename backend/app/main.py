@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from app.routers import battery, mppt, shore, orion, shelly, camera, mode, system, ecoflow, starlink, dometic
-from app.services import ble_orchestrator, data_logger, db
+from app.services import ble_orchestrator, camera_loop, data_logger, db
 from app.services import starlink as starlink_service
 from app.services import dometic as dometic_service
 from app.config import settings
@@ -23,6 +23,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(data_logger.run()),
         asyncio.create_task(starlink_service.run()),
         asyncio.create_task(dometic_service.run()),
+        asyncio.create_task(camera_loop.run()),
     ]
     yield
     for task in tasks:
