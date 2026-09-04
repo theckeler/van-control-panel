@@ -1,7 +1,7 @@
 # Troubleshooting
 
 
-**Last updated:** 2026-09-01
+**Last updated:** 2026-09-04
 Common issues and their fixes for the Van Control Panel system.
 
 ---
@@ -12,11 +12,34 @@ Common issues and their fixes for the Van Control Panel system.
 
 - Battery card shows `○ offline` or `○ offline — no data yet`
 - `/battery/` endpoint returns `connected: false`
-- Journal shows repeated `BMS: — retrying in 300s`
+- Journal *should* show repeated `BMS: ... — retrying in 300s`, but as of
+  2026-09-04 this line has never actually been observed in `journalctl` —
+  see the logging gap noted below. Don't treat its absence as evidence the
+  BMS isn't attempting to reconnect.
 
 ### Cause
 
 The Power Queen BMS firmware has a lockout mechanism. If too many rapid BLE connection attempts are made in a short period, the BMS enters a state where it advertises normally but rejects (or ignores) all incoming connections. This is most commonly triggered by repeated `van-api` restarts during development.
+
+**Observed variant, 2026-09-04: a single hung connection attempt, not a
+lockout.** `/battery/` sat at `connected: false, last_seen: null` for ~9
+hours straight after a routine `van-api` restart — not the rapid-retry
+pattern above, just one connection attempt that never completed, never
+raised, and never hit the 300s retry path at all (confirmed via
+`mppt`/`ecoflow` staying connected the whole time — this wasn't an
+adapter-wide problem). **Fix was the same either way: `sudo systemctl
+restart van-api`** cleared it and the BMS reconnected within about a minute.
+Genuinely no BMS-specific log line appeared before or after the fix — see
+below.
+
+**Known gap, not yet fixed: `battery_ble.py`'s logging never reaches
+journald.** The code logs clearly at every stage (`logger.info`/
+`logger.warning` — service start, connect, every read, every failure) but
+none of it shows up in `journalctl -u van-api`, at any log level. This is
+*why* the 9-hour outage above went unnoticed — there was no log signal, only
+silence. The fastest way to actually check BMS state right now is
+`curl -s http://127.0.0.1:8000/battery/ | python3 -m json.tool` on the Pi,
+not the journal.
 
 **Observed variant, 2026-08-27: not advertising at all, not just refusing
 connections.** After an unusually heavy stretch of development — many
@@ -156,7 +179,19 @@ sudo iwconfig wlan1 power off
 
 Note: this resets on reboot/reconnect unless made persistent (see below).
 
-**To make power management off persistent across reboots**, add a systemd service or NetworkManager dispatcher rule — not yet set up as of this writing.
+**This is already fixed persistently, per-connection** — no dispatcher
+needed. `CLAUDE.md`'s Networking section has the applied-and-verified fix:
+
+```bash
+sudo nmcli connection modify starlink-wlan1 802-11-wireless.powersave 2
+sudo nmcli connection modify oheck-wlan1 802-11-wireless.powersave 2
+```
+
+(`2` is the enum for disabled — note the dot in `802-11-wireless.powersave`,
+not a hyphen.) If you're seeing `Power Management:on` again despite this,
+check whether the profile you're actually on has this set — a network
+connected on the road via the dashboard's WiFi scan (a hostel, a coffee
+shop) won't have it unless applied separately.
 
 **If neither helps**, consider a USB WiFi adapter with an external antenna. The Pi's onboard WiFi chip is known to be mediocre in marginal signal conditions.
 

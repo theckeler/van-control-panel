@@ -1,7 +1,7 @@
 # Future Features
 
 
-**Last updated:** 2026-08-24
+**Last updated:** 2026-09-04
 This roadmap captures the next useful improvements for the Van Control Panel.
 The focus is reliability, visibility, and recoverable automation rather than
 adding hardware faster than the system can safely support it.
@@ -16,7 +16,13 @@ way to recover from failure.
 These changes should come before adding more control surfaces or integrations.
 
 - Make authentication fail closed in production when `VAN_PASSWORD`,
-  `VAN_SESSION_SECRET`, or `VAN_API_KEY` is missing.
+  `VAN_SESSION_SECRET`, or `VAN_API_KEY` is missing. **Note the direct
+  contradiction with `CLAUDE.md`'s Auth section**, which documents the
+  current fail-open behavior as *deliberate*: "an unset key fails open so a
+  bad deploy cannot lock you out of the van." Same tradeoff for
+  `VAN_PASSWORD`. This needs an actual decision, not just a code change —
+  fail-closed is more secure but risks locking out the only person who can
+  fix it, on a system that's sometimes unattended in the woods.
 - Keep any local-development authentication bypass behind an explicit setting.
 - Verify Shelly HTTP response status before reporting a relay operation as
   successful.
@@ -103,8 +109,10 @@ to the event log with its source and result.
 
 ## Priority 5: Make Operating Modes Real
 
-The current modes are persisted and displayed, but they do not yet drive the
-system. Implement them incrementally:
+The current mode *selection* is persisted (`backend/mode.json`), but it
+isn't displayed anywhere in the UI right now — `ModeSelector.tsx` is fully
+built and store-wired but not rendered in `Dashboard.tsx` — and it doesn't
+drive the system either. Implement incrementally:
 
 - **Storage:** reduce camera activity and turn off selected nonessential loads.
 - **Camp:** normal monitoring and manual relay control.
@@ -143,10 +151,16 @@ WiFi details, Pi health, service status, and a way to copy a diagnostic report.
 
 Once the existing control paths are hardened, consider:
 
-- an ESP32 bridge for Dometic CFX5 monitoring;
-- actual shore-power detection;
+- ~~an ESP32 bridge for Dometic CFX5 monitoring~~ — done, live since
+  2026-08-27 (`services/dometic.py`, `/dometic/`, `FridgeCard.tsx`). Writing
+  to the fridge (set temp, on/off) is not built yet — the fork supports it,
+  deliberately not added while the BLE connection was still proving out
+- shore-power detection beyond the current BMS/MPPT delta inference (see
+  `docs/API.md`'s Shore Power section) — real VE.Direct telemetry needs a cable
 - smart Orion charger telemetry after a hardware upgrade;
-- camera capture and retention policies;
+- camera capture and retention policies — there's no capture loop or
+  retention policy of any kind yet, every photo is on-demand and
+  `backend/photos/` grows unpruned;
 - door, hatch, motion, or cabinet-temperature sensors; and
 - a physical local emergency control independent of the web UI.
 

@@ -1,7 +1,7 @@
 # Architecture — Van Control Panel
 
 
-**Last updated:** 2026-08-30
+**Last updated:** 2026-09-04
 ## Overview
 
 The system has three physical layers: the van's 12V electrical hardware, a Raspberry Pi 4B that reads and controls it, and a PWA dashboard that the user interacts with from any device on the local network or remotely via Tailscale.
@@ -66,28 +66,29 @@ src/
 │
 ├── store/van.ts           Zustand store
 │                          Single source of truth for all van data
-│                          fetchAll() uses Promise.allSettled — partial
-│                          failures don't block the rest
+│                          fetchAll() uses Promise.allSettled across ten
+│                          endpoints — partial failures don't block the rest
 │
 ├── hooks/usePolling.ts    Calls fetchAll() on mount + every 5s
-│                          Each page that needs live data mounts this
+│                          Dashboard mounts this once
 │
 ├── types/index.ts         TypeScript interfaces mirroring
 │                          FastAPI Pydantic models exactly
 │
 ├── components/            Presentational — read from Zustand, no local state
-│   ├── BatteryCard        SOC % large display, color coded, bar, stats
-│   ├── ChargeSourcesCard  Solar / Shore / Orion status rows
-│   ├── ShellyPanel        Per-circuit toggle buttons
-│   ├── ModeSelector       4 mode buttons with icons
-│   ├── SettingsDrawer     Pi health, network detail, WiFi scan/connect, backup download, SD image creation, BMS release, power options
-│   ├── WifiScanDrawer     Second-layer drawer — scan wlan1, select, connect with password
-│   ├── WifiBadge          Header SSID + signal, amber/red on weak/unassociated
-│   └── Toaster            Toast notification queue
+│   ├── ui/                Shared primitives: Panel, Stack, Button, Label,
+│   │                      StatusDot, SelectableTile, Row, Spinner, Modal
+│   ├── badges/             EthBadge, WifiBadge — header status indicators
+│   ├── cards/              One per device: BatteryCard, ChargeSourcesCard,
+│   │                      ShellyCard, EcoflowCard, FridgeCard, StarlinkCard,
+│   │                      WifiCard, HistoryCard, ModeSelector, Cameras
+│   ├── drawers/            SettingsDrawer, NetworkDetailsDrawer, WifiScanCard
+│   ├── modals/             ConfirmModal, PowerModal, ProgressModal
+│   └── layout/             Header, Toaster, ErrorBoundary, ThemeToggle
 │
 └── pages/
-    ├── Dashboard          Composes all components, mounts usePolling
-    └── Cameras            Fetches latest photos independently on mount
+    └── Dashboard.tsx       Composes all cards, mounts usePolling. Cameras and
+                            ModeSelector exist but aren't currently rendered
 ```
 
 **State flow:**
@@ -97,7 +98,12 @@ usePolling (5s) → fetchAll() → Promise.allSettled([api calls])
 ```
 
 **Offline behavior:**
-Last known values stay in Zustand state between polls. Dexie.js IndexedDB cache stores values for full offline fallback. Components show stale data rather than empty states when API is unreachable.
+Last known values stay in Zustand state between polls, so a brief API hiccup
+shows stale data rather than an empty state — but this is in-memory only, a
+page reload loses it. `dexie` / `dexie-react-hooks` are listed as
+dependencies in `package.json` but unused anywhere in `src/` — an
+IndexedDB-backed offline cache was apparently planned and never wired in.
+Worth either building it or dropping the dependency.
 
 ---
 
@@ -112,14 +118,16 @@ app/
 └── routers/               Each router is a standalone module
     ├── battery.py         → battery_ble service (live BLE, persistent connection)
     ├── mppt.py            → victron_ble service (live BLE, one-shot scan)
-    ├── shore.py           → always returns disconnected (no VE.Direct cable)
+    ├── shore.py           → inferred from BMS current minus MPPT current, not
+    │                        VE.Direct — see shore.py's SHORE_INFERENCE_THRESHOLD
     ├── orion.py           → static config + in-memory toggle (non-smart unit)
     ├── shelly.py          → httpx async calls to Shelly local REST API (.local mDNS)
     ├── dometic.py         → polls ESP32 bridge for CFX5 fridge data
     ├── starlink.py        → gRPC to dish at 192.168.100.1:9200 (local, no internet)
     ├── ecoflow.py         → passive BLE advertisement scan (battery % only)
-    ├── camera.py          → not yet implemented (awaiting hardware)
-    ├── mode.py            → in-memory mode state (resets on restart)
+    ├── camera.py          → on-demand v4l2-ctl capture, no timer — see Camera
+    │                        System below
+    ├── mode.py            → persisted to mode.json (atomic write), not applied yet
     └── system.py          → real math from BMS + MPPT caches
 ```
 
@@ -142,30 +150,36 @@ services/
 
 ## Camera System
 
-```
-systemd timer (every 30 min)
-    ↓
-capture script
-    ├── rpicam-still → backend/photos/interior/{cam}_{ISO8601}.jpg
-    └── fswebcam     → backend/photos/exterior/{cam}_{ISO8601}.jpg
+No timer, no capture loop — every photo is taken on demand, at request time:
 
-systemd cleanup timer (every hour)
-    └── delete files older than 24hr rolling window
+```
+GET /photos/latest?cam=interior
+    ↓
+_apply_tuning()  — re-applies UVC focus/brightness/exposure controls,
+                   since they reset to factory defaults on every unplug/reboot
+    ↓
+v4l2-ctl --stream-to=<path>  — one MJPEG frame straight to disk, no ffmpeg,
+                               no transcoding (the UVC camera encodes its own
+                               MJPEG on-device)
+    ↓
+backend/photos/{cam}/{cam}_{ISO8601}.jpg
 
 FastAPI static mount
-    └── /static/photos/{interior|exterior}/{filename}
+    └── /static/photos/{cam}/{filename}
         served directly by uvicorn
 ```
 
-**Evening auto-extension:**
-When current hour is between 22:00 and 06:00, capture interval extends to 2 hours automatically regardless of active mode. Implemented in capture script, not FastAPI.
+Only `interior` (`/dev/video0`) is physically installed; `exterior`
+(`/dev/video2`) is wired up in code but there's no camera behind it yet.
+There's no cleanup/retention job — `backend/photos/` grows until something
+prunes it manually. See `docs/HARDWARE.md` for why `ffmpeg` and the CSI
+camera module got abandoned (2026-08-31, OOM-crashed the Pi's 1GB RAM
+mid-install).
 
-**USB device stability:**
-Assign USB webcam a persistent device name via udev rule to prevent `/dev/video0` enumeration order changes if other USB devices are added:
-```bash
-# /etc/udev/rules.d/99-van-cam.rules
-SUBSYSTEM=="video4linux", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="0825", SYMLINK+="van-exterior-cam"
-```
+**Evening auto-extension, per-mode intervals, and a background capture loop
+are all still TODO** — `MODES["storage"]["camera_interval_min"]` etc. exist
+in `mode.py` as data, but nothing currently reads them to drive a timer. See
+`docs/FUTURE-FEATURES.md` Priority 5.
 
 ---
 
@@ -239,7 +253,7 @@ POST /mode/{mode_name}
 ## Security Model
 
 - **No public exposure** — Pi is not port-forwarded. All remote access via Tailscale encrypted tunnel
-- **Local network only** — FastAPI binds `127.0.0.1:8000` (loopback only, not reachable from the network). All inbound traffic goes through nginx → Express, which enforces `VAN_PASSWORD`. `VAN_API_KEY` gates the few paths that hit uvicorn directly (dev proxy, curl from the Pi)
+- **API key enforced in middleware, not by the socket bind** — uvicorn actually binds `0.0.0.0:8000` (reachable on the LAN), not loopback-only. The `require_api_key` middleware in `main.py` is what actually gates it: loopback callers (the Express proxy, already password-checked) pass through free; anyone else needs `X-API-Key`. Without that middleware, `0.0.0.0` would mean anyone on the same WiFi could hit `/system/shutdown` directly. `/health` stays open for the CI/CD liveness check
 - **Tailscale ACLs** — Only Todd's devices on the Tailnet can reach the Pi
 - **No credentials stored** — Shelly local REST API requires no auth on local network (Shelly default)
 - **Read-only BLE** — pq_bms_bluetooth reads BMS data only, cannot modify BMS settings

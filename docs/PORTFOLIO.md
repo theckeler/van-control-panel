@@ -1,7 +1,7 @@
 # Van Control Panel — Portfolio
 
 
-**Last updated:** 2026-08-30
+**Last updated:** 2026-09-04
 ## Project Overview
 
 A fully self-hosted IoT monitoring and automation system for a converted 2023 Mercedes Sprinter VS30 AWD van. Built from the ground up combining React/TypeScript front-end development, Python backend engineering, Bluetooth hardware integration, and 12V electrical system design.
@@ -50,8 +50,8 @@ The software monitors hardware that had to be designed and wired first:
 ### Infrastructure
 - Self-hosted GitHub Actions runner on the Pi — push to `backend/**` or `frontend/**` auto-deploys
 - Tailscale mesh VPN for remote access, no port forwarding, works behind Starlink CGNAT
-- WiFi failover configured: home network primary, Starlink auto-fallback
-- Shellys configured with both home and Starlink WiFi profiles
+- Two-radio WiFi split: a USB dongle handles uplink (Starlink primary, home network fallback, priority-based auto-failover via NetworkManager), while the Pi's onboard radio runs its own always-on local hotspot
+- Shellys live on that local hotspot exclusively — reachable as long as the Pi has power, independent of which uplink network is active
 
 ---
 
@@ -97,8 +97,6 @@ The software monitors hardware that had to be designed and wired first:
 
 ## What's Next
 
-- History charts in the frontend (SQLite is logging, chart components need wiring)
-- Camera timelapse system (awaiting USB webcam)
-- Mode persistence across Pi reboots
+- Operating modes actually driving behavior (camera intervals, relay scheduling) — the selection persists today, applying it is the next piece
 - Victron Orion XS 50A DC-DC charger upgrade (adds live alternator charging data)
 - 300Ah LiFePO4 battery upgrade (BLE library reads new unit automatically)
