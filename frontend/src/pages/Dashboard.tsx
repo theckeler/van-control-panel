@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { isDemo } from "../api/client";
 import { BatteryCard } from "../components/cards/BatteryCard";
-// import { Cameras } from "../components/cards/Cameras"; // disabled 2026-08-31 — needs ffmpeg, which OOM-crashed the Pi (1GB RAM) mid-install. Revisit before re-enabling.
+import { Cameras } from "../components/cards/Cameras";
 import { ChargeSourcesCard } from "../components/cards/ChargeSourcesCard";
 import { EcoflowCard } from "../components/cards/EcoflowCard";
 import { FridgeCard } from "../components/cards/FridgeCard";
@@ -46,7 +46,7 @@ export function Dashboard() {
       <EcoflowCard />
       <FridgeCard />
       <StarlinkCard />
-      {/* <Cameras /> */}
+      <Cameras />
 
       <SettingsDrawer
         open={settingsOpen}

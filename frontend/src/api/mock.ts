@@ -233,6 +233,28 @@ function delay<T>(value: T, ms = 120): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms));
 }
 
+function mockPhoto(): Photo {
+  const timestamp = new Date().toISOString();
+  const time = new Date(timestamp).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360">
+    <rect width="640" height="360" fill="#16181c"/>
+    <g transform="translate(320,150)" fill="none" stroke="#71717a" stroke-width="3">
+      <rect x="-60" y="-35" width="120" height="80" rx="8"/>
+      <rect x="-20" y="-50" width="40" height="18" rx="3"/>
+      <circle cx="0" cy="8" r="28"/>
+      <circle cx="0" cy="8" r="14"/>
+    </g>
+    <text x="320" y="230" text-anchor="middle" fill="#a1a1aa" font-family="monospace" font-size="16">Demo photo — no camera in demo mode</text>
+    <text x="320" y="254" text-anchor="middle" fill="#71717a" font-family="monospace" font-size="13">${time}</text>
+  </svg>`;
+  const url = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  return { filename: `interior_demo.svg`, url, timestamp };
+}
+
 // --- History generators ----------------------------------------------------
 
 function rawReadings(hours: number, source: "bms" | "mppt"): RawReading[] {
@@ -492,12 +514,15 @@ export const mockApi = {
   },
 
   camera: {
-    // Cameras are not installed in the real van either; the component
-    // renders "No photo available" on rejection, which is accurate.
-    latest: (): Promise<Photo> =>
-      Promise.reject(new Error("No cameras installed")),
-    recent: (): Promise<Photo[]> => delay([]),
-    capture: () => delay({ status: "unavailable" }),
+    // Real camera is installed and live in the van as of 2026-09-04 — this
+    // was stale ("not installed either"). No hardware to photograph in demo
+    // mode, so a self-contained inline SVG stands in rather than a broken
+    // image or an external placeholder-image service (this project doesn't
+    // reach out to the internet for anything but Tailscale).
+    latest: (): Promise<Photo> => delay(mockPhoto()),
+    recent: (): Promise<Photo[]> =>
+      delay(Array.from({ length: 5 }, () => mockPhoto())),
+    capture: (): Promise<Photo> => delay(mockPhoto()),
   },
 
   mode: {
