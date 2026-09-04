@@ -10,25 +10,27 @@ router = APIRouter()
 PHOTOS_BASE = os.path.join(os.path.dirname(__file__), "..", "..", "photos")
 DEVICE_MAP = {"interior": "/dev/video0", "exterior": "/dev/video2"}
 
-# UVC controls tuned on 2026-08-25 for the interior camera's actual mounting
-# position (very close subject, backlit through a window). These live on the
-# USB device itself, not in any app state, so they reset to factory defaults
-# on every reboot or unplug/replug — hence re-applying them before every
-# capture rather than trusting them to persist.
+# UVC controls tuned on 2026-08-25 for the interior camera's mounting
+# position at the time (very close subject, backlit through a window). These
+# live on the USB device itself, not in any app state, so they reset to
+# factory defaults on every reboot or unplug/replug — hence re-applying them
+# before every capture rather than trusting them to persist.
 #
-# focus_absolute: swept 0-21, objective sharpness scored via Laplacian
-# variance. 5 was the clear peak (~1060 vs ~60-115 at the default of 16) —
-# the subject is much closer than autofocus was settling on.
-# brightness: default 8 crushed shadows to near-black (mean ~20/255, min 0)
-# against the bright window in frame. 15 (max) roughly 4x'd mean brightness
-# to ~82 and lifted black level to ~42 — real detail instead of a clipped
-# floor. Left auto-exposure (auto_exposure=3) engaged rather than a fixed
-# manual exposure_time, so it still adapts across day/night.
+# Re-tuned 2026-09-04 after a physical remount: camera moved to the door,
+# now shooting outward across the doorway at open ground several feet out —
+# a much farther subject than the original close-up calibration, and no
+# longer backlit through glass. Old values (focus_absolute=5, brightness=15)
+# badly overexposed the new scene. Swept both fresh, visually rather than
+# via Laplacian variance this time: focus 0 and 10 were both sharp, 16
+# (the UVC default) visibly blurrier — lower focus_absolute reaches farther,
+# consistent with the subject now being much farther away. brightness 4 held
+# real grass texture without blowing out highlights; 8 (default) and 15
+# (the old value) both washed the scene toward white.
 CAMERA_TUNING = {
     "interior": [
         ("focus_automatic_continuous", "0"),
-        ("focus_absolute", "5"),
-        ("brightness", "15"),
+        ("focus_absolute", "0"),
+        ("brightness", "4"),
         ("auto_exposure", "3"),
     ],
 }
