@@ -1,7 +1,7 @@
 # CLAUDE.md — Van Control Panel
 
 
-**Last updated:** 2026-08-31
+**Last updated:** 2026-09-04
 Context file for Claude Code. Gives full project context so sessions don't require re-explaining the architecture.
 
 **Jump to:** [Quick Start](#quick-start) · [Workflow](#workflow) · [Recovery](#recovery) · [Auth](#auth) ·
@@ -163,36 +163,79 @@ frontend/
     api/mock.ts          Demo-mode mock of the full api surface. Physically modelled:
                          solar bell curve drives SOC integration, seeded PRNG keeps
                          multi-day charts stable across reloads
-    store/van.ts         Zustand store. fetchAll uses Promise.allSettled; mutations
-                         catch and toast, and skip the optimistic update on failure
+    store/van.ts          Zustand store. fetchAll uses Promise.allSettled across ten
+                         endpoints so one slow/failing device (Starlink's ~10s gRPC
+                         call) doesn't block the rest; mutations catch and toast
     store/settings.ts    Persisted gap / spacing / vanName. Panel and Stack read this
-    store/toast.ts       Toast queue, dedupes by message
+    store/toast.ts       Toast queue, dedupes by message, kind-based auto-dismiss
     hooks/useVisibleInterval.ts
-                         setInterval that pauses while the tab is hidden
+                         setInterval that pauses while the tab is hidden, fires
+                         immediately on regaining visibility
     hooks/usePolling.ts  Thin wrapper — fetchAll on useVisibleInterval, 5s
     hooks/useModalBehavior.ts
                          Focus trap, Escape, focus restoration, scroll lock.
-                         Used by both modals and the settings drawer
-    types/index.ts       TypeScript interfaces (keep in sync with Pydantic models)
-    components/ui/       Primitives: Panel, Stack, Label, StatusDot, SelectableTile,
-                         Button. Panel/Stack own spacing from the settings store
-    components/
+                         Used by modals, drawers, and WifiScanCard
+    hooks/useTheme.ts    Theme hook. Dark mode is disabled on purpose right now —
+                         index.html force-sets data-theme="light" on load — so the
+                         dark-mode state/effect logic here is dead, unreachable code
+    types/index.ts        TypeScript interfaces (keep in sync with Pydantic models)
+    components/ui/       Primitives: Panel, Stack (spacing from settings store), Label,
+                         StatusDot, SelectableTile, Button (variant/size, danger=red),
+                         Row (label/value line item), Spinner, Modal + BackDrop
+    components/badges/
+      EthBadge.tsx       eth0 rescue-port cable/link status dot
+      WifiBadge.tsx      Header SSID + band/signal. Amber below -70dBm, red if
+                         unassociated
+    components/cards/
       BatteryCard.tsx    SOC, voltage, temp — shows last known values when offline
                          with last-seen time and retry countdown
-      ChargeSourcesCard  Solar / Shore / Orion rows
-      ShellyPanel.tsx    Per-unit toggles. Shows "unreachable" distinctly from off
-      ModeSelector.tsx   Storage / Camp / Trail / In Town
-      HistoryCard.tsx    Recharts SOC 24h + Solar 30d
-      SettingsDrawer.tsx Gear icon → Pi health, network detail, WiFi scan/connect
-                         button, backup download, SD image creation (start/poll/download/cancel),
-                         BMS release, power options, theme
-      WifiScanDrawer.tsx Second-layer drawer (z-60) over SettingsDrawer. Scan
-                         wlan1 for networks, select one, connect with password
-      WifiBadge.tsx      Header SSID + band. Amber below -70dBm, red if unassociated
+      Cameras.tsx        Photo gallery. Not rendered in Dashboard.tsx — disabled
+                         2026-08-31, ffmpeg install OOM-crashed the 1GB Pi
+      ChargeSourcesCard  Solar / Shore rows (Orion/alternator row coded, commented
+                         out — Orion-Tr is non-smart, no real telemetry to show yet)
+      EcoflowCard.tsx    Battery % only — no charging state/watts (encrypted
+                         protocol limit, see Known Limitations)
+      FridgeCard.tsx     Dometic temp/set-point/compressor; door-open triggers an
+                         orange highlight override
+      HistoryCard.tsx    Recharts SOC 24h + Solar 30d. Falls back from 30-day daily
+                         aggregates to hourly-bucketed raw peaks when daily data
+                         is absent
+      ModeSelector.tsx   Storage / Camp / Trail / In Town. Fully wired to the store
+                         but not currently rendered in Dashboard.tsx
+      ShellyCard.tsx     Per-unit toggles. Filters installed:false, shows
+                         "unreachable" distinctly from off
+      StarlinkCard.tsx   Dish status. Distinguishes "Pi not on Starlink LAN" from
+                         "dish unreachable" via IP-prefix check against wifi_ip
+      WifiCard.tsx       Exports WifiCard — hotspot on/off (confirm modal), uplink
+                         status, opens NetworkDetailsDrawer
+    components/drawers/
+      NetworkDetailsDrawer.tsx
+                         Read-only radio stats (uplink SSID/signal/IP, hotspot),
+                         embeds WifiScanCard for connecting
+      SettingsDrawer.tsx Gear icon → Pi health, network overview, backup download,
+                         SD image creation (start/poll/download/cancel), BMS
+                         release, power options. Embeds HistoryCard
+      WifiScanCard.tsx   Scan wlan1, select a network, connect with password.
+                         Connecting saves a NetworkManager profile at
+                         autoconnect-priority 75 (see network.py) — that's the
+                         real "reconnect somewhere already visited" mechanism,
+                         nothing client-side
+    components/modals/
+      ConfirmModal.tsx   Generic yes/no dialog, danger-styled confirm button
+      PowerModal.tsx     Multi-phase reboot/shutdown flow, polls /api/health every
+                         2s to detect the Pi going down and coming back
+      ProgressModal.tsx  Determinate-or-spinning progress overlay, always
+                         cancellable
+    components/layout/
+      Header.tsx         Title bar. EthBadge / WifiBadge, "demo" pill when isDemo
+      ErrorBoundary.tsx  Class-based root boundary, console-only logging, "Try
+                         again" reset button
+      ThemeToggle.tsx    Renders a light/dark toggle button. Not rendered anywhere
+                         right now — genuinely unused, not just non-functional
       Toaster.tsx        Renders the toast queue
     pages/
-      Dashboard.tsx      Main view. Cards take no props — Panel handles spacing
-      Cameras.tsx        Photo gallery (cameras not yet installed)
+      Dashboard.tsx      Main view. Cards take no props — Panel handles spacing.
+                         Cameras and ModeSelector are commented out, not rendered
 ```
 
 ---
