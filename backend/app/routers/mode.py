@@ -84,6 +84,13 @@ def _save_mode(mode: str) -> None:
 
 _current_mode = _load_mode()
 
+
+def get_current_mode_config() -> dict:
+    """Current mode's config dict — for other services (camera_loop) to read
+    without reaching into this module's private state directly."""
+    return MODES[_current_mode]
+
+
 class ModeResponse(BaseModel):
     current: str
     config: dict

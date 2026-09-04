@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
 import type { Photo } from "../../types";
+import { CameraHistoryDrawer } from "../drawers/CameraHistoryDrawer";
 import { Panel } from "../ui";
 
 const STORAGE_KEY = "van-camera-enabled";
@@ -13,6 +14,7 @@ export function Cameras({ className }: { className?: string }) {
   const [interiorLatest, setInteriorLatest] = useState<Photo | null>(null);
   const [loading, setLoading] = useState(true);
   const [enabled, setEnabled] = useState(loadEnabled);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   useEffect(() => {
     if (!enabled) {
@@ -47,13 +49,28 @@ export function Cameras({ className }: { className?: string }) {
           Camera off
         </div>
       )}
-      <button
-        type="button"
-        onClick={toggle}
-        className="w-full text-xs px-4 py-3 rounded-lg border border-panel-border text-gray-600 hover:border-gray-500 hover:text-gray-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
-      >
-        {enabled ? "Turn camera off" : "Turn camera on"}
-      </button>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={toggle}
+          className="flex-1 text-xs px-4 py-3 rounded-lg border border-panel-border text-gray-600 hover:border-gray-500 hover:text-gray-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+        >
+          {enabled ? "Turn camera off" : "Turn camera on"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setHistoryOpen(true)}
+          className="flex-1 text-xs px-4 py-3 rounded-lg border border-panel-border text-gray-600 hover:border-gray-500 hover:text-gray-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
+        >
+          History
+        </button>
+      </div>
+
+      <CameraHistoryDrawer
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        cam="interior"
+      />
     </Panel>
   );
 }
