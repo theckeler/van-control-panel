@@ -24,6 +24,10 @@ Everything else requires an authenticated GATT session (see
 docs/rubber-duck-review-2026-08-27.md for the two viable paths). Don't spend
 another evening capturing advertisements hoping for more.
 
+charge_state (added 2026-09-07) is therefore inferred, not real — same
+spirit as shore.py inferring shore power from a BMS/MPPT current delta
+rather than real VE.Direct telemetry. See _infer_charge_state below.
+
 Note on scanning mode: this is an active scan, which is bleak's default —
 BleakScanner transmits scan requests. Passive scanning on BlueZ requires
 or_patterns and changes discovery reliability, so it's a deliberate open
@@ -32,8 +36,9 @@ with its own BMS connection and the ESP32 bridge.
 """
 import asyncio
 import logging
+from collections import deque
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from bleak import BleakScanner
 from app.config import settings
@@ -46,11 +51,18 @@ BATTERY_OFFSET = 1 + SERIAL_LEN  # = 17
 
 STALE_AFTER = 180  # EcoFlow advertises far less often than Victron
 
+# Battery % is an integer, and a ~250Wh River 2 Max can take several minutes
+# to move even 1% — comparing just the last two 60s-apart polls would mostly
+# see noise, not a real trend. Compare the oldest and newest reading across
+# this whole window instead.
+HISTORY_WINDOW_S = 600
+
 
 @dataclass
 class EcoflowReading:
     battery_percent: int | None = None
     serial: str | None = None
+    charge_state: str | None = None  # "charging" | "discharging" | "idle" | None (not enough data yet)
     updated_at: datetime | None = None
 
     @property
@@ -65,13 +77,39 @@ class EcoflowReading:
 
 
 _cache: EcoflowReading = EcoflowReading()
+_history: deque[tuple[datetime, int]] = deque(maxlen=20)
 
 
 def get_latest() -> EcoflowReading:
     return _cache
 
 
-def _parse(payload: bytes) -> EcoflowReading | None:
+def _infer_charge_state(now: datetime) -> str | None:
+    """
+    None means "don't know yet", not "idle" — distinct states, since a fresh
+    boot or a battery that's been stale for a while shouldn't claim idle
+    with no real basis for it.
+    """
+    cutoff = now - timedelta(seconds=HISTORY_WINDOW_S)
+    window = [(ts, pct) for ts, pct in _history if ts >= cutoff]
+    if len(window) < 2:
+        return None
+
+    oldest_ts, oldest_pct = window[0]
+    _, newest_pct = window[-1]
+    # Require the window to actually span a meaningful chunk of time, not
+    # just two readings that happen to both be recent.
+    if (now - oldest_ts).total_seconds() < HISTORY_WINDOW_S / 2:
+        return None
+
+    if newest_pct > oldest_pct:
+        return "charging"
+    if newest_pct < oldest_pct:
+        return "discharging"
+    return "idle"
+
+
+def _parse(payload: bytes) -> tuple[int, str | None] | None:
     if len(payload) <= BATTERY_OFFSET:
         return None
     try:
@@ -86,11 +124,7 @@ def _parse(payload: bytes) -> EcoflowReading | None:
         logger.warning("EcoFlow battery byte out of range: %d — layout may have changed", battery)
         return None
 
-    return EcoflowReading(
-        battery_percent=battery,
-        serial=serial,
-        updated_at=datetime.now(timezone.utc),
-    )
+    return battery, serial
 
 
 async def poll_once(timeout: float = 10.0):
@@ -115,9 +149,20 @@ async def poll_once(timeout: float = 10.0):
         parsed = _parse(mfg)
         if parsed is None:
             return
+        battery, serial = parsed
         global _cache
-        _cache = parsed
-        logger.info("EcoFlow: %d%% battery (serial %s)", parsed.battery_percent, parsed.serial)
+        now = datetime.now(timezone.utc)
+        _history.append((now, battery))
+        _cache = EcoflowReading(
+            battery_percent=battery,
+            serial=serial,
+            charge_state=_infer_charge_state(now),
+            updated_at=now,
+        )
+        logger.info(
+            "EcoFlow: %d%% battery (serial %s, inferred %s)",
+            battery, serial, _cache.charge_state,
+        )
         loop.call_soon_threadsafe(event.set)
 
     scanner = BleakScanner(_callback)

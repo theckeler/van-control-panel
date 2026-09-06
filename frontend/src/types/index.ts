@@ -72,6 +72,7 @@ export interface MpptData {
 export interface EcoflowData {
   battery_percent: number | null;
   serial: string | null;
+  charge_state: "charging" | "discharging" | "idle" | null;
   connected: boolean;
 }
 
