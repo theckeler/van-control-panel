@@ -107,6 +107,41 @@ active timer, cancelling a timer while leaving the relay on, and turning the
 relay off immediately. Every timed action and expiry failure should be written
 to the event log with its source and result.
 
+**Discussed 2026-09-07, refined interaction, not built:** the first-arm should
+stay a modal (discoverable, unambiguous — a double-tap-to-arm gesture has no
+visual affordance and double-tap timing thresholds are fiddly on a PWA where
+click/touch events don't always agree), but *extending* an already-running
+timer should be a quick tap rather than reopening the modal — tap the running
+countdown once to add a fixed chunk of time (e.g. +30 min) without
+re-navigating a whole picker. Best of both: discoverable to start, fast to
+extend, matching "just want it on 30 more minutes."
+
+**Also discussed: a 3-dot / overflow menu per Shelly tile**, as the actual
+entry point for the timer and other per-relay actions rather than growing the
+tile itself. Candidates for what belongs in it, roughly in order of how
+grounded each is in what already exists vs. speculative:
+
+- **Timer** — the feature above.
+- **Refresh** — force a re-check of that one unit specifically. `shelly.py`
+  already evicts a unit's cached `.local` DNS entry on any request failure
+  and re-resolves next call (`_evict()`); this would just expose "do that
+  now, for this unit" as a manual action instead of waiting for the next
+  failed poll — most useful exactly when a tile shows `reachable: false` and
+  the wait for the next 5s cycle feels too passive.
+- **Recent activity** — that unit's own slice of the event log
+  (`/system/events` already records every toggle with source and result;
+  this would just be a filtered view, not new backend work).
+- **Estimated draw** — `SHELLY_UNITS` already carries an `est_watts` field per
+  unit (used internally for the `system.py` load breakdown) that isn't
+  surfaced in the UI at all today; showing it here would be display-only.
+- **Schedule** — ties to the separate, larger "add per-relay schedules" item
+  earlier in this priority; more a link to that feature than something to
+  build as part of this menu.
+- **Open device directly** (`http://<ip>/` — the Shelly's own local web UI)
+  — useful for advanced troubleshooting without SSH, but is a genuine new
+  surface (linking off to unauthenticated device UIs from an authenticated
+  dashboard) worth a deliberate yes rather than a default inclusion.
+
 ## Priority 5: Make Operating Modes Real
 
 The current mode *selection* is persisted (`backend/mode.json`), but it
