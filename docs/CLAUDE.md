@@ -1,7 +1,7 @@
 # CLAUDE.md — Van Control Panel
 
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-09-08
 Context file for Claude Code. Gives full project context so sessions don't require re-explaining the architecture.
 
 **Jump to:** [Quick Start](#quick-start) · [Workflow](#workflow) · [Recovery](#recovery) · [Auth](#auth) ·
@@ -135,7 +135,9 @@ backend/app/
     orion.py             /orion/ — static config (non-smart unit)
     shore.py             /shore/ — always returns disconnected (no cable)
     mode.py              /mode/ — persisted to backend/mode.json, atomic write
-    camera.py            /photos/ — not yet implemented, returns 404
+    camera.py            /photos/ — live. v4l2-ctl capture (interior only,
+                         /dev/video0), UVC tuning re-applied before every
+                         shot since USB controls reset on unplug/reboot
   services/
     battery_ble.py       Power Queen persistent BLE connection
     victron_ble.py       Victron one-shot BLE scan
@@ -153,6 +155,9 @@ backend/app/
     disk_image.py        SD card image creation — module-level _job state, asyncio
                          background task running dd|gzip. State resets on van-api
                          restart; in-flight dd becomes an orphan (pkill to clean up).
+    camera_loop.py       Background capture loop — mode-driven interval, 24h
+                         retention sweep per camera. Runs alongside camera.py's
+                         on-demand /latest capture, not instead of it.
 
 frontend/
   server.mjs             Express — serves dist/, proxies /api/*, signed-cookie auth
@@ -189,19 +194,23 @@ frontend/
     components/cards/
       BatteryCard.tsx    SOC, voltage, temp — shows last known values when offline
                          with last-seen time and retry countdown
-      Cameras.tsx        Photo gallery. Not rendered in Dashboard.tsx — disabled
-                         2026-08-31, ffmpeg install OOM-crashed the 1GB Pi
+      Cameras.tsx        Photo gallery. Rendered in Dashboard.tsx. History button
+                         opens CameraHistoryDrawer (24h of captures, click for
+                         full-size in the shared Modal)
       ChargeSourcesCard  Solar / Shore rows (Orion/alternator row coded, commented
                          out — Orion-Tr is non-smart, no real telemetry to show yet)
-      EcoflowCard.tsx    Battery % only — no charging state/watts (encrypted
-                         protocol limit, see Known Limitations)
+      EcoflowCard.tsx    Battery % plus an inferred charge_state (charging/
+                         discharging/idle) from the battery % trend over time —
+                         still no real watts, the encrypted protocol limit below
+                         still applies to that
       FridgeCard.tsx     Dometic temp/set-point/compressor; door-open triggers an
                          orange highlight override
       HistoryCard.tsx    Recharts SOC 24h + Solar 30d. Falls back from 30-day daily
                          aggregates to hourly-bucketed raw peaks when daily data
                          is absent
-      ModeSelector.tsx   Storage / Camp / Trail / In Town. Fully wired to the store
-                         but not currently rendered in Dashboard.tsx
+      ModeSelector.tsx   Storage / Camp / Trail / In Town. Fully wired to the store,
+                         still not rendered in Dashboard.tsx — the one remaining
+                         card in that original "commented out" state
       ShellyCard.tsx     Per-unit toggles. Filters installed:false, shows
                          "unreachable" distinctly from off
       StarlinkCard.tsx   Dish status. Distinguishes "Pi not on Starlink LAN" from
@@ -209,6 +218,9 @@ frontend/
       WifiCard.tsx       Exports WifiCard — hotspot on/off (confirm modal), uplink
                          status, opens NetworkDetailsDrawer
     components/drawers/
+      CameraHistoryDrawer.tsx
+                         Lists api.camera.recent() as SelectableTile rows,
+                         click opens the shared Modal with the full image
       NetworkDetailsDrawer.tsx
                          Read-only radio stats (uplink SSID/signal/IP, hotspot),
                          embeds WifiScanCard for connecting
@@ -235,7 +247,7 @@ frontend/
       Toaster.tsx        Renders the toast queue
     pages/
       Dashboard.tsx      Main view. Cards take no props — Panel handles spacing.
-                         Cameras and ModeSelector are commented out, not rendered
+                         Cameras is rendered; ModeSelector is still not
 ```
 
 ---
@@ -869,8 +881,13 @@ this one.
 
 ## Known Limitations / TODOs
 
-- **Applying a mode does nothing yet** — the selection persists across restarts, but camera intervals and Shelly schedules are not driven by it.
-- **Camera system** not yet implemented — awaiting USB webcam hardware
+- **Applying a mode does nothing yet** — the selection persists across restarts, but camera intervals and Shelly schedules are not driven by it. `ModeSelector.tsx` itself is also still not rendered in `Dashboard.tsx`.
+- **Camera system — live, 2026-09-04.** Interior camera only (`/dev/video0`,
+  USB UVC). `Cameras.tsx` is rendered in `Dashboard.tsx`, backed by a
+  background capture loop (`camera_loop.py`, mode-driven interval, 24h
+  retention) plus on-demand capture via `GET /photos/latest`. History button
+  opens `CameraHistoryDrawer.tsx`. See the Cameras section under Hardware
+  Reference (`docs/HARDWARE.md`) for the UVC tuning story.
 - **Shore charger** always returns disconnected — no VE.Direct cable purchased
 - **Orion-Tr** is non-smart, returns static config — upgrade to Orion XS 50A planned
 - **History charts** — `HistoryCard` is wired up and rendering. SOC 24h and Solar 30d tabs both work. Daily solar only populates after a midnight rollup, so a fresh install shows the raw-derived fallback.
@@ -958,9 +975,24 @@ this one.
   in the BLE advertisement (manufacturer ID `0xB5B5`, offset 17, right after
   a 16-byte ASCII serial), confirmed against the unit's own screen. No
   connection, no auth, same passive-scan pattern as Victron. `services/
-ecoflow_ble.py`, `/ecoflow/`, `EcoflowCard.tsx`. Only battery % — charging
-  state and watts live in EcoFlow's encrypted protocol, out of reach of
-  passive scanning. See the User ID / full-telemetry note below.
+ecoflow_ble.py`, `/ecoflow/`, `EcoflowCard.tsx`.
+
+  **charge_state added 2026-09-08** — since the encrypted protocol still
+  blocks real charging telemetry (see below), `ecoflow_ble.py` infers
+  charging/discharging/idle from the battery % trend over a 10-minute
+  rolling window instead (`_infer_charge_state`, needs at least half that
+  window of history before it returns anything other than `null`).
+  `EcoflowCard.tsx` renders it via a `CHARGE_LABEL` map. Still no real
+  watts — that part of the limitation below is unchanged.
+
+  Also worth knowing: this Pi's own power comes from the EcoFlow's 100W
+  USB-C port, not the house battery — see `docs/HARDWARE.md`'s Compute
+  section. A low EcoFlow charge is a live suspect for Pi/WiFi instability,
+  not just a "is the battery card accurate" question.
+
+  Only battery % and the inferred charge_state — real charging state and
+  watts live in EcoFlow's encrypted protocol, out of reach of passive
+  scanning. See the User ID / full-telemetry note below.
   **Updated 2026-08-27 — see `rubber-duck-review-2026-08-27.md`.** The
   advertisement is now confirmed to contain nothing beyond battery % (bytes
   18-24 are constant or a checksum), so that avenue is closed. Full telemetry
@@ -1087,10 +1119,12 @@ Enumerated via `bluetoothctl` `list-attributes`. Three things worth knowing:
 
 ## system.py load estimation — what's actually wrong
 
-An earlier version of this section claimed the dashboard was displaying a
-fabricated load figure. **That diagnosis was wrong and has been corrected.**
-The full trail is in `rubber-duck-review.md`. Summary of the correction, then
-the issues that are genuinely real.
+**Fixed 2026-09-01 (`159155a` and earlier) — both genuinely real issues below
+are resolved in current code.** An earlier version of this section claimed
+the dashboard was displaying a fabricated load figure. **That diagnosis was
+wrong and has been corrected.** The full trail is in `rubber-duck-review.md`.
+Summary of the correction, then the issues that were genuinely real and are
+now fixed.
 
 ### The false alarm
 
@@ -1113,35 +1147,46 @@ inferring the `ALWAYS_ON_WATTS` fallback must be firing, and not checking that
 the fallback only runs when `bms_ok` is false. The BMS was connected the whole
 time.
 
-### Genuinely real issue 1 — the loads breakdown is fiction
+### Genuinely real issue 1 — the loads breakdown was fiction (fixed)
 
-This loop runs unconditionally, outside any state check:
+The loop used to run unconditionally, outside any state check, appending
+`ALWAYS_ON_WATTS = { "Pi": 5, "Starlink": 22, "Fridge": 40 }` regardless of
+whether Starlink or the fridge were actually powered — 62 of that 67W
+claimed whether or not the hardware was on.
 
-```python
-for label, watts in ALWAYS_ON_WATTS.items():
-    loads.append(LoadBreakdown(label=label, watts=float(watts), source="always_on"))
-```
+**Now:** `loads` only ever contains the Pi's 5W (the one genuinely always-on
+load), plus Shelly circuits read from live cache that are actually switched
+on, plus solar input as a measured negative load. Starlink and the fridge
+are gone from the breakdown entirely — neither reports its own state yet, so
+neither can be claimed honestly until one gets a Shelly or the ESP32 bridge.
 
-with `ALWAYS_ON_WATTS = { "Pi": 5, "Starlink": 22, "Fridge": 40 }`. Starlink and
-the fridge are 62 of that 67W and neither reports its actual state, so the
-breakdown claims them whether or not they're powered.
+Also no longer latent: `system.py`'s response is live (verified against the
+Pi 2026-09-08 — `loads: [{Pi, 5W}, {USB Outlets, 20W}, {Solar input, -156W}]`
+with `load_watts` correctly flagged `load_is_estimate: true` when the BMS was
+disconnected). Nothing in the frontend reads it yet, but the data itself is
+honest now, ready for whenever a load-breakdown panel gets built.
 
-**Severity: latent, not live.** Nothing in the frontend reads `loads`,
-`load_watts`, `solar_watts`, or `power_state`. The backend computes and
-serialises all of it on every 5-second poll and it is discarded. Fix this
-_before_ wiring up any load-breakdown panel.
+### Genuinely real issue 2 — the clamp hid shore charging (fixed)
 
-### Genuinely real issue 2 — the clamp hides shore charging
+The old code:
 
 ```python
 load_watts = round(solar_watts - battery_power_w, 1)
 load_watts = max(0.0, load_watts)
 ```
 
-On shore power with solar at zero and the battery taking 200W, this evaluates
-to `0 - 200 = -200`, clamped to **0W**. A van that is plugged in and actively
-running loads reports zero consumption. The clamp doesn't fix the arithmetic,
-it conceals it.
+On shore power with solar at zero and the battery taking 200W, this evaluated
+to `0 - 200 = -200`, clamped to **0W** — a van plugged in and actively
+running loads reported zero consumption. The clamp didn't fix the
+arithmetic, it concealed it.
+
+**Now:** `load_watts` returns `None` — not a clamped `0` — whenever a
+non-solar source is charging (checked via `orion_router._orion_enabled` or
+an inferred-shore current delta), since `load = solar_in - battery_flow` is
+only solvable when solar is the sole charge source. `load_is_estimate: true`
+separately flags the different case where there's no BMS current reading at
+all and the response falls back to the flat `ALWAYS_ON_WATTS` sum. Unknown
+now reads as unknown instead of a false zero.
 
 ### The structural problem underneath both
 
@@ -1158,15 +1203,19 @@ rather than measured precisely because there's no sensor on it.
 So `load_watts` is trustworthy when the BMS is connected and solar is the only
 input, which covers most real usage, and unreliable otherwise.
 
-### Fixes, none implemented
+### Fixes
 
-- _Honest:_ return `None` for `load_watts` when the inputs can't support an
-  answer (non-solar charge source active), and render a dash. Unknown beats wrong.
-- _Minimum:_ drop Starlink and Fridge from `ALWAYS_ON_WATTS` so the breakdown
-  only claims the Pi's ~5W, the one load genuinely always present.
-- _Real:_ measure instead of infer. A Victron SmartShunt reports over the same
-  BLE advertisement protocol the MPPT already uses, and would make load,
-  runtime, and shore detection all real.
+- _Honest — done:_ `load_watts` returns `None` when the inputs can't support
+  an answer (non-solar charge source active) instead of a clamped `0`.
+- _Minimum — done, one nuance:_ the `loads` breakdown no longer claims
+  Starlink/Fridge unless they're actually reporting on. `ALWAYS_ON_WATTS`
+  itself still has all three entries (`Pi`/`Starlink`/`Fridge`) — it's kept
+  as the flat-sum fallback for the separate "BMS not connected at all" case
+  (`load_is_estimate: true`), just no longer looped into the per-item
+  breakdown unconditionally.
+- _Real — not done:_ measure instead of infer. A Victron SmartShunt reports
+  over the same BLE advertisement protocol the MPPT already uses, and would
+  make load, runtime, and shore detection all real.
 
 `estimated_runtime_hrs` is **not** affected — it derives from
 `remainAh / abs(current)`, both measured, and is sound.
