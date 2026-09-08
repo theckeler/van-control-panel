@@ -435,6 +435,7 @@ export const mockApi = {
       delay({
         battery_percent: 13,
         serial: "R613ZAB6XG1P0314",
+        charge_state: "charging",
         connected: true,
       }),
   },

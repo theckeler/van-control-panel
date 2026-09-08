@@ -8,13 +8,23 @@ import { Panel, StatusDot } from "../ui";
  * just reports its own battery level.
  *
  * Battery % only, decoded from an unencrypted byte in the BLE advertisement
- * — no official API. Charging state and watts in/out live in EcoFlow's
- * encrypted protocol, which passive scanning can't reach.
- * See backend/app/services/ecoflow_ble.py.
+ * — no official API, and watts in/out live in EcoFlow's encrypted protocol,
+ * which passive scanning can't reach. charge_state (added 2026-09-07) is
+ * inferred from the % trend over a 10-minute window server-side, not real
+ * telemetry — see backend/app/services/ecoflow_ble.py.
  */
+const CHARGE_LABEL: Record<string, string> = {
+  charging: "Charging",
+  discharging: "Discharging",
+  idle: "Idle",
+};
+
 export function EcoflowCard({ className }: { className?: string }) {
   const ecoflow = useVanStore((s) => s.ecoflow);
   const known = ecoflow?.battery_percent != null;
+  const chargeLabel = ecoflow?.charge_state
+    ? CHARGE_LABEL[ecoflow.charge_state]
+    : null;
 
   return (
     <Panel className={className}>
@@ -36,8 +46,17 @@ export function EcoflowCard({ className }: { className?: string }) {
           >
             {known ? `${ecoflow!.battery_percent}%` : "—"}
           </div>
-          <div className="text-xs text-gray-600">
-            {ecoflow?.connected ? "Portable battery" : "No signal"}
+          <div
+            className={clsx(
+              "text-xs",
+              ecoflow?.charge_state === "charging"
+                ? "text-lime-700"
+                : "text-gray-600",
+            )}
+          >
+            {!ecoflow?.connected
+              ? "No signal"
+              : (chargeLabel ?? "Portable battery")}
           </div>
         </div>
       </div>
