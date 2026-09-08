@@ -10,7 +10,7 @@ const ON: Record<Tone, string> = {
 export function StatusDot({
   on,
   tone = "accent",
-  className,
+  className = "h-3 w-3",
 }: {
   on: boolean;
   tone?: Tone;
@@ -20,7 +20,7 @@ export function StatusDot({
     <span
       aria-hidden="true"
       className={clsx(
-        "min-w-[0.5rem] min-h-[0.5rem] rounded-full flex-shrink-0",
+        "rounded-full",
         on ? ON[tone] : tone === "accent" ? "bg-accent" : "bg-gray-300",
         className,
       )}

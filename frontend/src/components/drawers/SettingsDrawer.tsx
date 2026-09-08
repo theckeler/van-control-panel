@@ -5,7 +5,7 @@ import { useModalBehavior } from "../../hooks/useModalBehavior";
 import { toast } from "../../store/toast";
 import { useVanStore } from "../../store/van";
 import type { BackupStatus, PiHealth } from "../../types";
-import { HistoryCard } from "../cards/HistoryCard";
+import { HistoryCard } from "../modals/HistoryModal";
 import { Button, Label } from "../ui";
 import { NetworkDetailsDrawer } from "./NetworkDetailsDrawer";
 
@@ -58,6 +58,7 @@ export function SettingsDrawer({
   const [backup, setBackup] = useState<BackupStatus | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [wifiDetailsOpen, setWifiDetailsOpen] = useState(false);
+  const [viewHistory, setViewHistory] = useState(false);
 
   async function doDownload() {
     setDownloading(true);
@@ -292,23 +293,33 @@ export function SettingsDrawer({
             Options
           </Label>
 
-          <Button onClick={() => setWifiDetailsOpen(true)}>
-            WiFi settings
-            <span className="block text-[10px] text-black mt-0.5">
-              Signal, IP, hotspot status, connect to a new network
-            </span>
-          </Button>
-
-          <Button disabled={downloading} onClick={doDownload}>
+          <Button
+            className={clsx(
+              "font-bold",
+              downloading
+                ? "border-gray-100 bg-gray-200"
+                : "border-gray-500 bg-gray-600 text-white",
+            )}
+            disabled={downloading}
+            onClick={doDownload}
+          >
             {downloading ? "Preparing…" : "Download database"}
-            <span className="block text-[10px] text-black mt-0.5">
+            <span className="block text-[12px] font-normal">
               Gzipped snapshot. Readings only, no credentials
             </span>
           </Button>
 
-          <Button onClick={() => (released ? connectBms() : releaseBms())}>
+          <Button
+            className={clsx(
+              "font-bold",
+              released
+                ? "border-orange-100 bg-orange-200"
+                : "border-orange-500 bg-orange-600 text-white",
+            )}
+            onClick={() => (released ? connectBms() : releaseBms())}
+          >
             {released ? "Reconnect BMS" : "Release BMS"}
-            <span className="block text-[11px] text-black mt-0.5">
+            <span className="block text-[12px] font-normal">
               {released
                 ? "Resume monitoring from the Pi"
                 : "Free the Bluetooth link for the Power Queen app"}
@@ -316,15 +327,31 @@ export function SettingsDrawer({
           </Button>
 
           <Button
-            onClick={onPower}
-            className="border-amber-800 bg-amber-400 text-black"
+            className="border-sky-500 bg-sky-600 font-bold text-white"
+            onClick={() => setWifiDetailsOpen(true)}
+          >
+            WiFi Settings
+          </Button>
+
+          <Button
+            onClick={() => {
+              setViewHistory(!viewHistory);
+            }}
+            className="border-green-300 bg-green-400 text-black"
             bold
           >
-            Power options
+            View History
           </Button>
+          {viewHistory && <HistoryCard open={viewHistory} />}
         </section>
 
-        <HistoryCard />
+        <Button
+          onClick={onPower}
+          className="border-amber-300 bg-amber-400 text-black"
+          bold
+        >
+          Power options
+        </Button>
       </div>
 
       <NetworkDetailsDrawer

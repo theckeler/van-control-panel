@@ -10,7 +10,6 @@ export function SelectableTile({
 }: {
   selected: boolean;
   onClick: () => void;
-  // size?: Size;
   disabled?: boolean;
   className?: string;
   children: React.ReactNode;
