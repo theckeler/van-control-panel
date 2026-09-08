@@ -15,10 +15,28 @@
 | Single board computer | Raspberry Pi 4B 1GB | Main server. FastAPI, BLE, VE.Direct, cameras |
 | Storage | SanDisk Endurance 32GB microSD | Rated for 24/7 continuous write |
 | Cooling | Aluminum passive heatsink kit | Cabinet gets warm — heatsink required |
-| Power supply | 12V to USB-C 5V 3A buck converter | Steps van 12V to Pi USB-C. Fused 3A at fuse block |
+| Power supply | EcoFlow River 2 Max, 100W USB-C port | **Not** the house battery / buck converter path below — see note |
 | Enclosure | DIN rail mount case | Mounts on HDPE panel DIN rail |
 
 **Power draw:** ~3-5W at load. At 12V ≈ 6-10Ah/day. Less than 3% of 300Ah battery.
+
+**Actual power path, confirmed 2026-09-07:** the Pi draws from the EcoFlow
+River 2 Max's 100W USB-C port, not from the house battery (Power Queen) via a
+12V-to-USB-C buck converter. The buck converter row two tables down (Charge
+Sources) describes the originally-planned path, not what's wired today.
+
+This matters because the EcoFlow is a portable, finite battery, not the
+300Ah house bank — during a multi-day trip it can run down (seen at 19%
+after a few hot days, partly from its own cooling fans), and low EcoFlow
+charge has been directly correlated with Pi WiFi instability: `vcgencmd
+get_throttled` showed undervoltage/throttling and `dmesg` showed
+"Undervoltage detected!" cycling starting the morning after Todd left on
+the 2026-09-04 AT hike. The Pi itself never crashed (no gaps in
+`readings_raw`), but the USB WiFi dongle was destabilized. Treat EcoFlow
+charge level as a live suspect for any future "Pi unreachable" or "WiFi
+dropped" troubleshooting. Moving Pi power to the house battery is under
+consideration but not simple — the EcoFlow also runs the fridge and shows
+its own voltage warnings, an open question not yet resolved.
 
 ---
 
