@@ -30,8 +30,8 @@ CAMERA_TUNING = {
     "interior": [
         ("focus_automatic_continuous", "0"),
         ("focus_absolute", "0"),
-        ("brightness", "4"),
-        ("auto_exposure", "3"),
+        ("brightness", "0"),
+        ("auto_exposure", "0"),
     ],
 }
 
