@@ -84,6 +84,8 @@ else:
 
 **No orchestrator restart on task death** — if both BLE tasks die, the orchestrator exits and nothing restarts them until `van-api` is restarted. A production-grade fix would add a watchdog, but given the 5-minute BMS cooldown and reliable Victron scanning this hasn't been a practical issue.
 
+**Update 2026-10-13: it did become a practical issue, twice.** The BMS task didn't die — it *froze* inside an un-timed-out BLE await, so a restart-on-death supervisor wouldn't have fired either. It happened on 2026-09-04 (9h) and 2026-10-05 (8 days; the house battery drained 99% → 19% unseen). The "no practical issue" judgement above rested on reasoning about the 5-minute cooldown and never considered a task that stays alive but stops making progress. Fixed by bounding every BLE call and running the BMS under a progress-deadline watchdog (`ble_orchestrator._supervised_bms`) — see `TROUBLESHOOTING.md`.
+
 **Shelly loads in system breakdown always shown** — the load breakdown lists USB outlets regardless of whether they're actually on, since we removed the live Shelly state check (it was causing 5-second response times). Acceptable for now; SQLite logging will eventually let us track actual Shelly state over time.
 
 ---

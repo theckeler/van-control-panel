@@ -39,6 +39,10 @@ A self-hosted IoT monitoring and control dashboard for a converted 2023 Mercedes
 
 **BMS lockout behaviour** — If too many rapid connection attempts are made, the BMS accepts connections but stops responding to commands. Fix: physically power-cycle the BMS (flip the house main disconnect). Prevention: the 5-minute `RECONNECT_IN` constant.
 
+**BMS service watchdog (2026-10-13)** — The BMS task froze silently inside an un-timed-out BLE call twice (2026-09-04, and 2026-10-05 for 8 days, during which the house battery drained 99% → 19% unseen). Every BLE await in `battery_ble.py` is now hard-bounded, and `ble_orchestrator.py` runs the task under a watchdog that cancels and replaces it if it misses its own progress deadline. A *released* service is exempt. Diagnosis checklist: `docs/TROUBLESHOOTING.md`.
+
+**Logging** — The `app.*` loggers emit INFO (configured in `main.py`, scoped to `app` so httpx's per-request lines stay silent). Journald is persistent on the SD card, so per-reading lines (every 30s) are DEBUG on purpose; keep new per-poll logging at DEBUG.
+
 ### Shelly Control
 
 Three Shelly 1 Gen4 units installed, one placeholder. All installed units are
@@ -141,7 +145,8 @@ backend/app/
   services/
     battery_ble.py       Power Queen persistent BLE connection
     victron_ble.py       Victron one-shot BLE scan
-    ble_orchestrator.py  Runs both as asyncio tasks via gather()
+    ble_orchestrator.py  Runs the Victron, BMS and EcoFlow loops via gather(); the BMS
+                         runs under a watchdog that replaces a frozen/crashed task
     data_logger.py       Writes readings to SQLite, triggers rollups
     db.py                SQLite schema, write, rollup, prune, query functions
                          query_raw bucket-averages server-side (max_points=300)

@@ -1,7 +1,7 @@
 # Troubleshooting
 
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-10-13
 Common issues and their fixes for the Van Control Panel system.
 
 ---
@@ -12,10 +12,29 @@ Common issues and their fixes for the Van Control Panel system.
 
 - Battery card shows `○ offline` or `○ offline — no data yet`
 - `/battery/` endpoint returns `connected: false`
-- Journal *should* show repeated `BMS: ... — retrying in 300s`, but as of
-  2026-09-04 this line has never actually been observed in `journalctl` —
-  see the logging gap noted below. Don't treat its absence as evidence the
-  BMS isn't attempting to reconnect.
+- A healthy retry loop logs a `BMS: ... — retrying in 300s` WARNING every
+  5 minutes. **Hours or days with no `BMS:` line at all means the task is
+  frozen, not retrying** — see "Frozen task" below.
+
+### Diagnose in 30 seconds
+
+```bash
+KEY=$(grep VAN_API_KEY ~/van-control-panel/backend/.env | cut -d= -f2)
+curl -s -H "X-API-Key: $KEY" http://127.0.0.1:8000/battery/ | python3 -m json.tool
+journalctl -u van-api --since '1 hour ago' --no-pager | grep 'BMS:'
+bluetoothctl info C8:47:80:5D:08:6F | grep -E 'Connected|RSSI'
+```
+
+| What you see | Meaning |
+| --- | --- |
+| `retry_in` is a number counting down from 300 | Normal: between attempts, the BMS is genuinely unreachable. Check lockout below |
+| `retry_in: null`, not released, and no `BMS:` lines for hours | **Frozen task.** Restart `van-api` |
+| `BMS watchdog: ... cancelling it and starting a fresh one` in the journal | The watchdog caught a frozen task and replaced it. Nothing to do, but note when |
+| `bluetoothctl info` shows a strong RSSI (about -40 to -60) and `Connected: no` | The BMS is fine and advertising. The problem is on the Pi side |
+| No `bluetoothctl` entry or no RSSI | The BMS is not advertising — real lockout or no power. Physical power cycle below |
+
+Grep for `BMS:`, not `battery`: the 5-second `GET /battery/` access-log lines
+match `battery` and bury everything else.
 
 ### Cause
 
@@ -29,17 +48,48 @@ raised, and never hit the 300s retry path at all (confirmed via
 `mppt`/`ecoflow` staying connected the whole time — this wasn't an
 adapter-wide problem). **Fix was the same either way: `sudo systemctl
 restart van-api`** cleared it and the BMS reconnected within about a minute.
-Genuinely no BMS-specific log line appeared before or after the fix — see
-below.
+No BMS log line appeared before or after the fix — this was first read as
+"battery_ble's logging never reaches journald", which turned out to be only
+half right; see "Logging, corrected" below.
 
-**Known gap, not yet fixed: `battery_ble.py`'s logging never reaches
-journald.** The code logs clearly at every stage (`logger.info`/
-`logger.warning` — service start, connect, every read, every failure) but
-none of it shows up in `journalctl -u van-api`, at any log level. This is
-*why* the 9-hour outage above went unnoticed — there was no log signal, only
-silence. The fastest way to actually check BMS state right now is
-`curl -s http://127.0.0.1:8000/battery/ | python3 -m json.tool` on the Pi,
-not the journal.
+**Frozen task, 2026-10-05 to 2026-10-13 — the same failure, 8 days.** The BMS
+dropped at 6:31 PM, one reconnect attempt failed fast with
+`org.bluez.Error.InProgress`, and the *next* attempt (due about 6:41 PM)
+never logged or returned. The task was frozen inside a BLE await that had no
+timeout, so it never reached its retry sleep again. Pressing **Release /
+Reconnect did nothing**, because those only set flags the frozen task never
+reads. The BMS itself was fine throughout (advertising at -43 dBm, not
+connected to anything). `sudo systemctl restart van-api` brought it straight
+back, to **19% SOC — the house battery had drained from 99% unseen during the
+blind window.** `bluetoothctl remove <mac>` plus Reconnect does *not* help for
+the same reason.
+
+**Fixed 2026-10-13.** Two layers, both in `backend/app/services/`:
+
+1. `battery_ble.py` puts a hard timeout on every BLE call that used to be able
+   to wait forever (`start_notify`, `write_gatt_char`, `stop_notify`, the
+   connect itself, and `disconnect`).
+2. `ble_orchestrator.py` runs the BMS task under a watchdog. The task
+   publishes a deadline for its next milestone; if it blows past it (worst
+   case for the phase it is in, plus 60s of grace) the watchdog logs
+   `BMS watchdog: service made no progress past its deadline` at ERROR,
+   cancels the task, waits 30s (so a restart can't become a retry storm
+   against a BMS that locks up on rapid reconnects), and starts a fresh one.
+   A *crashed* task is restarted the same way. A deliberately **released**
+   service is exempt, since it legitimately waits on the Reconnect request
+   for as long as it takes.
+
+If an unbounded await is ever found elsewhere, the watchdog still catches it.
+A manual `restart van-api` should now be rarely needed.
+
+**Logging, corrected.** The 2026-09-04 note here said `battery_ble.py`'s
+logging never reaches journald. That was only half right: WARNING and above
+always did (that is how the Oct 5 timeline could be reconstructed), but INFO
+lines were silently dropped, so a *healthy* BMS logged nothing and looked
+identical to a dead one. As of 2026-10-13 the `app.*` loggers emit INFO, so
+`BMS: connected`, `BMS: paused`, `BMS: reconnect requested` and watchdog
+events are visible. Per-reading lines (every 30s) are deliberately DEBUG: the
+journal is persistent on the SD card.
 
 **Observed variant, 2026-08-27: not advertising at all, not just refusing
 connections.** After an unusually heavy stretch of development — many
@@ -88,6 +138,7 @@ If you don't want to power cycle, open the Power Queen app on your phone, let it
 - Do not restart `van-api` repeatedly in quick succession
 - In normal operation the persistent connection holds for days
 - The 5-minute reconnect cooldown (`RECONNECT_IN = 300` in `battery_ble.py`) prevents hammering
+- The watchdog (above) waits 30s before replacing a frozen task, for the same reason
 - A long, heavy development session (many deploys, manual syncs, WiFi
   switching) adds up to exactly this pattern even when no single restart
   seems excessive. If the BMS goes quiet partway through a long session,

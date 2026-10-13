@@ -64,7 +64,7 @@ class _OneShotScanner(Scanner):
                 daily_yield=parsed.get_yield_today() or 0.0,
                 charger_error=parsed.get_charger_error() or 0,
             )
-            logger.info(
+            logger.debug(
                 "MPPT: %.1fW solar, %.2fV battery, %s, %.0fWh today",
                 _cache.solar_power,
                 _cache.battery_voltage,

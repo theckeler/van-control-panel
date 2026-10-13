@@ -159,7 +159,7 @@ async def poll_once(timeout: float = 10.0):
             charge_state=_infer_charge_state(now),
             updated_at=now,
         )
-        logger.info(
+        logger.debug(
             "EcoFlow: %d%% battery (serial %s, inferred %s)",
             battery, serial, _cache.charge_state,
         )
