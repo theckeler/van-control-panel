@@ -138,7 +138,8 @@ services/
 │                          FFE1 characteristic, reads every 30s, 5-min reconnect cooldown
 ├── victron_ble.py         One-shot BLE scan for Victron MPPT every 30s
 │                          Uses victron-ble library to decrypt advertisements
-├── ble_orchestrator.py    asyncio.gather() — runs both BLE services concurrently
+├── ble_orchestrator.py    asyncio.gather() — runs the Victron, BMS and EcoFlow loops
+│                          concurrently; the BMS task runs under a watchdog
 ├── data_logger.py         Writes readings to SQLite every 30s, triggers rollups
 ├── db.py                  SQLite schema, 4-tier rollup, prune, query helpers
 ├── pq_battery.py          Vendored: pq_bms_bluetooth parse logic

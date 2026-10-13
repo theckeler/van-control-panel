@@ -15,6 +15,20 @@ import os
 
 log = logging.getLogger("van-api")
 
+# uvicorn only configures its own loggers. Everything under "app." used to fall
+# through to Python's last-resort handler, which prints WARNING and above and
+# silently drops INFO — so a healthy BMS service logged nothing and looked
+# identical to a dead one. Scoped to "app" rather than the root logger so
+# httpx's per-request INFO lines (every Shelly poll) can't flood journald,
+# which is on the SD card. Per-reading lines are DEBUG for the same reason.
+_app_log = logging.getLogger("app")
+if not _app_log.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+    _app_log.addHandler(_handler)
+    _app_log.setLevel(logging.INFO)
+    _app_log.propagate = False
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.init()
