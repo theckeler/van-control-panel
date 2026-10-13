@@ -637,6 +637,12 @@ export const mockApi = {
       delay({ status: "demo", message: "Shutdown disabled in demo mode" }),
     reboot: () =>
       delay({ status: "demo", message: "Reboot disabled in demo mode" }),
+    restartApi: () =>
+      delay({
+        status: "restarting" as "restarting" | "too_soon",
+        message: "Restart disabled in demo mode",
+        retry_in: undefined as number | undefined,
+      }),
     diskImageStart: () =>
       delay({ ok: false, message: "Disk image disabled in demo mode" }),
     diskImageStatus: () =>

@@ -239,8 +239,11 @@ frontend/
                          nothing client-side
     components/modals/
       ConfirmModal.tsx   Generic yes/no dialog, danger-styled confirm button
-      PowerModal.tsx     Multi-phase reboot/shutdown flow, polls /api/health every
-                         2s to detect the Pi going down and coming back
+      PowerModal.tsx     Multi-phase restart-API/reboot/shutdown flow, polls /api/health
+                         every 2s to detect the service or Pi going down and coming
+                         back. Restart API has a 20s fallback for a restart quick
+                         enough that no poll ever fails, and a Close button since
+                         the Pi is still up
       ProgressModal.tsx  Determinate-or-spinning progress overlay, always
                          cancellable
     components/layout/
@@ -403,6 +406,11 @@ Ordered by how much has gone wrong.
 
 **Service died** — `sudo systemctl restart van-api` (or `van-frontend`).
 Check with `systemctl status van-api --no-pager`.
+
+**A card is stuck or frozen, and you are not at a terminal** — Settings →
+Power options → **Restart API**. Restarts the backend only (Pi stays on, ~15s,
+clears all in-memory caches). Refused for 2 minutes after any restart:
+rapid `van-api` restarts can lock up the BMS.
 
 **Dashboard shows ENOENT dist/index.html** — the build is missing.
 `cd ~/van-control-panel/frontend && npm run build && sudo systemctl restart van-frontend`.
