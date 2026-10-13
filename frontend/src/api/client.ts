@@ -136,6 +136,10 @@ const realApi = {
     shutdown: () =>
       post<{ status: string; message: string }>("/system/shutdown"),
     reboot: () => post<{ status: string; message: string }>("/system/reboot"),
+    restartApi: () =>
+      post<{ status: "restarting" | "too_soon"; message: string; retry_in?: number }>(
+        "/system/restart-api",
+      ),
     diskImageStart: () =>
       post<{ ok: boolean; message: string }>("/system/disk-image/start"),
     diskImageStatus: () => get<DiskImageStatus>("/system/disk-image/status"),

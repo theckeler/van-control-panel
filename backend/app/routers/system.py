@@ -1,5 +1,6 @@
 import asyncio
 import subprocess
+import time
 from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
@@ -462,3 +463,58 @@ async def reboot_pi():
     db.log_event("system", value="reboot")
     subprocess.Popen(["sudo", "reboot"])
     return {"status": "rebooting", "message": "Pi is rebooting — dashboard back in ~30s"}
+
+
+API_SERVICE = "van-api"
+# Every restart re-runs the BMS connect, and the BMS firmware locks up after
+# rapid reconnects (docs/TROUBLESHOOTING.md). Uptime since this process
+# started is exactly "time since the last restart", and it resets by itself
+# when the service restarts, so no state has to survive the restart.
+API_RESTART_MIN_UPTIME_S = 120
+_PROCESS_STARTED = time.monotonic()
+
+
+def _restart_api_service() -> None:
+    # --no-block queues the job with systemd and returns immediately; the stop
+    # then kills this process (and this child, if it were still alive), but the
+    # queued restart carries on regardless.
+    subprocess.Popen(
+        ["sudo", "systemctl", "--no-block", "restart", API_SERVICE],
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+@router.post("/restart-api")
+async def restart_api():
+    """
+    Restart the van-api service only — the Pi stays on.
+
+    The manual escape hatch for a hung backend task. It also clears every
+    in-memory cache (Shelly DNS, BLE readings, network and health caches),
+    which is the only "clear cache" there is on this side.
+
+    A declined request is a normal 200 with status "too_soon", not an error:
+    the frontend's API helpers only expose success bodies.
+    """
+    uptime = time.monotonic() - _PROCESS_STARTED
+    if uptime < API_RESTART_MIN_UPTIME_S:
+        wait = int(API_RESTART_MIN_UPTIME_S - uptime) + 1
+        return {
+            "status": "too_soon",
+            "retry_in": wait,
+            "message": (
+                f"van-api only started {int(uptime)}s ago — wait about {wait}s. "
+                "Restarting in quick succession can lock up the battery monitor."
+            ),
+        }
+    # Logged first: the process is about to be stopped.
+    db.log_event("system", value="restart-api")
+    # Deferred so this response is flushed before systemd stops the service
+    # this request is running inside.
+    asyncio.get_running_loop().call_later(0.5, _restart_api_service)
+    return {
+        "status": "restarting",
+        "message": "van-api is restarting — back in about 10-20s",
+    }

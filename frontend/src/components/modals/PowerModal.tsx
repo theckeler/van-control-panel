@@ -1,9 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "../../api/client";
+import { api, isDemo } from "../../api/client";
 import { Button, Modal, Spinner } from "../ui";
 
-type Action = "reboot" | "shutdown";
-type Phase = "pick" | "confirm" | "acting" | "offline" | "back";
+type Action = "reboot" | "shutdown" | "restart-api";
+type Phase =
+  | "pick"
+  | "confirm"
+  | "acting"
+  | "offline"
+  | "back"
+  | "declined";
+
+// A restart that never drops a health poll (the API came back between two
+// 2s polls) would otherwise sit on the spinner forever.
+const API_RESTART_FALLBACK_MS = 20_000;
 
 interface PowerModalProps {
   open: boolean;
@@ -11,6 +21,15 @@ interface PowerModalProps {
 }
 
 const COPY = {
+  "restart-api": {
+    confirm: {
+      title: "Restart the API?",
+      body: "Restarts the dashboard's backend service only. The Pi stays on. Live data goes blank for 10-20 seconds, and everything the backend holds in memory is cleared and re-read, including cached network lookups. Use it when a card is stuck. Don't repeat it in quick succession: restarting too often can lock up the battery monitor.",
+    },
+    acting: "Restarting API",
+    offline: "API is restarting — waiting for it to come back",
+    back: "API is back online. The battery monitor takes another 30-60 seconds to reconnect.",
+  },
   reboot: {
     confirm: {
       title: "Reboot the Pi?",
@@ -39,6 +58,12 @@ const COPY = {
   }
 >;
 
+const CONFIRM_LABEL: Record<Action, string> = {
+  "restart-api": "⟳ Restart API",
+  reboot: "↺ Reboot",
+  shutdown: "⏻ Shut Down",
+};
+
 async function pingHealth(): Promise<boolean> {
   try {
     const res = await fetch("/api/health", {
@@ -53,6 +78,7 @@ async function pingHealth(): Promise<boolean> {
 export function PowerModal({ open, onClose }: PowerModalProps) {
   const [phase, setPhase] = useState<Phase>("pick");
   const [action, setAction] = useState<Action | null>(null);
+  const [declinedMsg, setDeclinedMsg] = useState("");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Reset when modal opens
@@ -71,6 +97,13 @@ export function PowerModal({ open, onClose }: PowerModalProps) {
   }
 
   function startPolling(act: Action) {
+    // The demo has no /api/health to poll, so it would sit on "offline"
+    // forever. Nothing really restarts there; just finish the story.
+    if (isDemo) {
+      setTimeout(() => setPhase(act === "shutdown" ? "offline" : "back"), 1500);
+      return;
+    }
+    const startedAt = Date.now();
     let wentOffline = false;
     intervalRef.current = setInterval(async () => {
       const alive = await pingHealth();
@@ -80,8 +113,17 @@ export function PowerModal({ open, onClose }: PowerModalProps) {
       }
       if (alive && wentOffline) {
         stopPolling();
-        if (act === "reboot") setPhase("back");
+        if (act !== "shutdown") setPhase("back");
         // shutdown: stay on offline — user closes manually
+      }
+      if (
+        alive &&
+        !wentOffline &&
+        act === "restart-api" &&
+        Date.now() - startedAt > API_RESTART_FALLBACK_MS
+      ) {
+        stopPolling();
+        setPhase("back");
       }
     }, 2000);
   }
@@ -97,6 +139,14 @@ export function PowerModal({ open, onClose }: PowerModalProps) {
     try {
       if (action === "reboot") await api.system.reboot();
       if (action === "shutdown") await api.system.shutdown();
+      if (action === "restart-api") {
+        const res = await api.system.restartApi();
+        if (res.status === "too_soon") {
+          setDeclinedMsg(res.message);
+          setPhase("declined");
+          return;
+        }
+      }
     } catch {
       /* Pi may cut the connection mid-response — that's fine */
     }
@@ -138,6 +188,12 @@ export function PowerModal({ open, onClose }: PowerModalProps) {
           </p>
 
           <div className="flex flex-col gap-2 w-full">
+            <Button onClick={() => handleAction("restart-api")}>
+              {CONFIRM_LABEL["restart-api"]}
+              <span className="block text-[12px] font-normal">
+                Backend only. The Pi stays on
+              </span>
+            </Button>
             <Button onClick={() => handleAction("reboot")}>↺ Reboot</Button>
             <Button
               onClick={() => handleAction("shutdown")}
@@ -159,10 +215,22 @@ export function PowerModal({ open, onClose }: PowerModalProps) {
           <p className="text-black">{COPY[action].confirm.body}</p>
           <div className="flex flex-col gap-2 w-full">
             <Button onClick={() => setPhase("pick")}>Back</Button>
-            <Button onClick={handleConfirm} variant="danger">
-              {action === "reboot" ? "↺ Reboot" : "⏻ Shut Down"}
+            <Button
+              onClick={handleConfirm}
+              variant={action === "restart-api" ? "outline" : "danger"}
+            >
+              {CONFIRM_LABEL[action]}
             </Button>
           </div>
+        </>
+      )}
+
+      {/* DECLINED — restart cooldown */}
+      {phase === "declined" && (
+        <>
+          <h2 className="font-semibold text-black">Not yet</h2>
+          <p className="text-black">{declinedMsg}</p>
+          <Button onClick={handleClose}>Close</Button>
         </>
       )}
 
@@ -178,13 +246,18 @@ export function PowerModal({ open, onClose }: PowerModalProps) {
               </p>
             </>
           )}
-          {phase === "offline" && act === "reboot" && (
+          {phase === "offline" && act !== "shutdown" && (
             <>
               <Spinner />
               <p className="text-gray-600 text-center">
                 {COPY[act].offline}
                 <Dots />
               </p>
+              {/* The Pi is still up when only the API restarts, so there is
+                  something to go back to if the service never returns. */}
+              {act === "restart-api" && (
+                <Button onClick={handleClose}>Close</Button>
+              )}
             </>
           )}
           {phase === "offline" && act === "shutdown" && (

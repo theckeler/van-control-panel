@@ -179,6 +179,13 @@ DB size, row counts, when the nightly backup timer last fired, how many snapshot
 ### `POST /system/reboot`
 Trigger a Pi shutdown/reboot. Paired with `GET /health` on the frontend to detect the Pi going down and coming back.
 
+### `POST /system/restart-api`
+Restart the `van-api` service only; the Pi stays on. The manual escape hatch for a hung backend task, and the only "clear cache" there is: it wipes every in-memory cache (Shelly DNS, BLE readings, network and health caches).
+
+Returns `{"status": "restarting", "message": ...}` and restarts about 0.5s later, so the response is delivered first. The dashboard polls `GET /health` to see it go down and come back (back in ~10-20s; the BMS reconnects 30-60s after that).
+
+**Cooldown:** refused while the service has been up for less than 120s (`API_RESTART_MIN_UPTIME_S`), because the BMS firmware locks up after rapid reconnects. A refusal is a normal 200, not an error: `{"status": "too_soon", "retry_in": <seconds>, "message": ...}`. Uptime is measured from process start, so it needs no state that would have to survive the restart it is guarding.
+
 ---
 
 ## Shelly
