@@ -1154,17 +1154,33 @@ The loop used to run unconditionally, outside any state check, appending
 whether Starlink or the fridge were actually powered — 62 of that 67W
 claimed whether or not the hardware was on.
 
-**Now:** `loads` only ever contains the Pi's 5W (the one genuinely always-on
-load), plus Shelly circuits read from live cache that are actually switched
-on, plus solar input as a measured negative load. Starlink and the fridge
-are gone from the breakdown entirely — neither reports its own state yet, so
-neither can be claimed honestly until one gets a Shelly or the ESP32 bridge.
+**Now:** `loads` contains the Pi's 5W (the one genuinely always-on load),
+plus every installed Shelly circuit that has an `est_watts` estimate
+**whether or not its relay is on** (today just USB Outlets, 20W), plus solar
+input as a measured negative load. Starlink and the fridge are gone from the
+breakdown entirely — neither reports its own state yet, so neither can be
+claimed honestly until one gets a Shelly or the ESP32 bridge.
 
-Also no longer latent: `system.py`'s response is live (verified against the
-Pi 2026-09-08 — `loads: [{Pi, 5W}, {USB Outlets, 20W}, {Solar input, -156W}]`
-with `load_watts` correctly flagged `load_is_estimate: true` when the BMS was
-disconnected). Nothing in the frontend reads it yet, but the data itself is
-honest now, ready for whenever a load-breakdown panel gets built.
+**The Shelly line is an estimate, not a measurement, and that is deliberate.**
+The live Shelly on/off check was removed from `/system/` because the extra
+HTTP round trips pushed it to ~5-second responses (see
+`rubber-duck-review.md`). The comment above that loop in `system.py` says it
+lists "only the ones actually switched on, from the shelly router's cache" —
+that describes behavior that was never implemented (no such cache exists), so
+trust this doc over that comment. Confirmed live 2026-10-13: every relay off,
+`loads` still listed `USB Outlets 20W`.
+
+Correction: an earlier version of this section said the shape was "verified
+against the Pi 2026-09-08" and that Shelly circuits appeared only when
+switched on. The shape was verified; the on/off claim was an assumption read
+from that comment, never checked against the relay states. `load_watts` itself
+is unaffected — it is computed from BMS and MPPT measurements, not from
+`loads`.
+
+Nothing in the frontend reads `loads` yet. **Before building a load-breakdown
+panel on it**, give `shelly.py`'s existing 5s poll a last-known on/off cache
+that `system.py` can read for free, which restores the on/off check without
+the round-trip cost that got it removed.
 
 ### Genuinely real issue 2 — the clamp hid shore charging (fixed)
 

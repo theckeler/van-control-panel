@@ -251,16 +251,19 @@ full correction.)_
 
 ### What is actually unreliable
 
-`system.py`'s `load_watts` and `loads` breakdown, neither of which the frontend
-currently displays:
+`system.py`'s `loads` breakdown, which the frontend does not currently display.
+Two earlier bugs here (Starlink/Fridge always claimed; `load_watts` clamped to
+0 during shore charging) were fixed 2026-09-01. What remains:
 
-- The `loads` list always claims Starlink 22W and Fridge 40W whether or not
-  they're powered.
-- `load_watts` is clamped with `max(0.0, ...)`, so during shore charging it
-  reports 0W even while loads are running.
+- The `loads` list includes `USB Outlets 20W` **whether or not that relay is
+  on** — a deliberate tradeoff, since the live Shelly check made `/system/`
+  take ~5 seconds. So seeing it there with everything off is expected, not a
+  bug in the data.
+- `load_watts` is `None` while a non-solar source is charging, and falls back
+  to a flat estimate (`load_is_estimate: true`) when the BMS is offline.
 
-Both documented in CLAUDE.md. Neither affects anything you can see on the
-dashboard today.
+Details in CLAUDE.md "system.py load estimation". Neither affects anything you
+can see on the dashboard today.
 
 ---
 
