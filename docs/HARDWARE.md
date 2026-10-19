@@ -1,7 +1,7 @@
 # Hardware Reference — Van Control Panel
 
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-10-19
 ## Vehicle
 
 **2023 Mercedes Sprinter VS30 AWD 144" High Roof** — cargo conversion.
@@ -43,15 +43,18 @@ its own voltage warnings, an open question not yet resolved.
 ## Cameras
 
 **Only one camera is physically installed: interior, at `/dev/video0`.** A
-USB UVC camera, not the originally-planned CSI module — see below. `camera.py`
+**Logitech C922 Pro Stream Webcam** (`046d:085c`, USB UVC), in place by
+2026-10-19. It replaced a cheap "HD USB Camera" (`32e4:9520`) that kept
+freezing on one identical frame, even through a held 15-second USB port power
+cycle. Not the originally-planned CSI module — see below. `camera.py`
 still has an `exterior` device slot (`/dev/video2`) wired up in code, but
 there's no hardware behind it yet; requests for it 400 with "exterior camera
 not connected" rather than failing silently.
 
-**Capture is on-demand, not a timer.** `GET /photos/latest` captures fresh on
-every call — there's no background capture loop or systemd timer driving
-this today, regardless of what the operating mode's `camera_interval_min`
-says (see MODES.md).
+**Two capture paths.** A background loop (`services/camera_loop.py`) takes a
+photo every `camera_interval_min` of the active operating mode (60s floor, see
+MODES.md) and keeps 24 hours of them. Separately, `GET /photos/latest`
+captures fresh on every call rather than serving the loop's last frame.
 
 **Why `ffmpeg` and the CSI module got abandoned, 2026-08-31:** the original
 plan was the Pi Camera Module 3 (CSI, via `rpicam-still`/`libcamera`) for
@@ -67,10 +70,28 @@ process (simpler, one code path for both camera slots instead of two).
 
 **UVC control tuning** (interior camera, applied fresh before every capture
 since USB controls reset on unplug/reboot — see `camera.py`'s
-`CAMERA_TUNING`): `focus_absolute=5` (manual, swept and scored via Laplacian
-variance — sharpest for this camera's close, backlit mounting position),
-`brightness=15` (max — default crushed shadows against the window's
-backlight), `auto_exposure=3` (kept automatic across day/night).
+`CAMERA_TUNING`). Fitted to the C922 on 2026-10-19: `focus_automatic_continuous=0`
+and `focus_absolute=0` (manual, infinity), `brightness=128` (the default),
+`auto_exposure=3` (auto) and `backlight_compensation=1`.
+
+Why those, measured on the real interior scene:
+
+- **Brightness:** the C922 is 0-255 with a default of 128, and **0 is the
+  darkest setting**, not a reset. At 0 the interior was nearly black (mean
+  luma ~26); at 128 it is ~76 (~86 with backlight compensation).
+- **Exposure:** the camera only accepts `1` (manual) or `3` (aperture
+  priority, i.e. auto). `0` fails with `Invalid argument`.
+- **Focus:** fixed focus 0-20 is sharp and 30+ is soft. Continuous autofocus
+  came out *blurry*, so it stays off.
+- **Backlight compensation:** the scene is lit from the window, so this lifts
+  the interior at the cost of some window highlight. Remove that line from
+  `CAMERA_TUNING` if the window matters more than the interior.
+
+The numbers do not transfer between cameras: the previous camera's ranges were
+brightness 0-15 (default 8), so values tuned for it (`brightness=4`,
+`focus_absolute=5`) mean something entirely different on this one. Re-check
+`v4l2-ctl -d /dev/video0 --list-ctrls-menus` after any camera swap. See
+TROUBLESHOOTING.md, "Camera photos too dark".
 
 **Persistent USB device name**, if/when a second camera is actually
 installed:

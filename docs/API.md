@@ -291,8 +291,9 @@ is wired up in the same code path but 503s with "exterior camera not
 connected" since there's no camera installed for it yet.
 
 ### `GET /photos/latest?cam=interior`
-Captures a **fresh photo on every call** — there's no background capture
-loop, so this isn't serving a cached/recent file.
+Captures a **fresh photo on every call** — it does not serve the background
+loop's last frame (the loop takes its own photos on the active mode's
+`camera_interval_min`), so this isn't a cached/recent file.
 
 ```json
 { "filename": "interior_20260904T120000Z.jpg", "url": "/static/photos/interior/interior_20260904T120000Z.jpg", "cam": "interior", "timestamp": "2026-09-04T12:00:00+00:00" }
