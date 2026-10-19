@@ -399,6 +399,58 @@ when the session ends.
 
 ---
 
+## Camera photos too dark, too soft, or a setting "was not applied"
+
+### Symptoms
+
+- Photos are nearly black, washed out, or soft, even though the capture itself
+  succeeds
+- `journalctl -u van-api | grep "was not applied"` shows
+  `camera interior: <control>=<value> was not applied (...)`
+
+### Cause
+
+`CAMERA_TUNING` in `camera.py` holds raw UVC control values, and **their
+meaning depends on the camera**. The same number can be the darkest setting on
+one model and neutral on another. This happened on 2026-10-19: values tuned for
+the old cheap camera (`brightness=0`) were left in place after the swap to a
+Logitech C922, where 0 is the *minimum* (default 128), and the interior came out
+nearly black. At the same time `auto_exposure=0` was rejected on every capture
+(the C922 only accepts 1 or 3) and nothing said so, because stderr was being
+thrown away.
+
+### Check
+
+```bash
+# Real ranges, defaults and menu options for THIS camera
+v4l2-ctl -d /dev/video0 --list-ctrls-menus
+# Rejected settings are now logged once per process
+journalctl -u van-api --since today --no-pager | grep "was not applied"
+# What the camera is actually set to right now
+v4l2-ctl -d /dev/video0 --get-ctrl brightness,auto_exposure,backlight_compensation,focus_absolute,focus_automatic_continuous
+```
+
+### Fix
+
+Compare each `CAMERA_TUNING` value against the `min`/`max`/`default` above and
+the menu options, then test a change by hand before editing code. Set one
+control, capture one frame, look at it:
+
+```bash
+v4l2-ctl -d /dev/video0 -c brightness=128
+v4l2-ctl -d /dev/video0 --set-fmt-video=width=1280,height=720,pixelformat=MJPG \
+  --stream-mmap --stream-count=1 --stream-to=/tmp/test.jpg
+```
+
+### Limit of the warning
+
+It catches a setting the camera *rejects* (unknown control, invalid menu
+value — exit code non-zero). It cannot catch a value the driver silently
+*clamps* (`brightness=999` returns success) or a valid value that is simply
+wrong for the scene (`brightness=0`). Those only show up by looking at a photo.
+
+---
+
 ## Camera disabled 2026-08-31 — `ffmpeg` missing, and installing it OOM-crashed the Pi
 
 ### What happened
@@ -434,7 +486,13 @@ v4l2-ctl -d /dev/videoN \
 `camera.py`'s `_capture()` now shells out to this instead of `ffmpeg`. Zero
 new packages, zero OOM risk.
 
-### Still unresolved as of 2026-08-31
+### Was unresolved as of 2026-08-31 — resolved since
+
+_Resolved: the camera re-enumerated, `v4l2-ctl` capture works, and the Cameras
+card was re-enabled on 2026-09-04. That cheap camera later froze repeatedly on
+one identical frame and was replaced with a Logitech C922 by 2026-10-19. The
+original note follows as history._
+
 
 The physical USB camera (`lsusb` showed `32e4:9520 HD Camera Manufacturer HD
 USB Camera`, not the Logitech C270 the older hardware docs assume) **dropped
