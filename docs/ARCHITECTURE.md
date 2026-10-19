@@ -144,6 +144,8 @@ services/
 │                          Uses victron-ble library to decrypt advertisements
 ├── ble_orchestrator.py    asyncio.gather() — runs the Victron, BMS and EcoFlow loops
 │                          concurrently; the BMS task runs under a watchdog
+├── loop_watchdog.py       Plain thread: if the event loop has not run for 60s, dumps
+│                          every thread's stack and exits so systemd restarts van-api
 ├── data_logger.py         Writes readings to SQLite every 30s, triggers rollups
 ├── db.py                  SQLite schema, 4-tier rollup, prune, query helpers
 ├── pq_battery.py          Vendored: pq_bms_bluetooth parse logic

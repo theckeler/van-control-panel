@@ -16,6 +16,13 @@ HOTSPOT_CONNECTION = "TwitchWiFi"
 _CACHE_TTL = 15.0
 _cache: tuple[dict, float] | None = None
 
+# The dashboard polls /system/wifi/hotspot every 5s, and this used to spawn up
+# to two nmcli processes per poll with no cache at all. That made it the main
+# source of the fork rate behind the 2026-10-19 freeze (see main.py). Cached,
+# and dropped immediately when the hotspot is actually toggled.
+_HOTSPOT_TTL = 10.0
+_hotspot_cache: tuple[dict, float] | None = None
+
 
 async def _run(*args: str) -> str:
     """Run a command, return stdout. Empty string on any failure."""
@@ -111,6 +118,11 @@ async def get_hotspot() -> dict:
     'TwitchWiFi' — the profile name and the broadcast SSID aren't
     guaranteed to match, even though they do today.
     """
+    global _hotspot_cache
+    now = time.monotonic()
+    if _hotspot_cache and now - _hotspot_cache[1] < _HOTSPOT_TTL:
+        return _hotspot_cache[0]
+
     out = await _run("nmcli", "-t", "-f", "NAME,DEVICE", "connection", "show", "--active")
     active = False
     for line in out.splitlines():
@@ -124,7 +136,9 @@ async def get_hotspot() -> dict:
         _, _, value = raw.strip().partition(":")
         ssid = value or HOTSPOT_CONNECTION
 
-    return {"active": active, "ssid": ssid}
+    result = {"active": active, "ssid": ssid}
+    _hotspot_cache = (result, now)
+    return result
 
 
 async def set_hotspot(on: bool) -> tuple[bool, str]:
@@ -136,6 +150,8 @@ async def set_hotspot(on: bool) -> tuple[bool, str]:
     and an OHeck/Starlink-connected client are unaffected. Needs sudo, same
     as the wlan1 switch endpoints.
     """
+    global _hotspot_cache
+    _hotspot_cache = None  # whatever happens next, the cached answer is stale
     action = "up" if on else "down"
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -145,7 +161,9 @@ async def set_hotspot(on: bool) -> tuple[bool, str]:
         )
         out, _ = await asyncio.wait_for(proc.communicate(), timeout=15.0)
     except (OSError, asyncio.TimeoutError):
+        _hotspot_cache = None
         return False, "Timed out"
+    _hotspot_cache = None
     return proc.returncode == 0, out.decode(errors="replace").strip()
 
 
