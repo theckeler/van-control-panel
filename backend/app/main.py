@@ -1,17 +1,29 @@
-from fastapi import FastAPI, Request
+import os
+
+# MUST run before anything imports grpc (the Starlink client does, via the
+# routers below). By default gRPC registers fork handlers, and this process
+# forks constantly (every `nmcli` / `vcgencmd` / `v4l2-ctl` the dashboard
+# triggers) while a Starlink poll thread may be blocked inside a gRPC call.
+# On 2026-10-19 that froze the whole API for 20+ minutes: the forked child
+# deadlocked in gRPC's post-fork handling (it had grown 6 extra gRPC threads
+# and never reached exec), and the event loop sat in a synchronous read
+# waiting for it. Nothing here needs gRPC to survive a fork, since every
+# child immediately exec()s something else, so turn the handlers off.
+os.environ.setdefault("GRPC_ENABLE_FORK_SUPPORT", "0")
+
+from fastapi import FastAPI, Request  # noqa: E402
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from app.routers import battery, mppt, shore, orion, shelly, camera, mode, system, ecoflow, starlink, dometic
-from app.services import ble_orchestrator, camera_loop, data_logger, db
+from app.services import ble_orchestrator, camera_loop, data_logger, db, loop_watchdog
 from app.services import starlink as starlink_service
 from app.services import dometic as dometic_service
 from app.config import settings
 import asyncio
 import hmac
 import logging
-import os
 
 log = logging.getLogger("van-api")
 
@@ -29,10 +41,17 @@ if not _app_log.handlers:
     _app_log.setLevel(logging.INFO)
     _app_log.propagate = False
 
+# The vendored Power Queen parser logs a "Checksum of parse_..." line at INFO on
+# every read (two per 30s, ~5,700 a day onto the SD card). Turning INFO on for
+# app.* exposed them. battery_ble hands the parser this dedicated logger so it
+# can be quieted without hiding battery_ble's own INFO lines.
+logging.getLogger("app.services.pq_battery").setLevel(logging.WARNING)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.init()
     tasks = [
+        loop_watchdog.start(),
         asyncio.create_task(ble_orchestrator.run()),
         asyncio.create_task(data_logger.run()),
         asyncio.create_task(starlink_service.run()),
@@ -40,6 +59,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(camera_loop.run()),
     ]
     yield
+    loop_watchdog.stop()
     for task in tasks:
         task.cancel()
         try:

@@ -41,6 +41,8 @@ A self-hosted IoT monitoring and control dashboard for a converted 2023 Mercedes
 
 **BMS service watchdog (2026-10-13)** — The BMS task froze silently inside an un-timed-out BLE call twice (2026-09-04, and 2026-10-05 for 8 days, during which the house battery drained 99% → 19% unseen). Every BLE await in `battery_ble.py` is now hard-bounded, and `ble_orchestrator.py` runs the task under a watchdog that cancels and replaces it if it misses its own progress deadline. A *released* service is exempt. Diagnosis checklist: `docs/TROUBLESHOOTING.md`.
 
+**Event-loop freeze protection (2026-10-19)** — `main.py` sets `GRPC_ENABLE_FORK_SUPPORT=0` before anything imports gRPC (the Starlink client); this process forks constantly and a forked child once deadlocked in gRPC's post-fork handling, freezing the whole API. Unproven by reproduction, so `services/loop_watchdog.py` is the guarantee: a plain thread that dumps every thread's stack and exits non-zero if the loop has not run for 60s, and `Restart=on-failure` restarts it. **Any new synchronous or fork-prone call on the event loop thread is a freeze risk.** The hotspot poll is cached 10s for the same reason (it used to spawn two `nmcli` per 5s poll).
+
 **Logging** — The `app.*` loggers emit INFO (configured in `main.py`, scoped to `app` so httpx's per-request lines stay silent). Journald is persistent on the SD card, so per-reading lines (every 30s) are DEBUG on purpose; keep new per-poll logging at DEBUG.
 
 ### Shelly Control
@@ -409,6 +411,13 @@ Ordered by how much has gone wrong.
 
 **Service died** — `sudo systemctl restart van-api` (or `van-frontend`).
 Check with `systemctl status van-api --no-pager`.
+
+**Every request times out and `van-api` still says active** — the event loop is
+frozen (2026-10-19: a subprocess spawn deadlocked). The Restart API button cannot
+help, because it is served by the frozen process. `loop_watchdog.py` now restarts it
+by itself within ~60s and leaves a stack dump in the journal; to do it by hand:
+`sudo systemctl kill --signal=SIGKILL van-api`. Diagnosis and cause:
+`docs/TROUBLESHOOTING.md`.
 
 **A card is stuck or frozen, and you are not at a terminal** — Settings →
 Power options → **Restart API**. Restarts the backend only (Pi stays on, ~15s,

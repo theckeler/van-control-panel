@@ -28,6 +28,9 @@ from app.config import settings
 from app.services.pq_battery import BatteryInfo
 
 logger = logging.getLogger(__name__)
+# The vendored parser logs checksum lines at INFO on every read; a separate logger
+# lets main.py quiet it (see there) without hiding this module's own INFO lines.
+_parser_logger = logging.getLogger("app.services.pq_battery")
 
 FFE1_UUID   = "0000ffe1-0000-1000-8000-00805f9b34fb"
 CMD_VERSION = bytes.fromhex("000004011655AA1A")
@@ -172,7 +175,7 @@ def _parse_and_cache(batt_data: bytearray, ver_data: bytearray):
     global _cache, _cache_time, _reconnect_after
 
     batt = BatteryInfo.__new__(BatteryInfo)
-    batt._logger = logger
+    batt._logger = _parser_logger
     batt._debug = False
     batt.error_code = 0
     batt.error_message = None

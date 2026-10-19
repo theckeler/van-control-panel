@@ -252,6 +252,69 @@ Temporarily connect the Pi via Ethernet. If the dashboard loads fast and clean o
 
 ---
 
+## Everything times out (504 / "Failed to fetch van data") but `van-api` says active
+
+### Symptoms
+
+- Dashboard shows "Failed to fetch van data" and empty cards; the browser network tab
+  is all `504` (after exactly 10s, nginx giving up) or cancelled (after 20s)
+- `systemctl is-active van-api` says `active`, the Pi is idle (load ~0), and the
+  journal has gone **silent**: even the usual repeating warnings stop
+- The Restart API button does nothing, because it is served by the thing that is frozen
+
+### Diagnose
+
+```bash
+KEY=$(grep VAN_API_KEY ~/van-control-panel/backend/.env | cut -d= -f2)
+curl -s -m 8 -o /dev/null -w "%{http_code} %{time_total}s\n" -H "X-API-Key: $KEY" http://127.0.0.1:8000/health
+ss -ltn "( sport = :8000 )"            # Recv-Q in the hundreds+ = connections queued, never accepted
+journalctl -u van-api -n 1 --no-pager   # when did it last log anything?
+```
+
+`/health` timing out while uvicorn is listening with a growing `Recv-Q` means the
+**event loop is frozen**, not slow. To see where, in a throwaway venv (does not touch
+the app's):
+
+```bash
+python3 -m venv /tmp/pyspy && /tmp/pyspy/bin/pip install -q py-spy
+sudo /tmp/pyspy/bin/py-spy dump --pid $(pgrep -f "uvicorn app.main" | head -1)
+ps -o pid,stat,etime,cmd --ppid $(pgrep -f "uvicorn app.main" | head -1)   # a stuck child?
+```
+
+### Cause (2026-10-19)
+
+The main thread was inside `asyncio.create_subprocess_exec` (from `network.py`'s hotspot
+poll, which the dashboard hits every 5s), blocked in a synchronous pipe read. A subprocess
+spawn forks a copy of the process, and the parent waits for the child to `exec`. The child
+never did: it was a copy of van-api that had grown **6 extra threads** (a plain fork child
+has one), consistent with gRPC's post-fork handlers (the Starlink client) deadlocking. The
+journal had been full of gRPC's own warning, "Other threads are currently calling into gRPC,
+skipping fork() handlers", about 8 times a minute. The frozen loop cannot act on SIGTERM,
+so even `systemctl restart` hung until systemd's 90s kill timer.
+
+### Fix now
+
+```bash
+sudo systemctl kill --signal=SIGKILL van-api    # systemd then restarts it (Restart=on-failure)
+```
+
+### Prevention (all three layers are in code, none needs a unit-file change)
+
+1. `main.py` sets `GRPC_ENABLE_FORK_SUPPORT=0` before gRPC is imported. Nothing here needs
+   gRPC to survive a fork; every child immediately `exec`s something else. **Not proven by
+   reproduction** (two stress tests, ~117,000 spawns, never froze), so check the result:
+   after deploy those `fork_posix` warnings should be gone from the journal.
+2. `network.get_hotspot()` is cached for 10s. It spawned up to two `nmcli` processes on every
+   5s poll and was the main source of forks.
+3. `services/loop_watchdog.py` runs on a plain thread, which keeps working when the loop
+   does not. If the loop has not run for 60s it writes **every thread's stack to the
+   journal** and exits non-zero, and `Restart=on-failure` restarts the service within
+   seconds. Look for `CRITICAL loop_watchdog:` in the journal: it means a freeze happened,
+   the stack dump below it names the line, and that is worth investigating even though
+   the service recovered itself.
+
+---
+
 ## A switch flickers, a button takes seconds to register, or cards update late
 
 ### Symptoms
