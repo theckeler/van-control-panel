@@ -41,7 +41,7 @@ The software monitors hardware that had to be designed and wired first:
 
 ### Frontend (React / TypeScript)
 - Vite + React 18 + TypeScript + Tailwind CSS
-- Zustand store with `Promise.allSettled` — partial API failures never break the UI
+- Zustand store with independent per-endpoint polling — a failed or slow endpoint never breaks or delays the rest of the UI, and a stale in-flight poll can never overwrite a click
 - 5-second polling via custom `usePolling` hook
 - Battery card shows last known values when BLE is offline with elapsed time and reconnect countdown timer
 - Recharts for history charts (data accumulating)

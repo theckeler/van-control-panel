@@ -81,7 +81,7 @@ van-control-panel/
 │   │   ├── components/            # BatteryCard, ChargeSourcesCard, ShellyPanel, etc.
 │   │   ├── hooks/                 # usePolling, useTheme
 │   │   ├── pages/Dashboard.tsx    # Main dashboard
-│   │   ├── store/van.ts           # Zustand store, Promise.allSettled fetching
+│   │   ├── store/van.ts           # Zustand store, independent per-endpoint polling
 │   │   └── types/index.ts
 │   ├── server.mjs                 # Express server — serves dist/, proxies /api/*
 │   ├── vite.config.ts             # Dev proxy to Pi Tailscale IP
