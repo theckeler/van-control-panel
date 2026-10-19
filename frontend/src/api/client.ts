@@ -24,8 +24,16 @@ import { mockApi } from "./mock";
 
 const BASE = "/api";
 
+// fetch() never times out on its own. A GET the Pi never answers would hold its
+// connection open forever, and the store's own poll timeout only stops WAITING
+// for it. This actually cancels it. Longer than the slowest legitimate GET
+// (Starlink's gRPC call, up to ~10s).
+const GET_TIMEOUT_MS = 20_000;
+
 async function get<T>(path: string, opts?: { signal?: AbortSignal }): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, { signal: opts?.signal });
+  const res = await fetch(`${BASE}${path}`, {
+    signal: opts?.signal ?? AbortSignal.timeout(GET_TIMEOUT_MS),
+  });
   if (!res.ok) throw new Error(`API error ${res.status}: ${path}`);
   return res.json();
 }

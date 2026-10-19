@@ -66,8 +66,11 @@ src/
 │
 ├── store/van.ts           Zustand store
 │                          Single source of truth for all van data
-│                          fetchAll() uses Promise.allSettled across ten
-│                          endpoints — partial failures don't block the rest
+│                          fetchAll() polls each endpoint independently: a card
+│                          updates the moment ITS endpoint returns, a slow or
+│                          failed one never holds up the rest, and a poll that
+│                          started before a local change (click) is dropped so it
+│                          cannot overwrite it
 │
 ├── hooks/usePolling.ts    Calls fetchAll() on mount + every 5s
 │                          Dashboard mounts this once
@@ -93,8 +96,9 @@ src/
 
 **State flow:**
 ```
-usePolling (5s) → fetchAll() → Promise.allSettled([api calls])
-→ Zustand store updates → components re-render via selector subscriptions
+usePolling (5s) → fetchAll() → one independent poll per endpoint
+→ each applied to the Zustand store as it returns (unless stale) → components
+  re-render via selector subscriptions
 ```
 
 **Offline behavior:**

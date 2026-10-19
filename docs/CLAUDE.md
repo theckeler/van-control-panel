@@ -98,7 +98,7 @@ Deploy workflow uses `git fetch && git reset --hard origin/main` (not `git pull`
 
 - Vite + React 18 + TypeScript
 - Tailwind CSS with custom design tokens
-- Zustand (`src/store/van.ts`) — `Promise.allSettled` so partial API failures don't break the UI
+- Zustand (`src/store/van.ts`) — one independent poll per endpoint, so partial failures and slow endpoints don't break or delay the rest of the UI
 - `usePolling` hook — 5-second interval, pauses while the tab is hidden
 - Recharts — SOC and solar history charts
 - React Router v6
@@ -173,9 +173,12 @@ frontend/
     api/mock.ts          Demo-mode mock of the full api surface. Physically modelled:
                          solar bell curve drives SOC integration, seeded PRNG keeps
                          multi-day charts stable across reloads
-    store/van.ts          Zustand store. fetchAll uses Promise.allSettled across ten
-                         endpoints so one slow/failing device (Starlink's ~10s gRPC
-                         call) doesn't block the rest; mutations catch and toast
+    store/van.ts          Zustand store. fetchAll runs one independent poll per
+                         endpoint: each is applied when it returns, never run twice
+                         at once, timed out at 15s, and dropped if it STARTED before
+                         a local change. Click handlers (Shelly toggle, BMS release/
+                         connect) update optimistically, roll back on failure, and
+                         ignore a second click while one is pending
     store/settings.ts    Persisted gap / spacing / vanName. Panel and Stack read this
     store/toast.ts       Toast queue, dedupes by message, kind-based auto-dismiss
     hooks/useVisibleInterval.ts
@@ -1057,7 +1060,7 @@ ecoflow_ble.py`, `/ecoflow/`, `EcoflowCard.tsx`.
   own BLE link to the BMS, sitting inches away in the same van. Scanner eased
   to 1100ms/30ms, logger back to sane levels. Pi's load average and response
   times looked healthy afterward; worth a longer-term check if it recurs.
-- **Seven API calls per poll cycle** — `fetchAll` hits battery, mppt, shore, orion, shelly, system and mode/current separately every 5s. A `/snapshot` endpoint was considered and **rejected after measuring**: six of the seven return in ~3ms, so collapsing them saves ~18ms of round trips, while a single blocking call would make the one slow endpoint (shelly) stall the whole dashboard. `Promise.allSettled` currently isolates it. Revisit only if the fast endpoints stop being fast. **Now nine as of 2026-08-27** (ecoflow, starlink). Starlink is the second genuinely slow one — a gRPC call that can take up to 10s when the dish is unreachable — which reinforces the original decision rather than changing it.
+- **Seven API calls per poll cycle** — `fetchAll` hits battery, mppt, shore, orion, shelly, system and mode/current separately every 5s. A `/snapshot` endpoint was considered and **rejected after measuring**: six of the seven return in ~3ms, so collapsing them saves ~18ms of round trips, while a single blocking call would make the one slow endpoint (shelly) stall the whole dashboard. ~~`Promise.allSettled` currently isolates it.~~ **Corrected 2026-10-19:** that isolated *failures*, not *latency*. The store only updated after ALL endpoints settled, so every card refreshed at the pace of the slowest call: measured on the Pi, `GET /shelly/` took 1-3s (two Shellys unreachable) while the other eleven answered in ~3ms, and the battery card sat blank for 3.15s. Isolation now comes from polling each endpoint independently (battery card: 147ms). The decision to reject `/snapshot` stands, and is stronger for it. Revisit only if the fast endpoints stop being fast. **Now nine as of 2026-08-27** (ecoflow, starlink). Starlink is the second genuinely slow one — a gRPC call that can take up to 10s when the dish is unreachable — which reinforces the original decision rather than changing it.
 - **Mode persistence** — done. Persisted to `backend/mode.json`, written atomically. Note this saves the _selection_ only; actually applying a mode (camera intervals, Shelly schedules) is still unimplemented.
 - **Shelly latency is ~200ms and variable, and that is the floor.** The installed
   units are on TwitchWiFi (the Pi's own 2.4GHz hotspot via the onboard radio).

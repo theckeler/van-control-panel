@@ -252,6 +252,47 @@ Temporarily connect the Pi via Ethernet. If the dashboard loads fast and clean o
 
 ---
 
+## A switch flickers, a button takes seconds to register, or cards update late
+
+### Symptoms
+
+- Click a Shelly: it shows ON, flips back to OFF a couple of seconds later, then
+  returns to ON by itself
+- Release BMS takes several seconds to show "Reconnect BMS", or shows it and then
+  reverts before settling
+- Cards fill in all at once a few seconds after load instead of immediately
+
+### Cause (frontend, fixed 2026-10-19)
+
+The dashboard re-reads every endpoint every 5s, and a read can be slow. A click
+that landed while a read was in flight was overwritten by that read's older
+answer; and the store only updated after the *slowest* endpoint finished, so the
+whole dashboard moved at its pace. Measured on the Pi: Release BMS only stuck at
++7.7s, and the battery card (endpoint answers in 3ms) appeared at 3.15s. Now each
+endpoint is polled independently, a poll that started before your click is
+dropped, and clicks update instantly (rolled back with an error toast if the Pi
+refuses). See CLAUDE.md, `store/van.ts`.
+
+### Cause (backend, the remaining slowness)
+
+`GET /shelly/` is slow whenever a Shelly is **unreachable**: each unreachable
+unit costs a 2-3s mDNS lookup that is repeated on every poll. Everything else the
+dashboard polls answers in ~3ms.
+
+```bash
+KEY=$(grep VAN_API_KEY ~/van-control-panel/backend/.env | cut -d= -f2)
+for ep in /shelly/ /shelly/usb /shelly/garage /shelly/ps-input-1 /shelly/ps-input-2 /battery/ /system/; do
+  printf "%-22s %ss\n" "$ep" "$(curl -s -o /dev/null -w '%{time_total}' -H "X-API-Key: $KEY" http://127.0.0.1:8000$ep)"
+done
+curl -s -H "X-API-Key: $KEY" http://127.0.0.1:8000/shelly/ | python3 -m json.tool | grep -E 'label|reachable'
+```
+
+A unit with `"reachable": false` and a 2-3s single-unit time is the cause. Reachable
+units answer in ~0.06s. Fix the unit (power, WiFi, hostname), or until the backend
+stops re-probing dead units, expect Shelly tiles to take that long to appear.
+
+---
+
 ## Frontend shows "ENOENT: no such file or directory ... dist/index.html"
 
 ### Cause
