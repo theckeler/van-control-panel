@@ -1,7 +1,7 @@
 # CLAUDE.md — Van Control Panel
 
 
-**Last updated:** 2026-09-08
+**Last updated:** 2026-10-19
 Context file for Claude Code. Gives full project context so sessions don't require re-explaining the architecture.
 
 **Jump to:** [Quick Start](#quick-start) · [Workflow](#workflow) · [Recovery](#recovery) · [Auth](#auth) ·
@@ -47,17 +47,25 @@ A self-hosted IoT monitoring and control dashboard for a converted 2023 Mercedes
 
 ### Shelly Control
 
-Three Shelly 1 Gen4 units installed, one placeholder. All installed units are
-on TwitchWiFi (10.42.0.1/24). Uses `.local` mDNS hostnames (NOT hardcoded IPs):
+Four Shelly 1 Gen4 units are configured in `SHELLY_UNITS` (`shelly.py`), all on
+TwitchWiFi, the Pi's own hotspot (10.42.0.1/24), with fixed DHCP addresses. They are
+addressed by `.local` name, but the names are **pinned in `/etc/hosts`** by
+`scripts/70-hotspot-nat`, so lookup is instant (not an mDNS round trip):
 
 - `shelly1g4-d885acec6aac.local` → USB Outlets (10.42.0.102)
 - `shelly1g4-d885acf36a28.local` → Garage (10.42.0.215)
+- `shelly1g4-98a31677ca34.local` → PS Input 1 (10.42.0.27)
 - `shelly1g4-48f6eed0a89c.local` → PS Input 2 (10.42.0.26)
-- PS Input 1 — not yet installed (`ip: None`, `installed: False`, hidden in UI)
+
+As of 2026-10-19 **PS Input 1 and PS Input 2 do not answer** (the flag in the code is
+still `installed: True`). An unreachable unit costs a 3s httpx timeout on every
+`GET /shelly/` poll, which is why that endpoint takes 1-3s while the rest take ~3ms.
+Either bring them back, or mark them `installed: False`, which hides them in the UI
+and skips the poll.
 
 Control via httpx async HTTP to Shelly local REST API. The Shellys are on
-TwitchWiFi — the Pi's own hotspot AP — so they're reachable as long as the Pi
-is running, independent of Starlink/OHeck state.
+TwitchWiFi, so they are reachable as long as the Pi is running, independent of
+Starlink/OHeck state.
 
 ### Frontend Server
 
@@ -137,31 +145,46 @@ backend/app/
     mppt.py              /mppt/ — Victron data (real), history endpoints
     shelly.py            /shelly/ — live Shelly toggle via httpx
     system.py            /system/ — net power, runtime, Pi health, WiFi status
-                         and switching
+                         and switching, backup, SD image, reboot / shutdown /
+                         restart-api
     orion.py             /orion/ — static config (non-smart unit)
     shore.py             /shore/ — always returns disconnected (no cable)
     mode.py              /mode/ — persisted to backend/mode.json, atomic write
+    ecoflow.py           /ecoflow/ — battery % and inferred charge_state
+    starlink.py          /starlink/ — dish status over local gRPC
+    dometic.py           /dometic/ — fridge, via the ESP32 bridge
     camera.py            /photos/ — live. v4l2-ctl capture (interior only,
-                         /dev/video0), UVC tuning re-applied before every
-                         shot since USB controls reset on unplug/reboot
+                         /dev/video0, Logitech C922), UVC tuning re-applied
+                         before every shot since USB controls reset on unplug/
+                         reboot; rejected settings are logged once
   services/
     battery_ble.py       Power Queen persistent BLE connection
     victron_ble.py       Victron one-shot BLE scan
     ble_orchestrator.py  Runs the Victron, BMS and EcoFlow loops via gather(); the BMS
                          runs under a watchdog that replaces a frozen/crashed task
+    loop_watchdog.py     Plain thread. If the event loop has not run for 60s, dumps
+                         every thread's stack and exits so systemd restarts van-api
+    ecoflow_ble.py       Passive EcoFlow advert scan + charge_state from the % trend
+    starlink.py          Background gRPC poll of the dish, backs off while unreachable
+    dometic.py           Background poll of the ESP32 fridge bridge
+    backup.py            Consistent SQLite snapshot for the download endpoint
     data_logger.py       Writes readings to SQLite, triggers rollups
     db.py                SQLite schema, write, rollup, prune, query functions
                          query_raw bucket-averages server-side (max_points=300)
     network.py           WiFi status by parsing iwconfig, profile list,
                          switching, scan (--rescan auto, cached NM results),
-                         and connect (creates new nmcli profile). Cached 15s.
+                         and connect (creates new nmcli profile). Cached 15s;
+                         the hotspot lookup is cached 10s (it forks nmcli, and
+                         fork-heavy calls are a freeze risk).
     health.py            Pi vitals — temp, load, memory, disk, uptime, and
                          throttle flags via vcgencmd. Cached 10s
     pq_battery.py        Vendored: pq_bms_bluetooth parse logic
     pq_request.py        Vendored: pq_bms_bluetooth BLE request
-    disk_image.py        SD card image creation — module-level _job state, asyncio
-                         background task running dd|gzip. State resets on van-api
-                         restart; in-flight dd becomes an orphan (pkill to clean up).
+    disk_image.py        SD card image creation to the USB drive at /mnt/van-pi-bkup
+                         (refuses unless it is a real mount) — module-level _job
+                         state, asyncio background task running dd|gzip. State
+                         resets on van-api restart; in-flight dd becomes an orphan
+                         (pkill to clean up).
     camera_loop.py       Background capture loop — mode-driven interval, 24h
                          retention sweep per camera. Runs alongside camera.py's
                          on-demand /latest capture, not instead of it.
@@ -279,6 +302,10 @@ BMS_MAC=C8:47:80:5D:08:6F
 VAN_API_KEY=<32-byte hex — REQUIRED, see Auth>
 ```
 
+Optional, with working defaults in `config.py`: `ECOFLOW_MAC` (`80:65:99:08:76:D9`),
+`STARLINK_TARGET` (`192.168.100.1:9200`), `STARLINK_ENABLED` (true) and
+`DOMETIC_BRIDGE_HOST` (`dometic-bridge.local`).
+
 An empty `VAN_API_KEY` fails open, leaving port 8000 reachable by anyone on the
 WiFi. Generate one rather than leaving it blank.
 
@@ -313,6 +340,12 @@ VAN_API_KEY=<same value as the Pi's backend/.env>
 | `HOURLY_RETAIN_DAYS` | db.py               | 365   | Days to keep hourly rollups                                                                                                               |
 | `STALE_AFTER` (BMS)  | battery_ble.py      | 120s  | Seconds before BMS cache is stale                                                                                                         |
 | `STALE_AFTER` (MPPT) | victron_ble.py      | 120s  | Seconds before MPPT cache is stale                                                                                                        |
+| `GATT_TIMEOUT`      | battery_ble.py      | 10s   | Hard bound on every BMS BLE call (also `CONNECT_HARD_LIMIT` 35s, `DISCONNECT_TIMEOUT` 10s)                                              |
+| `WATCHDOG_GRACE`    | battery_ble.py      | 60s   | Slack past a phase's worst case before `is_stuck()` is true                                                                              |
+| `WATCHDOG_CHECK` / `WATCHDOG_RESTART_DELAY` | ble_orchestrator.py | 30s / 30s | BMS supervisor poll interval, and the pause before a replaced task starts (protects against BMS lockout) |
+| `POLL_HARD_LIMIT`   | ble_orchestrator.py | 45s   | Bound on one Victron / EcoFlow poll                                                                                                      |
+| `FROZEN_AFTER`      | loop_watchdog.py    | 60s   | Event loop silent this long: dump all stacks, exit with code 70                                                                          |
+| `DNS_TTL`           | shelly.py           | 300s  | Cache for resolved Shelly names; evicted on any failed call                                                                              |
 | `max_points`         | db.py `query_raw`   | 300   | Bucket-averages raw history server-side. Was shipping ~2,880 rows per source per request; charts render ~900px wide. Pass 0 for every row |
 
 ---
@@ -388,7 +421,10 @@ of work — not per fragment, not bundled across unrelated fixes.
 4. Confirm a clean build (`npm run build`, `py_compile`) and real behavior
    before opening anything.
 5. Push the branch, open a real PR with `gh pr create` (installed and
-   authenticated — confirmed, not assumed). Never push directly to `main`.
+   authenticated — confirmed, not assumed). Never push code directly to `main`.
+   **Exception: a change that touches only `docs/` or the README is committed
+   straight to `main`, no branch or PR** (decided 2026-10-19). Those pushes do
+   not deploy, because the workflows filter on `backend/**` and `frontend/**`.
 6. **The person merges, not Claude.** Wait for review.
 7. After merge: deploy to the Pi and do one live pass to confirm it actually
    works in production, not just in dev. Prefer a manual deploy
@@ -465,7 +501,8 @@ filter, so verify rather than assume.
 ## Systemd Services on Pi
 
 ```
-van-api          FastAPI backend (uvicorn :8000)
+van-api          FastAPI backend (uvicorn 127.0.0.1:8000). Restart=on-failure: load-bearing,
+                 loop_watchdog.py exits it (code 70) on purpose when the event loop freezes
 van-frontend     Express frontend (:3000, behind nginx :80)
 nginx            Reverse proxy (:80 → Express :3000)
 van-backup       Daily van_power.db snapshot to the Mac (oneshot + timer)
@@ -587,7 +624,7 @@ nmcli -f NAME,AUTOCONNECT-PRIORITY connection show
 `wlan0` profiles (`starlink`, `netplan-wlan0-OHeck`) still exist but have
 `autoconnect: no` — they're disabled so the hotspot owns that radio.
 
-**Shelly network:** All three installed units are on TwitchWiFi (10.42.0.1/24).
+**Shelly network:** All four configured units are on TwitchWiFi (10.42.0.1/24).
 To configure a Shelly's WiFi:
 
 ```bash
@@ -611,8 +648,9 @@ device is on.
 The Starlink app offers a fixed list of subnets, not free entry. `192.168.4.1/24`
 was picked from that list.
 
-Nothing needed reconfiguring after the renumber: everything is DHCP, and
-`shelly.py` addresses units by `.local` hostname rather than IP.
+Nothing needed reconfiguring after the renumber: the Shellys and the ESP32 are on
+TwitchWiFi, which does not move, and `shelly.py` addresses units by `.local` name
+rather than IP.
 
 ### Gotcha: NetworkManager does not roam back
 
@@ -656,28 +694,27 @@ sudo nmcli connection up starlink
 ip -4 addr show wlan1 | grep inet     # 192.168.4.x = Starlink, 192.168.1.x = OHeck
 ip -4 addr show wlan0 | grep inet     # should always show 10.42.0.1 (TwitchWiFi AP)
 iwconfig wlan1 | grep ESSID
-avahi-browse -art | grep -i "_shelly._tcp" | sort -u
+getent hosts shelly1g4-d885acf36a28.local   # should print 10.42.0.215 from /etc/hosts
+grep -A6 "known local devices" /etc/hosts   # the pinned Shelly + fridge names
 ```
 
-Symptoms: circuits show unreachable but the Shellys are not moving networks —
-they're on TwitchWiFi (the Pi's own AP, always 10.42.0.1/24). If circuits are
-unreachable, the most likely cause is a stale DNS cache entry in van-api from
-a previous network state. Restart van-api.
+The Shellys are on TwitchWiFi, the Pi's own hotspot, so an uplink split does **not**
+move them. If circuits show unreachable, check in this order: is the `/etc/hosts` block
+present (`70-hotspot-nat` rewrites it whenever wlan0 or eth0 comes up, and it went
+missing after reboots before that script existed), does `ping 10.42.0.215` answer, and
+only then suspect a stale entry in van-api's resolution cache.
 
-**The DNS cache makes this outlast the split.** `shelly.py` caches `.local`
-resolutions for `DNS_TTL` seconds to avoid paying ~105ms of mDNS per call.
-When a Shelly moves networks (or after van-api restarts with a fresh empty
-cache), the cache holds the stale IP, so the Shellys can be fully reachable
-while the API keeps timing out. Restart van-api to flush it.
+**Cache and timeouts.** `shelly.py` caches resolved names for `DNS_TTL` (300s) and evicts
+an entry on any failed call, so a stale IP self-heals on the next poll. A
+`sudo systemctl restart van-api` (or the Restart API button) clears it at once. Name
+resolution runs on a dedicated 2-thread executor (`_dns_executor`) so a busy shared
+thread pool (BLE, Starlink) can never starve it.
 
-**Thread pool starvation.** The default asyncio thread pool is shared by BLE
-(bleak) and Starlink (gRPC) tasks. If all threads are busy, `getaddrinfo()`
-queues indefinitely. `shelly.py` uses a dedicated 2-thread executor
-(`_dns_executor`) for DNS so it never competes with BLE/Starlink.
-
-```bash
-sudo systemctl restart van-api    # clears the resolution cache
-```
+**A dead unit is slow, not hung.** An unreachable Shelly costs one 3s httpx timeout per
+poll. The poll runs concurrently across units, so `GET /shelly/` takes ~3s while the
+other endpoints take ~3ms. (An earlier version of this document blamed this on mDNS
+lookups. It was measured on 2026-10-19: resolution was instant, the cost is the
+timeout.) The frontend polls each endpoint independently, so only the Shelly card waits.
 
 Sweep the current uplink subnet without nmap (which is not installed):
 
@@ -693,18 +730,18 @@ sleep 5; ip neigh | grep -v FAILED
 
 ### Development access
 
-`vite.config.ts` proxies `/api` to `http://van-pi.local:8000` by default.
-mDNS resolves correctly from any device on the same LAN as the Pi (Starlink,
-OHeck, or TwitchWiFi). Override with `VAN_API_TARGET` when needed:
+`vite.config.ts` proxies `/api` to the Pi's Tailscale name
+(`http://van-pi.tailba93b9.ts.net`, port 80, through nginx) by default, adding the
+`X-API-Key` header from `frontend/.env.local`. It is not `van-pi.local:8000`: uvicorn
+binds loopback only. Override with `VAN_API_TARGET` when needed:
 
 - `VAN_API_TARGET=http://localhost:8000` — local backend on the Mac
-- `VAN_API_TARGET=http://100.x.x.x:8000` — Pi over Tailscale (when active)
 
 The VS Code "Dev: full stack (local backend)" task sets `VAN_API_TARGET=localhost`.
 
 `ssh todd@van-pi.local` works when the Mac and Pi are on the same LAN. Tailscale
-SSH: `ssh todd@van-pi` — note the Pi currently shows as `van-pi-2` until the
-ghost nodes (`van-pi`, `van-pi-1`) are deleted at
+SSH: `ssh todd@van-pi`. The Pi's tailnet name is `van-pi` (the old ghost nodes are
+gone). If it ever shows as `van-pi-2` again, a stale node of that name exists at
 [login.tailscale.com/admin/machines](https://login.tailscale.com/admin/machines).
 
 Do not pin `van-pi.local` in the Mac's `/etc/hosts` — the Pi's LAN IP changes
@@ -871,44 +908,42 @@ sudo nmcli device wifi hotspot ifname wlan0 ssid "TwitchWiFi" password "<passwor
 Autoconnect disabled rather than deleted on the old `wlan0` client profiles
 (`starlink`, `netplan-wlan0-OHeck`) — reversible if `wlan0` is ever needed as
 a client again, but won't compete with the hotspot for the radio.
-NetworkManager's built-in hotspot (`10.42.0.1/24`, its own DHCP) was enough
-for this — no `hostapd`/`dnsmasq` needed, since this AP doesn't need to share
-internet access, just reach the Pi's own services.
+NetworkManager's built-in hotspot (`10.42.0.1/24`, with its own DHCP and dnsmasq) was
+enough for this; no separate `hostapd`/`dnsmasq` install is needed.
 
-**This is not the public-WiFi-bridge project.** That's still the separate,
-unbuilt thing described below — NAT, an inbound firewall rule on `wlan1`, the
-`VAN_API_KEY` check. This AP has no route to the internet at all by design;
-it is a direct line to the Pi's services. Connected devices can reach nginx
-:80, the API, and the Shellys on 10.42.0.x — nothing beyond the Pi.
+**Internet sharing is live, since 2026-09-01.** Phones and iPads on TwitchWiFi reach
+the internet through whatever `wlan1` is joined to. `scripts/70-hotspot-nat` (a
+NetworkManager dispatcher script) turns on `ip_forward` and installs MASQUERADE and
+FORWARD rules for 10.42.0.0/24 and 10.55.0.0/24 whenever wlan0 or eth0 comes up, since
+the kernel's rules do not survive a reboot. It also rewrites the pinned `/etc/hosts`
+block described above. Outbound NAT only: nothing is port-forwarded, and van-api binds
+127.0.0.1, so the exposure is nginx on :80 behind the Express password. (This section
+used to say the hotspot had no internet route "by design"; that stopped being true on
+2026-09-01.)
 
-**Deliberately not done: sharing that internet connection out over the AP** —
-right now `TwitchWiFi` has zero route to the internet by design, on
-purpose, for safety (see below). Turning it into a real travel router means:
+Details worth knowing:
 
-- `wlan1` (already the client radio, unchanged) as the internet source
-- `wlan0`'s existing hotspot gets a route to `wlan1`'s connection instead of
-  staying isolated
-- NAT between them (`nftables` or similar) so downstream devices are
-  invisible to the public network by default — this is what actually makes
-  it safe, not an afterthought
-- An explicit inbound-block rule on `wlan1` specifically if nginx is ever
-  moved to a public port — van-api already binds 127.0.0.1 so port 8000 is
-  not the risk. Port 80 (nginx → Express → password wall) is the remaining
-  exposure.
-- Captive portals aren't solved by anything above; expect one click-through
-  per network, from any device on the local AP, same as any travel router
-
-This is a real, scoped project (`hostapd` + `dnsmasq`, or NetworkManager's
-own AP mode), not a config toggle — worth its own session, not squeezed into
-this one.
+- **DNS for hotspot clients** is forwarded to `192.168.1.1` (OHeck's router) by
+  `upstream-dns.conf`. How that behaves while the uplink is Starlink has not been
+  verified.
+- **`van-pi.local` resolves on TwitchWiFi** through static records in
+  `/etc/NetworkManager/dnsmasq-shared.d/` (NM's dnsmasq otherwise answers NXDOMAIN for
+  `.local`).
+- **eth0 is a wired rescue port** at 10.55.0.1/24 (`scripts/setup-eth0-rescue.md`),
+  NAT'd the same way.
+- **Rebuild trap:** the Shellys and the ESP32 store the TwitchWiFi SSID and password. A
+  rebuilt hotspot must reuse them or every device must be re-provisioned by hand.
+- Captive portals on a public uplink are not solved; expect one click-through per
+  network.
 
 ---
 
 ## Known Limitations / TODOs
 
-- **Applying a mode does nothing yet** — the selection persists across restarts, but camera intervals and Shelly schedules are not driven by it. `ModeSelector.tsx` itself is also still not rendered in `Dashboard.tsx`.
+- **Applying a mode only half works** — the selection persists across restarts and drives the camera interval (`camera_loop.py`), but Shelly schedules are not driven by it. `ModeSelector.tsx` itself is also still not rendered in `Dashboard.tsx`, so a mode can only be switched through the API.
 - **Camera system — live, 2026-09-04.** Interior camera only (`/dev/video0`,
-  USB UVC). `Cameras.tsx` is rendered in `Dashboard.tsx`, backed by a
+  a Logitech C922 USB UVC camera since 2026-10-19; the cheap camera it replaced had a
+  sensor that locked up and needed a physical replug). `Cameras.tsx` is rendered in `Dashboard.tsx`, backed by a
   background capture loop (`camera_loop.py`, mode-driven interval, 24h
   retention) plus on-demand capture via `GET /photos/latest`. History button
   opens `CameraHistoryDrawer.tsx`. See the Cameras section under Hardware
@@ -917,9 +952,9 @@ this one.
 - **Orion-Tr** is non-smart, returns static config — upgrade to Orion XS 50A planned
 - **History charts** — `HistoryCard` is wired up and rendering. SOC 24h and Solar 30d tabs both work. Daily solar only populates after a midnight rollup, so a fresh install shows the raw-derived fallback.
 - **CORS** is `allow_origins=["*"]` — fine for local/Tailscale, tighten if Funnel is used long-term
-- **PS Input 1** Shelly not yet installed — shows as `installed: false` in API, filtered out of the UI. Three units are live on TwitchWiFi: USB Outlets, Garage, PS Input 2.
-- **`loads` breakdown in system.py is unconditional** — claims Starlink 22W and Fridge 40W regardless of actual state. Latent only: the frontend never reads it. See "system.py load estimation" below. **Partly solvable as of 2026-08-27:** the Starlink integration exposes real `power_w` from the dish, so the 22W guess can be replaced with a measurement (or dropped when the dish is unreachable, which is itself the signal that it's drawing nothing).
-- **Vercel demo build** — built and deployed. See "Vercel Demo Mode" below.
+- **PS Input 1 and PS Input 2** are configured (`installed: True`) but unreachable as of 2026-10-19, which costs a 3s timeout on every Shelly poll. USB Outlets and Garage answer. Decision pending: restore them, or set `installed: False`, or add a backend poller with backoff.
+- **`loads` breakdown in system.py is an estimate** — the old unconditional Starlink 22W and Fridge 40W entries are gone, but each installed Shelly with an `est_watts` is listed whether or not it is on. Latent: the frontend never reads it. See "system.py load estimation" below. **Partly solvable as of 2026-08-27:** the Starlink integration exposes real `power_w` from the dish, so the 22W guess can be replaced with a measurement (or dropped when the dish is unreachable, which is itself the signal that it's drawing nothing).
+- **Vercel demo build** — built and deployed; the SSO-protection caveat in "Vercel Demo Mode" below is still open.
 - **Dometic CFX5 fridge — LIVE, 2026-08-27.** Multi-day blocker resolved.
   Root cause was two separate bugs, not one: the fridge speaks DDM2
   (`537a04xx`, 32-bit values, PUB/SET/SUB opcodes `0x10/0x11/0x12`), not DDM3
@@ -1069,13 +1104,13 @@ ecoflow_ble.py`, `/ecoflow/`, `EcoflowCard.tsx`.
   own BLE link to the BMS, sitting inches away in the same van. Scanner eased
   to 1100ms/30ms, logger back to sane levels. Pi's load average and response
   times looked healthy afterward; worth a longer-term check if it recurs.
-- **Seven API calls per poll cycle** — `fetchAll` hits battery, mppt, shore, orion, shelly, system and mode/current separately every 5s. A `/snapshot` endpoint was considered and **rejected after measuring**: six of the seven return in ~3ms, so collapsing them saves ~18ms of round trips, while a single blocking call would make the one slow endpoint (shelly) stall the whole dashboard. ~~`Promise.allSettled` currently isolates it.~~ **Corrected 2026-10-19:** that isolated *failures*, not *latency*. The store only updated after ALL endpoints settled, so every card refreshed at the pace of the slowest call: measured on the Pi, `GET /shelly/` took 1-3s (two Shellys unreachable) while the other eleven answered in ~3ms, and the battery card sat blank for 3.15s. Isolation now comes from polling each endpoint independently (battery card: 147ms). The decision to reject `/snapshot` stands, and is stronger for it. Revisit only if the fast endpoints stop being fast. **Now nine as of 2026-08-27** (ecoflow, starlink). Starlink is the second genuinely slow one — a gRPC call that can take up to 10s when the dish is unreachable — which reinforces the original decision rather than changing it.
+- **Many API calls per poll cycle** — `fetchAll` hits battery, mppt, shore, orion, shelly, system, mode/current, ecoflow, starlink and dometic separately every 5s. A `/snapshot` endpoint was considered and **rejected after measuring**: six of the seven return in ~3ms, so collapsing them saves ~18ms of round trips, while a single blocking call would make the one slow endpoint (shelly) stall the whole dashboard. ~~`Promise.allSettled` currently isolates it.~~ **Corrected 2026-10-19:** that isolated *failures*, not *latency*. The store only updated after ALL endpoints settled, so every card refreshed at the pace of the slowest call: measured on the Pi, `GET /shelly/` took 1-3s (two Shellys unreachable) while the other eleven answered in ~3ms, and the battery card sat blank for 3.15s. Isolation now comes from polling each endpoint independently (battery card: 147ms). The decision to reject `/snapshot` stands, and is stronger for it. Revisit only if the fast endpoints stop being fast. Starlink is the second genuinely slow one — a gRPC call that can take up to 10s when the dish is unreachable — which reinforces the original decision rather than changing it.
 - **Mode persistence** — done. Persisted to `backend/mode.json`, written atomically. Note this saves the _selection_ only; actually applying a mode (camera intervals, Shelly schedules) is still unimplemented.
-- **Shelly latency is ~200ms and variable, and that is the floor.** The installed
+- **Shelly latency is ~200ms and variable, and that is the floor.** The reachable
   units are on TwitchWiFi (the Pi's own 2.4GHz hotspot via the onboard radio).
-  Signal is strong at close range, so this is normal 2.4GHz congestion plus
-  mDNS overhead (~105ms, now cached with a 300s TTL). Consecutive identical
-  requests have measured 156ms to 795ms.
+  Signal is strong at close range, so this is normal 2.4GHz congestion. Names resolve
+  instantly from `/etc/hosts`; there is no mDNS cost. Consecutive identical requests
+  have measured 156ms to 795ms.
 - **Event log** — done. `events` table written from every mutation path, read at `/system/events`. Correlating it against hourly readings is what would replace the guessed `ALWAYS_ON_WATTS` figures with measurements; that analysis is not written yet.
 - **Siri / Apple Home for the Shellys** (tabled). Shelly Gen4 supports Matter natively — `Shelly.GetStatus` reports `matter: {num_fabrics: 0, commissionable: false}`, so the capability is there but nothing is commissioned. Commissioning them into the Home app is phone-side setup, no code, and would keep working even with the Pi down. Fallback if that fights: an Apple Shortcut that POSTs to `/shelly/{id}/toggle` with the API key — works for any endpoint, not just relays, but needs the phone to reach the Pi (Tailscale, currently offline on the iPhone).
 - **AI insight panel** (tabled, cost). One button summarising power state by correlating the event log against hourly readings — "SOC fell 22% overnight, and you switched the garage circuit on at 19:40". Would have to be a backend endpoint so the key stays off the client. Roughly $0.001/call with Haiku, cached 15 min. Tabled because it would be the first cloud dependency in an otherwise fully local system, and it would be dead exactly when parked without Starlink.
@@ -1113,7 +1148,6 @@ ecoflow_ble.py`, `/ecoflow/`, `EcoflowCard.tsx`.
 
 - **Maxxfan will not get a Shelly** — tested and rejected. It defaults open on power loss and closes on power-up, which is exactly wrong for a switched circuit. Its remote is IR, so there is no network path either.
 - **Govee H6199 rock lights** — candidate for on/off and basic colour over BLE. Protocol varies by firmware generation; older units accept unencrypted writes, newer added encryption. Needs a probe before it can be scoped.
-- **EcoFlow (`EF-R10314`)** — confirmed as Todd's, seen in BLE scans at -20 to -44 dBm. Official developer API exists over HTTP and MQTT, needs an API key. Community BLE work also exists.
 
 ---
 
@@ -1125,7 +1159,8 @@ Devices seen on `hci0`, including ones not integrated.
 | ------------------ | ------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Power Queen BMS    | `C8:47:80:5D:08:6F` | `P-12100BNNA70-B00793`   | Integrated                                                                                                                                                                                                                                                        |
 | Victron SmartSolar | `E8:18:52:D1:81:B7` | `SmartSolar HQ2218GMEKM` | Integrated                                                                                                                                                                                                                                                        |
-| Dometic CFX5 35    | `88:13:BF:8D:87:F6` | `MC1_8d87f4`             | Blocked — BlueZ incompatible                                                                                                                                                                                                                                      |
+| Dometic CFX5 35    | `88:13:BF:8D:87:F6` | `MC1_8d87f4`             | Integrated through the ESP32 bridge, not from the Pi (BlueZ cannot bond with it)                                                                                                                                                                                 |
+| EcoFlow River 2 Max | `80:65:99:08:76:D9` | `EF-R10314`              | Integrated (passive advert: battery % only). Also powers the Pi                                                                                                                                                                                                   |
 | Garmin PowerSwitch | `F0:53:20:C3:99:B4` | `PowerSwitch-99B4`       | Blocked — 4 attempts, always `le-connection-abort-by-local`, including with van-api stopped. Same BlueZ incompatibility as the Dometic, not a bonding refusal (2026-08-27). Controls Starlink and the EcoFlow charge toggle as well as lighting — see safety note |
 
 The Dometic is a rare advertiser. Expect to wait through several scan cycles before it appears.
@@ -1396,11 +1431,13 @@ to Express on :3000. Express proxies `/api/*` to uvicorn on :8000. Do not
 suggest bypassing nginx or having Express listen on :80 directly.
 
 **nginx config:** `/etc/nginx/sites-enabled/van-control-panel` — proxies all
-traffic to `127.0.0.1:3000` with `proxy_read_timeout 10s`. The static photos
-path (`/static/photos/`) is served directly by nginx from
-`/home/todd/van-control-panel/backend/photos/`.
+traffic to `127.0.0.1:3000` with `proxy_read_timeout 10s` (a hung backend therefore
+shows as a `504` after exactly 10s). Photos are **not** served by nginx: it cannot
+traverse `/home/todd`, and a direct alias bypassed the password. `/static/photos/`
+goes through Express (auth wall first), which proxies it to uvicorn. The config is
+`nginx.conf.example` in the repo root.
 
-**Commit via osascript.** Git push works via osascript using the macOS keychain credential helper. The remote is HTTPS with `git config credential.helper osxkeychain`. SSH key for GitHub is not set up on the Mac.
+**Git pushes use HTTPS with the macOS keychain.** The remote is HTTPS and `credential.helper` is `osxkeychain`, so a plain `git push` (and `gh`) works from the terminal. An SSH key for GitHub is not set up on the Mac.
 
 **Deploy workflow uses `git reset --hard`.** Not `git pull`. The Pi may have locally modified files from rsync sessions during development.
 

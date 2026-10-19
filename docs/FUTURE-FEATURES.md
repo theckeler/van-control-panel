@@ -1,7 +1,7 @@
 # Future Features
 
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-10-19
 This roadmap captures the next useful improvements for the Van Control Panel.
 The focus is reliability, visibility, and recoverable automation rather than
 adding hardware faster than the system can safely support it.
@@ -231,11 +231,52 @@ Once the existing control paths are hardened, consider:
 - shore-power detection beyond the current BMS/MPPT delta inference (see
   `docs/API.md`'s Shore Power section) — real VE.Direct telemetry needs a cable
 - smart Orion charger telemetry after a hardware upgrade;
-- camera capture and retention policies — there's no capture loop or
-  retention policy of any kind yet, every photo is on-demand and
-  `backend/photos/` grows unpruned;
+- an exterior camera (the interior Logitech C922 captures on a mode-driven
+  schedule with 24h retention since 2026-09-04; the exterior slot is wired in
+  the API but no camera is installed);
 - door, hatch, motion, or cabinet-temperature sensors; and
 - a physical local emergency control independent of the web UI.
+
+## Operational follow-ups (2026-10-19)
+
+Found while fixing the BMS hang and the API freeze. None is built.
+
+- **An external health check.** The in-process watchdogs cannot catch everything
+  (a stuck `systemd` stop, a wedged USB camera). A systemd timer on the Pi that
+  curls `/health` and restarts `van-api` after repeated failures, plus
+  `TimeoutStopSec=15` instead of 90s, would close the gap.
+- **A backend Shelly poller with backoff.** Today every dashboard poll re-probes
+  a dead unit and pays a 3s timeout. A background task that polls on its own
+  schedule, backs off while a unit is unreachable, and serves the cached answer
+  would make `GET /shelly/` instant. The simpler option is to mark the two dead
+  PS Input units `installed: False`.
+- **A relay timer.** A per-Shelly "turn off in N minutes" exists on the local
+  `feature/relay-timer` branch (`services/relay_timer.py`): a restart or reboot
+  must leave relays off, never on. It is unmerged and waits on the UI work in
+  `UX/UI-Update-1.2`.
+- **Real Victron telemetry** beyond the MPPT: `docs/VICTRON-BLE-PLAN.md`.
+- **A battery check on the Pi's power source.** The Pi runs off the EcoFlow, and
+  the undervoltage flags track its charge. Alerting on a low EcoFlow would warn
+  before WiFi drops.
+
+## Wireless buttons (design notes, unbuilt and untested)
+
+A Shelly BLU button (BTHome format) could switch circuits without a phone. What
+is known, and what is not:
+
+- BLU devices broadcast **BTHome**, an open BLE advertisement format, optionally
+  AES-encrypted with a bindkey. The Pi can decode it with a passive scan, the
+  same pattern `victron_ble.py` and `ecoflow_ble.py` already use. No internet or
+  Shelly cloud is needed for that part.
+- The Gen4 relays are controlled by the Pi over WiFi RPC, so a button press would
+  be: Pi sees the advertisement, Pi calls the existing toggle path. If the Pi is
+  down the button does nothing, unlike a Shelly-to-Shelly link.
+- A button press needs a de-duplication window: BTHome devices repeat the same
+  packet several times, and each carries a packet counter to key on.
+- Not verified: whether to let the Shellys themselves listen for the button (it
+  works with the Pi off) instead of the Pi. Decide that before buying hardware.
+- The Zigbee alternative would put a coordinator on the Pi and is a larger change
+  than a passive BLE decode.
 
 ## Suggested Sequence
 

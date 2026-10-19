@@ -1,7 +1,7 @@
 # Van Control Panel
 
 
-**Last updated:** 2026-08-31
+**Last updated:** 2026-10-19
 > A self-hosted monitoring and control dashboard for a 2023 Mercedes Sprinter VS30 AWD 144" High Roof conversion.
 
 ![Stack](https://img.shields.io/badge/stack-React%20%2B%20FastAPI-orange)
@@ -48,7 +48,8 @@ cd frontend && VITE_DEMO=true npm run dev
 | **Fridge** — Dometic CFX5 35                | Temp, set point, compressor, door, power source via an ESP32 BLE bridge |
 | **Starlink Mini**                           | Latency, throughput, obstruction, and measured power draw over local gRPC |
 | **EcoFlow River 2 Max**                     | Battery % decoded from the raw BLE advertisement — no auth, no cloud |
-| **Smart relays** — 3× Shelly 1 Gen4 installed | USB outlets, garage, PS Input 2 — all on TwitchWiFi AP (10.42.0.x), local HTTP, no cloud |
+| **Smart relays** — Shelly 1 Gen4 ×4 configured | USB outlets, garage, PS Input 1 and 2 — all on the Pi's TwitchWiFi hotspot (10.42.0.x), local HTTP, no cloud. The two PS Input units are currently unreachable |
+| **Interior camera** — Logitech C922        | Timed captures at the active mode's interval (24h retention) plus on-demand snapshots, with UVC settings re-applied before each shot |
 | **History** — SQLite, four tiers            | Raw → hourly → daily → monthly, automatic rollup and pruning     |
 | **Operating modes**                         | Storage / Camp / Trail / In Town, persisted across restarts      |
 | **Pi health**                               | CPU temp, load, memory, disk, uptime, undervoltage flags         |
@@ -64,13 +65,13 @@ than one admitting the gaps.
 
 | Feature                 | Why not                                                                |
 | ----------------------- | ---------------------------------------------------------------------- |
-| **Cameras**             | Router and UI scaffolded, hardware not yet installed                   |
+| **Exterior camera**     | The slot exists in the API; no second camera is installed              |
 | **Shore power**         | Inferred from the BMS/MPPT current delta — no charger telemetry        |
 | **DC-DC charger**       | Orion-Tr 12/12-18 is non-smart. Static config only                     |
 | **Fridge control**      | Reading works. Writing (set temp, on/off) is supported by the component but not wired up |
 | **Garmin PowerSwitch**  | BlueZ can't connect. Protocol is undocumented — see 2026-08-27 review |
 | **Maxxfan relay**       | Tested and rejected — defaults open on power loss, no network path |
-| **Applying modes**      | The selection persists, but nothing is driven by it yet                |
+| **Applying modes to the Shellys** | The camera interval follows the mode. Relay schedules from a mode are not applied |
 
 ---
 
@@ -113,11 +114,21 @@ self-hosted GitHub Actions runner that deploys on push.
   screen. Everything richer than that lives behind their encrypted protocol.
 - **History is downsampled server-side.** Raw endpoints bucket-average to ~300
   points rather than shipping 2,880 rows a chart can't display.
+- **The API recovers from its own hangs.** Every BLE call is time-bounded and a
+  watchdog replaces a frozen BMS task. A second watchdog thread kills the whole
+  process if the event loop stalls for 60 seconds, and systemd restarts it. Both
+  exist because each failure happened for real: the BMS stopped reporting for 8
+  days, and a gRPC fork deadlock froze the API for 20+ minutes.
+- **Each dashboard card polls its own endpoint.** A slow or dead device delays
+  only its own card, and a stale in-flight response can't overwrite a click.
 - **Polling pauses when the tab is hidden**, which cut idle request volume by
   roughly 85%.
 - **NetworkManager won't roam back to a preferred network** on its own — it only
   evaluates priority at boot or after a disconnect. A dispatcher script handles
-  the return to Starlink, and the ESP32 needed its own equivalent.
+  the return to Starlink. The Shellys and the ESP32 avoid the problem by joining
+  the Pi's own hotspot instead of the uplink network.
+- **The Pi itself runs off the EcoFlow**, not the house battery, so a low EcoFlow
+  is a suspect for Pi and WiFi instability. See `docs/HARDWARE.md`.
 
 ---
 
@@ -126,7 +137,7 @@ self-hosted GitHub Actions runner that deploys on push.
 Open in VS Code and press **Cmd+Shift+B**, or:
 
 ```bash
-# frontend — proxies to van-pi.local:8000 by default (override with VAN_API_TARGET)
+# frontend — proxies to the Pi over Tailscale by default (override with VAN_API_TARGET)
 cd frontend && npm install --include=dev && npm run dev
 
 # backend
@@ -157,8 +168,8 @@ ssh -t todd@van-pi.local 'chmod +x pi-setup.sh && ./pi-setup.sh'
 | `trail`   | 15 min          | Parked and unattended                   |
 | `in_town` | 30 min          | Full connectivity                       |
 
-The selection persists across reboots. Driving behaviour from it is not
-implemented.
+The selection persists across reboots and sets the camera interval. Driving the
+Shellys from it is not implemented.
 
 ---
 

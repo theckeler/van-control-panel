@@ -1,7 +1,7 @@
 # Troubleshooting
 
 
-**Last updated:** 2026-10-13
+**Last updated:** 2026-10-19
 Common issues and their fixes for the Van Control Panel system.
 
 ---
@@ -105,7 +105,7 @@ confirmed separate cause. Same fix applies (physical power cycle below).
 
 ### Fix — Physical power cycle (most reliable)
 
-**Important:** The Pi runs off the house battery. Shut it down gracefully before cutting power.
+**Important:** The Pi is powered by the EcoFlow, not the house battery, so flipping the house disconnect does not cut the Pi's power. Shutting it down first is still the cleaner option, since the BMS reconnect logic restarts with it (and see the 120s Restart API cooldown).
 
 **Step 1 — Shut down the Pi:**
 
@@ -118,14 +118,13 @@ Or if on Tailscale:
 
 ```bash
 ssh todd@van-pi 'sudo shutdown now'
-# (Currently registered as van-pi-2 — see Tailscale hostname entry below)
 ```
 
 **Step 2 — Flip the Nilight 50A house main disconnect OFF**
 Wait 30 seconds. This cuts power to the BMS, clearing its connection state table.
 
 **Step 3 — Flip the disconnect back ON**
-The Pi boots automatically. `van-api` and `van-frontend` start via systemd. BMS connects within ~35 seconds (5s startup delay + connection time).
+If you shut the Pi down, power it back on from the EcoFlow (it does not boot by itself from the house battery). `van-api` and `van-frontend` start via systemd. BMS connects within ~35 seconds (5s startup delay + connection time).
 
 No further action needed.
 
@@ -170,7 +169,7 @@ curl -X POST http://localhost:8000/battery/connect
 
 ### Cause
 
-Usually a DNS resolution issue — `van-pi.local` times out on some Mac setups before falling back to mDNS, adding ~5 seconds per request. The frontend polls every 5 seconds so requests pile up faster than they complete.
+Usually a name resolution problem on the Mac: `van-pi.local` times out on some setups before falling back to mDNS, adding ~5 seconds per request. If instead the browser shows `504` or cancelled requests while `van-api` says active, see the event-loop-freeze entry above.
 
 > **Distinguishing from the WiFi-signal issue below:** DNS timeout adds a consistent ~5s delay per request, everything else is fast. WiFi signal issues make _everything_ crawl, including SSH sessions, not just the browser.
 
@@ -339,8 +338,10 @@ refuses). See CLAUDE.md, `store/van.ts`.
 ### Cause (backend, the remaining slowness)
 
 `GET /shelly/` is slow whenever a Shelly is **unreachable**: each unreachable
-unit costs a 2-3s mDNS lookup that is repeated on every poll. Everything else the
-dashboard polls answers in ~3ms.
+unit costs a 3s HTTP timeout (`httpx`, `timeout=3.0` in `shelly.py`) on every poll.
+Name resolution is not the cost: the Shelly names are pinned in `/etc/hosts` and
+resolve instantly (measured 2026-10-19). Everything else the dashboard polls
+answers in ~3ms.
 
 ```bash
 KEY=$(grep VAN_API_KEY ~/van-control-panel/backend/.env | cut -d= -f2)
@@ -350,9 +351,11 @@ done
 curl -s -H "X-API-Key: $KEY" http://127.0.0.1:8000/shelly/ | python3 -m json.tool | grep -E 'label|reachable'
 ```
 
-A unit with `"reachable": false` and a 2-3s single-unit time is the cause. Reachable
+A unit with `"reachable": false` and a ~3s single-unit time is the cause. Reachable
 units answer in ~0.06s. Fix the unit (power, WiFi, hostname), or until the backend
-stops re-probing dead units, expect Shelly tiles to take that long to appear.
+stops re-probing dead units, expect the Shelly card to take that long to appear. As of
+2026-10-19 PS Input 1 and PS Input 2 are the two dead ones. Because each card polls
+independently, only the Shelly card waits.
 
 ---
 
@@ -751,6 +754,8 @@ to prevent that.
 
 ## Tailscale hostname is van-pi-2, not van-pi
 
+> **Resolved 2026-10-19:** the Pi is `van-pi` again (`100.127.9.125`). This entry stays because every fresh OS install will recreate the problem.
+
 ### Symptoms
 
 - `van-pi.tailba93b9.ts.net` does not resolve
@@ -1030,6 +1035,6 @@ ssh todd@van-pi.local 'sudo journalctl -u van-api -f'
 # Check SQLite data
 ssh todd@van-pi.local 'sqlite3 ~/van-control-panel/backend/van_power.db "SELECT COUNT(*), source FROM readings_raw GROUP BY source;"'
 
-# Tailscale IP (if mDNS not working — currently van-pi-2 until ghost nodes cleaned up)
+# Over Tailscale (if mDNS is not working)
 ssh todd@van-pi 'echo connected'
 ```

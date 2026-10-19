@@ -1,7 +1,7 @@
 # Van Control Panel — Portfolio
 
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-10-19
 ## Project Overview
 
 A fully self-hosted IoT monitoring and automation system for a converted 2023 Mercedes Sprinter VS30 AWD van. Built from the ground up combining React/TypeScript front-end development, Python backend engineering, Bluetooth hardware integration, and 12V electrical system design.
@@ -35,7 +35,7 @@ The software monitors hardware that had to be designed and wired first:
 - FastAPI + uvicorn serving all data endpoints
 - **Victron MPPT via BLE** — `victron-ble` library decrypts advertisement packets using a device-specific encryption key from VictronConnect. One-shot passive scan every 30 seconds
 - **Power Queen BMS via BLE** — `pq_bms_bluetooth` (reverse-engineered library) using FFE1 characteristic. Persistent connection to prevent BMS firmware from entering a lockout state from rapid reconnects
-- **Shelly control** — httpx async calls to Shelly local REST API via mDNS hostnames
+- **Shelly control** — httpx async calls to the Shelly local REST API, by `.local` name pinned to fixed DHCP addresses
 - **SQLite time-series logging** — tiered rollup architecture: raw (30 days) → hourly (1 year) → daily (forever) → monthly (forever)
 - `pydantic-settings` for environment-based configuration, secrets in `.env`
 
@@ -77,7 +77,13 @@ The software monitors hardware that had to be designed and wired first:
 
 **BlueZ InProgress error on restart.** Every van-api restart hit `[org.bluez.Error.InProgress]` immediately because the previous session's BLE operation hadn't cleared from BlueZ. Fix: 5-second startup delay in the BMS service to let BlueZ settle.
 
-**mDNS resolution adding 5 seconds to every request.** `van-pi.local` was timing out on DNS before falling back to mDNS, adding ~5 seconds to every API call. The frontend poll fires every 5 seconds so requests piled up faster than they completed. Fix: the Vite dev proxy now targets `http://van-pi.local:8000` by default (overridable with `VAN_API_TARGET`), which resolves correctly from any LAN the Pi is on.
+**Name resolution adding 5 seconds to every request.** `van-pi.local` was timing out on DNS before falling back to mDNS, adding ~5 seconds to every API call. The frontend poll fires every 5 seconds so requests piled up faster than they completed. Fix: the Vite dev proxy targets the Pi's Tailscale name by default (overridable with `VAN_API_TARGET`), which does not depend on mDNS at all.
+
+**A background task that froze without an error.** The BMS reader stopped producing data for 8 days with no log line, while the house battery drained from 99% to 19%. The cause was a BLE await with no timeout. Fix: a hard bound on every call, a progress deadline the task publishes, and a supervisor that replaces a task that misses it. Lesson recorded: a healthy service and a dead one logged identically, so INFO logging was turned on.
+
+**An API that stayed "active" while completely frozen.** The whole event loop locked up for 20+ minutes, traced to a forked child deadlocking in gRPC's post-fork handler while the process spawned `nmcli` and `v4l2-ctl` constantly. Fix: disable gRPC's fork support, cache the hotspot lookup, and add a watchdog thread that dumps every stack and exits so systemd restarts the service. The cause is strongly evidenced but was not reproduced, so the watchdog is the actual guarantee.
+
+**Dashboard flicker from a stale poll.** A click on a Shelly toggle was overwritten by an older in-flight poll, and the whole dashboard moved at the pace of its slowest endpoint. Fix: each endpoint polls independently, and a response from a poll that started before a click is dropped.
 
 ---
 
@@ -97,6 +103,6 @@ The software monitors hardware that had to be designed and wired first:
 
 ## What's Next
 
-- Operating modes actually driving behavior (camera intervals, relay scheduling) — the selection persists today, applying it is the next piece
+- Operating modes driving the relays — the selection persists and already sets the camera interval; relay scheduling is the next piece
 - Victron Orion XS 50A DC-DC charger upgrade (adds live alternator charging data)
 - 300Ah LiFePO4 battery upgrade (BLE library reads new unit automatically)

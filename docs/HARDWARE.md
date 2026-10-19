@@ -12,13 +12,16 @@
 
 | Component | Model | Notes |
 |---|---|---|
-| Single board computer | Raspberry Pi 4B 1GB | Main server. FastAPI, BLE, VE.Direct, cameras |
-| Storage | SanDisk Endurance 32GB microSD | Rated for 24/7 continuous write |
+| Single board computer | Raspberry Pi 4B 1GB (Rev 1.5) | Main server. FastAPI, BLE, WiFi AP, camera. Raspberry Pi OS 64-bit (Debian 13 trixie), Python 3.13, Node 20 |
+| Storage | SanDisk Endurance 32GB microSD (29.1GB usable) | Rated for 24/7 continuous write. journald is persistent on it, so log volume matters |
 | Cooling | Aluminum passive heatsink kit | Cabinet gets warm — heatsink required |
 | Power supply | EcoFlow River 2 Max, 100W USB-C port | **Not** the house battery / buck converter path below — see note |
 | Enclosure | DIN rail mount case | Mounts on HDPE panel DIN rail |
+| WiFi uplink | MediaTek MT7612U USB adapter, external antenna (`wlan1`) | In a USB 3.0 port, driver `mt76x2u`. See "USB devices" below |
+| Backup drive | SanDisk Cruzer USB stick, exFAT, label `VAN-PI-BKUP` | Holds the SD-card image. See "USB devices" below |
+| Fridge bridge | ESP32-S3 running ESPHome | Plugged into a Pi USB port (shows up as an Espressif USB JTAG/serial unit), joins TwitchWiFi. Firmware in `esp32-dometic/` |
 
-**Power draw:** ~3-5W at load. At 12V ≈ 6-10Ah/day. Less than 3% of 300Ah battery.
+**Power draw:** ~3-5W at load. If it were on the 12V house bank that is ≈ 6-10Ah/day, under 3% of a 300Ah battery; today it comes out of the EcoFlow instead (below).
 
 **Actual power path, confirmed 2026-09-07:** the Pi draws from the EcoFlow
 River 2 Max's 100W USB-C port, not from the house battery (Power Queen) via a
@@ -93,13 +96,19 @@ brightness 0-15 (default 8), so values tuned for it (`brightness=4`,
 `v4l2-ctl -d /dev/video0 --list-ctrls-menus` after any camera swap. See
 TROUBLESHOOTING.md, "Camera photos too dark".
 
-**Persistent USB device name**, if/when a second camera is actually
-installed:
+**Persistent USB device name — not applied, and the current setup depends on luck.**
+`camera.py` hardcodes `/dev/video0` and nothing guarantees that number. With the
+previous camera the node moved to `/dev/video14` across reboots (2026-08-31), and
+the C922 exposes **two** nodes: `video0` (capture, `index` 0) and `video1`
+(metadata only, `index` 1). No camera udev rule is installed today. A rule that
+pins the capture node would be:
 ```bash
 # /etc/udev/rules.d/99-van-cam.rules
-SUBSYSTEM=="video4linux", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="0825", SYMLINK+="van-exterior-cam"
+SUBSYSTEM=="video4linux", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="085c", ATTR{index}=="0", SYMLINK+="van-interior-cam"
 ```
-Replace `idVendor` and `idProduct` with the webcam's values from `lsusb`.
+and `DEVICE_MAP["interior"]` would then point at `/dev/van-interior-cam`. A second
+camera would need its own `idProduct` (from `lsusb`) and, if it is the same model,
+a USB-port path match, since two identical cameras share one ID.
 
 ---
 
@@ -114,10 +123,10 @@ Replace `idVendor` and `idProduct` with the webcam's values from `lsusb`.
 ### Charge Sources
 | Item | Model | Interface | Fuse |
 |---|---|---|---|
-| Solar MPPT | Victron SmartSolar 75/15 | VE.Direct → USB | Blue Sea 285 series 20A |
-| Shore charger | Victron Blue Smart IP22 12/15A | VE.Direct → USB | Blue Sea 285 series 20A |
+| Solar MPPT | Victron SmartSolar 75/15 | BLE advertisements (read, every 30s) | Blue Sea 285 series 20A |
+| Shore charger | Victron Blue Smart IP22 12/15A | Has BLE instant readout, **not read yet** (shore is inferred). See `VICTRON-BLE-PLAN.md` | Blue Sea 285 series 20A |
 | DC-DC charger | Victron Orion-Tr 12/12-18 (non-smart) | Static only | Blue Sea 5196 MRBF 30A |
-| DC-DC upgrade | Victron Orion XS 50A (planned spring) | VE.Direct + BLE | Blue Sea 5196 MRBF 50A |
+| DC-DC upgrade | Victron Orion XS 50A (planned spring) | BLE instant readout (planned) | Blue Sea 5196 MRBF 50A |
 
 ### Protection (lower panel, near battery)
 | Item | Model | Rating |
@@ -158,7 +167,7 @@ Shellys are toggled manually today.
 `docs/rubber-duck-review-2026-08-27.md`. There's no `lights` or `spare` unit
 in code.
 
-**Physical control:** Shelly BLU RC Button 4 (Bluetooth, no internet needed)
+**Physical control:** none installed. A Shelly BLU RC Button 4 (Bluetooth, no internet needed) was considered; the design notes are in `docs/FUTURE-FEATURES.md`.
 **Matter:** All Gen4 units support Matter for Apple Home / Siri integration
 
 ### Shelly 1 Gen4 — 12V DC Wiring
@@ -177,14 +186,60 @@ Jumper: short wire from 12V+ to I, or insert two wires into 12V+
 
 ---
 
-## VE.Direct Connections
+## Victron connectivity
 
-| Device | Cable | Pi USB Port |
-|---|---|---|
+**No VE.Direct cables are used or planned.** An earlier version of this section
+listed VE.Direct-to-USB cables for the MPPT and the IP22 on `/dev/ttyUSB0` and
+`/dev/ttyUSB1`; none of that exists. Every Victron device is read over Bluetooth:
+each broadcasts an encrypted "instant readout" advertisement that the `victron-ble`
+library decrypts with a per-device key (VictronConnect → the device → Product info).
+
+| Device | Status |
+|---|---|
+| SmartSolar MPPT 75/15 | Read live, every 30s. MAC and key in `backend/.env` / `config.py` |
+| Blue Smart IP22 | Not read. Needs firmware 3.61+ and instant readout enabled in VictronConnect. Plan: `docs/VICTRON-BLE-PLAN.md` |
+| Orion-Tr 12/12-18 | Non-smart: no telemetry exists, so `orion.py` returns static values |
+| Orion XS (spring) | Planned. The parser is reverse-engineered, so treat it as experimental |
+
+Opening VictronConnect on a phone silences that device's advertisements while the
+app is connected, so expect a temporary stale reading.
+
+---|---|---|
 | MPPT 75/15 | Victron VE.Direct to USB (ASS030530010) | USB port 1 |
 | IP22 12/15A | Victron VE.Direct to USB (ASS030530010) | USB port 2 |
 
 Both appear as `/dev/ttyUSB0` and `/dev/ttyUSB1`. Assign persistent names via udev if needed.
+
+---
+
+## USB devices on the Pi
+
+Verified live 2026-10-19 (`lsusb`):
+
+| Device | USB ID | Port | Notes |
+|---|---|---|---|
+| Logitech C922 Pro Stream Webcam | `046d:085c` | USB 2.0 hub | Interior camera, `/dev/video0` |
+| ESP32-S3 (Dometic fridge bridge) | `303a:1001` | USB 2.0 hub | Powered/serial from the Pi |
+| MediaTek MT7612U WiFi adapter | `0e8d:7612` | **USB 3.0** (`5000M`) | `wlan1`, the uplink radio |
+| SanDisk Cruzer USB stick | `0781:5530` | USB 2.0 hub | Backup drive. **Not plugged in on 2026-10-19** |
+
+**Backup drive.** exFAT (not FAT32, whose 4GB file limit is smaller than a
+compressed image of the card), label `VAN-PI-BKUP`, mounted at `/mnt/van-pi-bkup`
+by `LABEL=VAN-PI-BKUP /mnt/van-pi-bkup exfat defaults,nofail,uid=1000,gid=1000 0 2`
+in `/etc/fstab`. `nofail` lets the Pi boot without it. The SD-card image job
+(Settings → create image) refuses to start if the drive is not mounted, because
+writing to an unmounted `/mnt/van-pi-bkup` would silently fill the card being imaged.
+
+**WiFi adapter placement — open problem.** The adapter sits in a USB 3.0 port on
+the same aluminum plate as the Pi. USB 3.0 signalling is a known source of
+interference for nearby radios, and a metal plate next to an antenna detunes it.
+At a public library on 2026-10-19 the Pi's link was `-74` to `-78 dBm` on a single
+5GHz access point and moved only 0.9-1.9 Mbps, while a MacBook beside it got
+100+ Mbps on the same network: a far weaker receiver at the same signal level, not
+a driver or USB fault (no resets, negligible packet loss). A 5 ft USB extension
+cable was ordered to move the antenna clear of the plate; **the result is not
+recorded yet.** To compare before and after, from the Mac:
+`ssh todd@van-pi.local "curl -o /dev/null -s -w 'speed: %{speed_download} B/s\n' http://speedtest.tele2.net/10MB.zip"`
 
 ---
 
@@ -199,17 +254,18 @@ identifier. `CLAUDE.md` holds the authoritative subnet table.
 | Starlink | `192.168.4.0/24` | `192.168.4.1` |
 | OHeck (home) | `192.168.1.0/24` | `192.168.1.1` |
 
-Everything is DHCP and `shelly.py` addresses units by `.local` hostname rather
-than IP, so nothing needed reconfiguring after the renumber — but it does mean
-**the fixed addresses below are historical and no longer reliable as
-identifiers.** Use hostnames. The range now tells you which network a device is
-on.
+Uplink addresses are DHCP and `shelly.py` addresses units by `.local` name rather
+than IP, so nothing needed reconfiguring after the renumber. The hotspot side is
+different: the Shellys and the fridge bridge have **fixed DHCP reservations**
+(`known-devices.conf`) and their names are **pinned in `/etc/hosts`** by
+`scripts/70-hotspot-nat`; see ARCHITECTURE.md, Network Architecture. The range now
+tells you which network a device is on.
 
 | Device | Notes |
 |---|---|
 | Starlink Mini | Router/gateway on the Starlink network. Dish itself is at `192.168.100.1`, reachable only via a static route — see `starlink-status.md` |
 | Raspberry Pi 4B | Two radios, not one: `wlan1` (USB dongle, external antenna) is the uplink client — Starlink primary, OHeck fallback, DHCP. `wlan0` (onboard) is the dedicated TwitchWiFi hotspot AP, not a client — see `CLAUDE.md`'s Networking section |
-| Shellys | All four on TwitchWiFi (`10.42.0.0/24`), addressed by mDNS hostname — see the Smart Relays table above, not this Starlink/OHeck table |
+| Shellys | All four on TwitchWiFi (`10.42.0.0/24`), fixed reservations, addressed by pinned `.local` name — see the Smart Relays table above, not this Starlink/OHeck table |
 
 **Tailscale:** Pi runs Tailscale for remote access. IP assigned by Tailscale (100.x.x.x).
 

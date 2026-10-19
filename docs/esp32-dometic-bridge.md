@@ -1,10 +1,12 @@
 # ESP32-S3 → Dometic CFX5 BLE Bridge — Setup Guide
 
 
-**Last updated:** 2026-08-31
+**Last updated:** 2026-10-19
 **Goal:** Get an ESP32-S3 talking to the Dometic CFX5 over BLE (bypassing the
 Pi's BlueZ stack, which can't hold a stable connection to it), publishing
 fridge state to `van-api` over WiFi like every other device.
+
+**Current status (2026-10-19): live.** The bridge is on TwitchWiFi at a fixed address (10.42.0.37), the Pi reads it as `dometic-bridge.local` (pinned in `/etc/hosts`), and the fridge card shows real readings. Reading only; writing a set point is not wired up. The history below is kept because the two protocol blockers explain choices in the YAML.
 
 **Status (2026-08-27):** The BLE layer works — the ESP32 connects to the
 fridge reliably and enumerates its GATT tree, which the Pi never managed. Two

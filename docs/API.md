@@ -1,7 +1,7 @@
 # API Reference — Van Control Panel
 
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-10-19
 Base URL (local): `http://van-pi.local/api`
 Base URL (Tailscale): `http://van-pi.tailba93b9.ts.net/api`
 
@@ -191,7 +191,7 @@ Returns `{"status": "restarting", "message": ...}` and restarts about 0.5s later
 ## Shelly
 
 ### `GET /shelly/`
-All Shelly unit states including planned (not yet installed) units.
+All configured Shelly unit states. A unit that does not answer shows `reachable: false` and costs a 3s timeout on this call.
 
 ```json
 [

@@ -1,12 +1,11 @@
 # Starlink Mini — Local Status on the Dashboard
 
 
-**Last updated:** 2026-08-27
-**Status:** implemented, not yet tested against the dish.
+**Last updated:** 2026-10-19
+**Status:** live. Validated against the dish 2026-08-27 (see `CLAUDE.md`, Known Limitations). The static route below is **not persistent** (checked 2026-10-19).
 
 `backend/app/services/starlink.py`, `/starlink/` and `/starlink/raw`,
-`StarlinkCard.tsx`. Nothing here has touched real hardware — the static route
-below is a prerequisite and is not in place yet.
+`StarlinkCard.tsx`. The static route below is a prerequisite.
 
 **Goal:** a connection indicator on the control panel, plus the cheap extras
 that come in the same call — latency, throughput, obstruction, uptime.
@@ -43,7 +42,7 @@ integration hits it.
 
 ```bash
 # Immediate — does not survive reboot
-sudo ip route add 192.168.100.0/24 via 192.168.4.1 dev wlan0
+sudo ip route add 192.168.100.0/24 via 192.168.4.1 dev wlan1
 
 # Verify before going any further
 ping -c3 192.168.100.1
@@ -51,14 +50,19 @@ ping -c3 192.168.100.1
 
 **`192.168.4.1`, not `192.168.1.1`.** Starlink was renumbered off
 `192.168.1.0/24` in Aug 2026 because both routers were handing out the same
-range — see the Subnets table in `CLAUDE.md`. And `wlan0`, not `eth0`: the Pi
-joins Starlink over WiFi.
+range — see the Subnets table in `CLAUDE.md`. And `wlan1`, not `wlan0` or `eth0`: the
+Pi joins Starlink over WiFi on the USB dongle (`wlan0` is the TwitchWiFi hotspot).
 
-Make it persistent in `/etc/dhcpcd.conf` on Raspberry Pi OS:
+Make it persistent on the Starlink profile. This Pi uses NetworkManager;
+`dhcpcd` is installed but inactive, so a `/etc/dhcpcd.conf` entry (the usual
+Raspberry Pi OS advice) does nothing here. **Not yet applied** — as of 2026-10-19 the
+profile has no routes and `dhcpcd.conf` has no entry, so a reboot loses the route and
+the Starlink card goes `reachable: false` until it is re-added by hand:
 
-```
-interface wlan0
-static_routes=192.168.100.0/24 via 192.168.4.1
+```bash
+sudo nmcli connection modify starlink-wlan1 +ipv4.routes "192.168.100.0/24 192.168.4.1"
+sudo nmcli connection up starlink-wlan1
+ip route | grep 192.168.100          # verify (only while joined to Starlink)
 ```
 
 **Verify the route works before writing any code.** If `ping` fails, nothing

@@ -1,7 +1,7 @@
 # Rebuilding the Pi from scratch
 
 
-**Last updated:** 2026-08-31
+**Last updated:** 2026-10-19
 Recovery checklist for a dead SD card or a fresh Pi. Written as an ordered
 walkthrough rather than a script, because several steps need a token, a
 password, or a decision that cannot be committed to the repo.
@@ -20,7 +20,14 @@ chmod +x pi-setup.sh && ./pi-setup.sh
 
 Steps 3 (WiFi/Starlink), 9 (backups — mostly automated by the script, one
 manual trust step), 10 (GitHub Actions runner) still need you directly — the
-script prints exactly which ones and why when it finishes. This walkthrough
+script prints exactly which ones and why when it finishes.
+
+**The script does not cover the van's network topology.** It installs the
+`90-prefer-starlink` dispatcher and nginx, but not the TwitchWiFi hotspot, the NAT
+and `/etc/hosts` dispatcher (`70-hotspot-nat`), the fixed DHCP addresses for the
+Shellys, the eth0 rescue port, or the USB backup drive. Without them the Pi comes
+up and the dashboard loads, but the Shellys and the fridge bridge cannot be
+reached. Those are steps 12 and 13 below, and they are manual. This walkthrough
 stays the reference for understanding _why_ each step exists, debugging when
 something's genuinely different from a normal rebuild, or running any single
 step in isolation.
@@ -33,6 +40,10 @@ Budget about an hour, most of it waiting on installs.
   `~/websites/van-control-panel/backend/.env`, and the Victron key can be
   re-read from VictronConnect → the SmartSolar → Product info if that is lost.
 - WiFi passwords for `Sir Salettelot` (Starlink) and `OHeck`.
+- The **TwitchWiFi SSID and password** the van already uses. Reuse them exactly:
+  the Shellys and the ESP32 fridge bridge store them and will not rejoin a hotspot
+  with a different name or password. On a still-working Pi:
+  `sudo nmcli -s -g 802-11-wireless-security.psk connection show TwitchWiFi`.
 - A Tailscale login.
 - A GitHub personal access token, only if re-registering the Actions runner.
 - The most recent `van_power-*.db.gz` from `~/van-backups` on the Mac, if you
@@ -390,12 +401,13 @@ sudo systemctl enable --now van-api van-frontend
 sudo systemctl status van-api van-frontend --no-pager
 ```
 
-`van-frontend` binds port 80, which normally needs root. It runs as `todd`, so
-if it fails with a permissions error:
-
-```bash
-sudo setcap 'cap_net_bind_service=+ep' /usr/bin/node
-```
+`van-frontend` listens on port **3000**. nginx on port 80 proxies to it
+(`pi-setup.sh` installs `nginx.conf.example` as the site config), so no
+`setcap` is needed. The config's `proxy_read_timeout 10s` is why a hung backend
+shows up in the browser as a `504` after exactly 10 seconds. `Restart=on-failure`
+on `van-api` is load-bearing: `services/loop_watchdog.py` deliberately exits with
+code 70 when the event loop freezes, and that restart is what recovers it. Do not
+change it to `Restart=no`.
 
 ## 9. Backups
 
@@ -541,14 +553,107 @@ q('10.42.0.1','van-pi.local')
 Should print `10.42.0.1`. The conf file persists across reboots; the hotspot
 loads it on every start automatically.
 
-## 12. Verify
+## 12. TwitchWiFi hotspot, NAT, and fixed addresses
+
+Not covered by `pi-setup.sh`. Do this after the USB WiFi adapter is in (it becomes
+`wlan1`, the uplink; the onboard radio `wlan0` becomes the hotspot). The full
+background, and why each piece exists, is `CLAUDE.md` → Networking and
+`docs/ARCHITECTURE.md` → Network Architecture.
+
+**The uplink profiles (wlan1).** Bind them to `wlan1` with `ifname` so they cannot
+compete with anything on `wlan0`. The exact commands are in `CLAUDE.md` → Networking,
+"Installed and working". Priorities: Starlink 100, OHeck 50 (networks saved later from
+the dashboard land at 75).
+
+**The hotspot (wlan0).** `network.py` looks the profile up by the name `TwitchWiFi`:
+
+```bash
+sudo nmcli device wifi hotspot ifname wlan0 con-name TwitchWiFi ssid "TwitchWiFi" band bg password "<the same password as before>"
+# the old wlan0 client profiles must not fight it for the radio:
+sudo nmcli connection modify starlink connection.autoconnect no 2>/dev/null
+sudo nmcli connection modify netplan-wlan0-OHeck connection.autoconnect no 2>/dev/null
+nmcli -f connection.id,connection.autoconnect,802-11-wireless.mode,802-11-wireless.band connection show TwitchWiFi
+```
+
+**The dispatcher scripts.** `70-hotspot-nat` is the important one. Without it the
+hotspot has no internet, and after every reboot the Shellys and the fridge bridge go
+dark, because their `/etc/hosts` entries are not persistent (this recurred until the
+script took over). `90-prefer-starlink` is installed by `pi-setup.sh`. **Do not install
+`91-prefer-band-wlan1`**: it is disabled in the repo (it caused connection drops).
+
+```bash
+cd ~/van-control-panel
+sudo install -o root -g root -m 755 scripts/70-hotspot-nat /etc/NetworkManager/dispatcher.d/70-hotspot-nat
+```
+
+**Fixed addresses and DNS for the hotspot** (NetworkManager's dnsmasq reads these at
+startup). Keep `known-devices.conf` in sync with `restore_hosts` in `70-hotspot-nat`
+and with `SHELLY_UNITS` in `shelly.py`:
+
+```bash
+D=/etc/NetworkManager/dnsmasq-shared.d
+echo 'address=/van-pi.local/10.42.0.1'  | sudo tee $D/van-pi.conf       # step 11
+echo 'address=/van-pi.local/10.55.0.1'  | sudo tee $D/eth0-van-pi.conf  # wired rescue port
+sudo tee $D/known-devices.conf >/dev/null <<'DHCPEOF'
+dhcp-host=28:84:85:48:12:84,10.42.0.37
+dhcp-host=d8:85:ac:ec:6a:ac,10.42.0.102
+dhcp-host=d8:85:ac:f3:6a:28,10.42.0.215
+dhcp-host=98:a3:16:77:ca:34,10.42.0.27
+dhcp-host=48:f6:ee:d0:a8:9c,10.42.0.26
+DHCPEOF
+# DNS for hotspot clients is forwarded to OHeck's router. How this behaves while the
+# uplink is Starlink has not been verified.
+echo 'server=192.168.1.1' | sudo tee $D/upstream-dns.conf
+sudo nmcli connection down TwitchWiFi && sudo nmcli connection up TwitchWiFi
+```
+
+Those five lines are, in order: the ESP32 fridge bridge, USB Outlets, Garage, PS Input 1
+and PS Input 2.
+
+**The wired rescue port (eth0)** is separate: follow `scripts/setup-eth0-rescue.md`.
+
+Verify:
+
+```bash
+cat /proc/sys/net/ipv4/ip_forward                              # 1
+sudo iptables -t nat -S | grep MASQUERADE                      # 10.42.0.0/24 (and 10.55.0.0/24) out wlan1
+grep -A6 "known local devices" /etc/hosts                      # the five pinned names
+getent hosts shelly1g4-d885acf36a28.local                      # 10.42.0.215
+```
+
+## 13. USB backup drive (SD-card image)
+
+Optional, but it is what lets you restore a dead SD card in minutes instead of an hour.
+The dashboard's "create image" job writes a gzipped copy of the whole card to this drive.
+
+**Use exFAT, not FAT32.** FAT32 caps a single file at 4GB, and a compressed image of a
+29GB card can exceed that. An earlier attempt wrote to `/tmp`, which is a 453MB RAM
+disk on this Pi, and could never have completed.
+
+```bash
+sudo apt install -y exfatprogs
+lsblk -o NAME,SIZE,FSTYPE,LABEL,MODEL          # identify the stick. Get this right: formatting erases it
+sudo mkfs.exfat -L VAN-PI-BKUP /dev/sdX1       # replace sdX1 with the stick's partition
+sudo mkdir -p /mnt/van-pi-bkup
+echo 'LABEL=VAN-PI-BKUP /mnt/van-pi-bkup exfat defaults,nofail,uid=1000,gid=1000 0 2' | sudo tee -a /etc/fstab
+sudo systemctl daemon-reload && sudo mount /mnt/van-pi-bkup
+findmnt /mnt/van-pi-bkup
+```
+
+`nofail` lets the Pi boot with the stick unplugged. The job refuses to start when
+`/mnt/van-pi-bkup` is not a real mount: writing to the empty directory underneath
+would silently fill the SD card it is imaging. The output is
+`/mnt/van-pi-bkup/van-pi-image.img.gz`; write it to a new card with Raspberry Pi
+Imager → Use custom.
+
+## 14. Verify
 
 ```bash
 systemctl status van-api van-frontend --no-pager | grep Active
 curl -s localhost:8000/battery/ | python3 -m json.tool | head -5
 curl -s localhost:8000/mppt/    | python3 -m json.tool | head -5
 curl -s localhost:8000/shelly/  | python3 -m json.tool
-avahi-browse -art | grep -i "_shelly._tcp" | sort -u
+getent hosts shelly1g4-d885acf36a28.local       # expect 10.42.0.215, from /etc/hosts (step 12)
 ```
 
 Then load `http://van-pi.local` from a machine on the same network, or the
@@ -568,6 +673,9 @@ failure.
   unaffected by a Pi rebuild, but if they were also reset, see `CLAUDE.md` →
   Networking for the `sta`/`sta1` provisioning calls.
 - **Browser sessions.** A new `VAN_SESSION_SECRET` logs everyone out.
+- **The Shellys' and fridge bridge's view of the hotspot.** They rejoin only if the
+  rebuilt hotspot has the same SSID and password and hands them the same addresses
+  (step 12). A different password means re-provisioning each one by hand.
 
 ## Known gotchas
 
