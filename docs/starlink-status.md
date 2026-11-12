@@ -304,8 +304,9 @@ and is specifically called out as desirable in the 2026-08-24 review.
 - Does the static route actually work through the Mini's integrated router?
   Verified as the standard approach, but not tested on this hardware. `ping`
   settles it in seconds and everything else depends on it.
-- Does this Mini report non-zero `latest_power`? If yes, it replaces the
-  guessed 22W constant in `system.py`.
+- Does this Mini report non-zero `latest_power`? Confirmed once at 18.6W on
+  2026-08-27. `system.py` now uses it for the `loads` breakdown and drops the
+  entry when the dish is unreachable. Still to confirm on the live Pi.
 - Is 5s polling comfortable in practice, or does the dish deprioritise frequent
   local requests? Nothing suggests it does, but worth watching once running.
 - Is 60s the right backoff ceiling? It's a guess, tuned for log volume rather

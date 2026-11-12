@@ -953,7 +953,7 @@ Details worth knowing:
 - **History charts** — `HistoryCard` is wired up and rendering. SOC 24h and Solar 30d tabs both work. Daily solar only populates after a midnight rollup, so a fresh install shows the raw-derived fallback.
 - **CORS** is `allow_origins=["*"]` — fine for local/Tailscale, tighten if Funnel is used long-term
 - **PS Input 1 and PS Input 2** are configured (`installed: True`) but unreachable as of 2026-10-19, which costs a 3s timeout on every Shelly poll. USB Outlets and Garage answer. Decision pending: restore them, or set `installed: False`, or add a backend poller with backoff.
-- **`loads` breakdown in system.py is an estimate** — the old unconditional Starlink 22W and Fridge 40W entries are gone, but each installed Shelly with an `est_watts` is listed whether or not it is on. Latent: the frontend never reads it. See "system.py load estimation" below. **Partly solvable as of 2026-08-27:** the Starlink integration exposes real `power_w` from the dish, so the 22W guess can be replaced with a measurement (or dropped when the dish is unreachable, which is itself the signal that it's drawing nothing).
+- **`loads` breakdown in system.py is an estimate** — the old unconditional Starlink 22W and Fridge 40W entries are gone, but each installed Shelly with an `est_watts` is listed whether or not it is on. Latent: the frontend never reads it. See "system.py load estimation" below. **Starlink is now measured:** `loads` lists a `Starlink` entry with `source: "measured"` from the dish's real `power_w`, and omits it when the dish is unreachable or reports no power (unreachable means the Pi cannot see the dish, not that it draws zero, so no number is claimed). Only the BMS-disconnected fallback sum still contains the 22W guess, and only when no measurement is available. Not yet verified against the live dish.
 - **Vercel demo build** — built and deployed; the SSO-protection caveat in "Vercel Demo Mode" below is still open.
 - **Dometic CFX5 fridge — LIVE, 2026-08-27.** Multi-day blocker resolved.
   Root cause was two separate bugs, not one: the fridge speaks DDM2
@@ -1067,8 +1067,8 @@ ecoflow_ble.py`, `/ecoflow/`, `EcoflowCard.tsx`.
   (`sudo ip route add 192.168.100.0/24 via 192.168.4.1 dev wlan1`), and
   `/starlink/` returned real telemetry: `state: CONNECTED`, 34ms latency,
   12.3% obstruction, and — genuinely useful — `power_w: 18.6`, a measured
-  draw that directly replaces the hardcoded 22W guess in `system.py`'s
-  `ALWAYS_ON_WATTS` (see the load-estimation TODO above). **Route is not yet
+  draw that now replaces the hardcoded 22W guess in `system.py`'s
+  `loads` breakdown (see the load-estimation TODO above). **Route is not yet
   persisted** — it only exists in the live kernel routing table right now and
   will not survive a reboot. The service's own docstring says to add it to
   `/etc/dhcpcd.conf`; not done yet. Reads from the dish's own unauthenticated
@@ -1089,9 +1089,10 @@ ecoflow_ble.py`, `/ecoflow/`, `EcoflowCard.tsx`.
     and read by key rather than unpacking positionally. `/starlink/raw` dumps
     the whole mapping — check real names there before trusting anything.
   - **Power draw is available** (`latest_power`, via a second `history_stats`
-    call, polled at 30s). This is the missing input for the `ALWAYS_ON_WATTS`
-    problem below: it replaces the hardcoded `"Starlink": 22` guess with a
-    real measurement. Not all terminals support it, and unsupported hardware
+    call, polled at 30s). `system.py` reads it through `_starlink_measured_w()`, which returns
+    it only while the dish is `reachable` (the service keeps the last power
+    reading through an outage, so staleness is checked there) and otherwise
+    `None`, so the `loads` entry is omitted rather than shown as 0W. Not all terminals support it, and unsupported hardware
     returns `0.0` rather than erroring — treated as "unsupported" and reported
     as `None`.
   - GPS was removed from the local API in May 2026. `gps_ready`/`gps_sats`
@@ -1217,9 +1218,10 @@ claimed whether or not the hardware was on.
 **Now:** `loads` contains the Pi's 5W (the one genuinely always-on load),
 plus every installed Shelly circuit that has an `est_watts` estimate
 **whether or not its relay is on** (today just USB Outlets, 20W), plus solar
-input as a measured negative load. Starlink and the fridge are gone from the
-breakdown entirely — neither reports its own state yet, so neither can be
-claimed honestly until one gets a Shelly or the ESP32 bridge.
+input as a measured negative load. The fridge is gone from the breakdown
+entirely until its draw is measured. Starlink was added back as a measured
+entry (real `power_w` from the dish) and appears only while the dish is
+reachable and reporting power.
 
 **The Shelly line is an estimate, not a measurement, and that is deliberate.**
 The live Shelly on/off check was removed from `/system/` because the extra
