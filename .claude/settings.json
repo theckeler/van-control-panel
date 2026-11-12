@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)",
+      "Bash(bin/doc-dates.sh:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite:*)"
+    ],
+    "ask": [
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git switch:*)",
+      "Bash(git merge:*)",
+      "Bash(git rebase:*)",
+      "Bash(git reset:*)",
+      "Bash(git stash:*)",
+      "Bash(ssh:*)",
+      "Bash(scp:*)",
+      "Bash(rsync:*)",
+      "Bash(sudo:*)",
+      "Bash(systemctl:*)",
+      "Bash(gh workflow:*)"
+    ],
+    "deny": [
+      "Bash(git push:*)",
+      "Bash(git push)",
+      "Bash(bash scripts/*)",
+      "Bash(sh scripts/*)",
+      "Bash(./scripts/*)",
+      "Read(./backend/.env)",
+      "Read(./backend/.env.*)",
+      "Read(./frontend/.env)",
+      "Read(./frontend/.env.*)",
+      "Read(./esp32-dometic/secrets.yaml)",
+      "Read(./backend/van_power.db)"
+    ]
+  }
+}

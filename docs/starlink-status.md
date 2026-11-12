@@ -1,7 +1,7 @@
 # Starlink Mini — Local Status on the Dashboard
 
 
-**Last updated:** 2026-10-19
+**Last updated:** 2026-11-12
 **Status:** live. Validated against the dish 2026-08-27 (see `CLAUDE.md`, Known Limitations). The static route below is **not persistent** (checked 2026-10-19).
 
 `backend/app/services/starlink.py`, `/starlink/` and `/starlink/raw`,

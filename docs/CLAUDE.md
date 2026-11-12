@@ -1,7 +1,7 @@
 # CLAUDE.md — Van Control Panel
 
 
-**Last updated:** 2026-10-19
+**Last updated:** 2026-11-12
 Context file for Claude Code. Gives full project context so sessions don't require re-explaining the architecture.
 
 **Jump to:** [Quick Start](#quick-start) · [Workflow](#workflow) · [Recovery](#recovery) · [Auth](#auth) ·
@@ -1301,6 +1301,8 @@ input, which covers most real usage, and unreliable otherwise.
 ---
 
 ## Design System
+
+> **Redo in progress (2026-11-12).** The tokens, component set and screen patterns for the new UI are written in `docs/DESIGN-SYSTEM.md` and `docs/UI-PATTERNS.md` (Proposed, not yet built). Until the rebuild lands, the text below describes the **current** code. When it lands, replace this section with a pointer to those two docs so there is one source.
 
 Tokens live in `tailwind.config.ts` and `index.css`. Colours are semantic
 (`charge.solar`, `soc.low`, `panel.surface`) and driven by CSS variables, so

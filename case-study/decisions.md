@@ -1,0 +1,29 @@
+# Decisions
+
+**Last updated:** 2026-11-12
+
+Newest at the bottom. Status is Proposed, Agreed (Todd) or Superseded. Claude's own calls start as Proposed. If a doc disagrees with this table, this table wins.
+
+| Date | Decision | Options considered | Why | Status |
+|---|---|---|---|---|
+| 2026-11-12 | Redo the whole app's UI in the new look from the Figma file | Patch the current UI card by card | Todd: the current screens are inconsistent, and drawers and menus are "a mess" | **Agreed (Todd)** |
+| 2026-11-12 | The Figma file is a guide for how buttons and the UI look, not a spec to match pixel for pixel | Build exactly what the mock shows | Todd said so. The mock has placeholders (a "Door Lights" button, empty charge sources) that aren't real circuits | **Agreed (Todd)** |
+| 2026-11-12 | Standardise on one component set and a written design system, and clean up every drawer and menu with it | Restyle in place without a shared set | Todd asked for "a standard component set and design system". Today 6 hand-built dialogs and 8 raw buttons duplicate the same behavior | **Agreed (Todd)** |
+| 2026-11-12 | Build this workspace the way the LiteAF one is built: root `CLAUDE.md`, skills, guardrails, decision log, dated docs | Keep one long `docs/CLAUDE.md` | Todd asked for it, pointing at `Ai-Workspace-Playbook` | **Agreed (Todd)** |
+| 2026-11-12 | Keep a case study for this project | None | Todd: "case study for sure" | **Agreed (Todd)** |
+| 2026-11-12 | Edit on `main`, uncommitted. No branch, commit, push or PR until Todd has seen the work and says so, each one separately | Work on a branch with commits | Todd's instruction. It also fits the risk: a push to `main` deploys to the live van Pi | **Agreed (Todd)** |
+| 2026-11-12 | The Pi counts as "live". No push, workflow run, SSH or `systemctl` without Todd's OK for that action. Preview UI only in local demo mode | Trust the deploy workflow | `deploy-frontend.yml` and `deploy-backend.yml` run on every push to `main` touching those folders, there is no staging, and `van-api` restarts | Proposed |
+| 2026-11-12 | Take the "before" screenshots and numbers first, before any design change | Take them at the PR | The playbook's top lesson: LiteAF went eleven days without them | Proposed |
+| 2026-11-12 | Keep Tailwind 3, React 18 and the current stack for the redo | Move to Tailwind 4 | LiteAF uses v4, but a stack move is a second project on a Pi that rebuilds the frontend in CI. Revisit after the redo | Proposed |
+| 2026-11-12 | No UI component libraries. Use native `<dialog>`, `<details>` and popover for drawers, dialogs and menus | Radix, Headless UI, MUI | Matches LiteAF and the 604 KB bundle. Todd's skill set includes MUI, so this is a trade, not a default | Proposed |
+| 2026-11-12 | Naming: one key per component, in every hook. `SwitchTile` is `ui/SwitchTile.tsx`, `data-vc="switch-tile"`, `.vc-switch-tile` | LiteAF's `la-` class prefix everywhere | React components already give each piece a file name, so the key goes in a data attribute and in rare component CSS | Proposed |
+| 2026-11-12 | Semantic tokens only (`on`, `off`, `warn`, `info`, `surface`, `ink`), mapped from the Figma palette. No raw Tailwind palette classes in components | Keep using `lime-600`, `gray-800` and so on | 110 raw palette classes and 93 hardcoded text greys today caused the contrast problems logged in `docs/FRONTEND-REFACTOR.md` | Proposed |
+| 2026-11-12 | One `Drawer` and one `Dialog` component, and drawers split by concern: WiFi, Camera, Mode, Backup, System, Power. The history charts leave the Settings drawer | One big Settings drawer; keep the modals | `docs/CLAUDE.md` already records the intent for separate drawers. Power options becoming a drawer or confirm dialog is for Todd to settle | Proposed |
+| 2026-11-12 | Keep the last-known-value pattern for offline cards, restyled | Blank the card when a source drops | It's already confirmed correct in `docs/CLAUDE.md` and in the Figma offline variants | Proposed |
+| 2026-11-12 | Todd's no-commit, `main`-only instruction pauses the branch-per-PR and docs-straight-to-`main` steps in `docs/CLAUDE.md` → Workflow for this effort. "The person merges, not Claude" still holds | Follow the old Workflow section | Todd's newer, explicit instruction. The old section also predates this redo | Proposed |
+| 2026-11-12 | Keep light only. The tokens are CSS variables so a dark set can be added later, but none is designed | Design dark now | The Figma is light only and `index.html` already forces light | Proposed |
+| 2026-11-12 | Power stays within two taps of the dashboard, renders with no fetched data, and keeps working when a poll hangs | Fold it into the System drawer | Restart API is the only way to unstick a frozen card when Todd is not at a terminal (`docs/CLAUDE.md` → Recovery) | Proposed |
+| 2026-11-12 | `docs/DESIGN-SYSTEM.md` and `docs/UI-PATTERNS.md` become the single source for the UI. The Design System section in `docs/CLAUDE.md` gets a pointer now and is replaced when the rebuild lands | Keep both | Two sources drift | Proposed |
+| 2026-11-12 | Green and orange are fills with dark text. Colored text on white uses the darker `*-text` tokens. Figma's lime-500 on white is 1.95:1 and the current lime-600 is 3.06:1, both fail AA | Use the fill colors as text, as the mock does | Measured 2026-11-12 (`docs/DESIGN-SYSTEM.md`) | Proposed |
+| 2026-11-12 | Tokens are explicit hex values, not Tailwind's built-in scale | Use `lime-500` and friends | The Figma uses Tailwind v4 values and this app ships v3, where the same names are different colors | Proposed |
+| 2026-11-12 | Do the rebuild in this order: workspace, tokens, standard components, then the screens | Screens first | Components built once and reused make the screens cheap and consistent | Proposed |
