@@ -1,6 +1,6 @@
 export function Spinner({
-  highlightColor = "fill-sky-700",
-  backgroundColor = "fill-sky-100",
+  highlightColor = "fill-on-text",
+  backgroundColor = "fill-line",
   className,
 }: {
   highlightColor?: string;

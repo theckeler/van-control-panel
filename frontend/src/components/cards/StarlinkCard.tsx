@@ -1,6 +1,5 @@
-import clsx from "clsx";
 import { useVanStore } from "../../store/van";
-import { Panel, StatusDot } from "../ui";
+import { DeviceRow } from "../ui";
 
 const STARLINK_LAN_PREFIX = "192.168.4.";
 
@@ -32,7 +31,7 @@ function uptime(seconds: number | null): string | null {
   return `up ${mins}m`;
 }
 
-export function StarlinkCard({ className }: { className?: string }) {
+export function StarlinkCard() {
   const starlink = useVanStore((s) => s.starlink);
   const system = useVanStore((s) => s.system);
 
@@ -82,46 +81,22 @@ export function StarlinkCard({ className }: { className?: string }) {
     starlink?.currently_obstructed === true ||
     (starlink?.fraction_obstructed != null &&
       starlink.fraction_obstructed > 0.005);
+  const alertCount = starlink?.alerts.length ?? 0;
+
+  const status = [
+    primary,
+    obstructed ? "obstructed" : alertCount > 0 ? `${alertCount} alert` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
-    <Panel className={className}>
-      <div className="flex items-center justify-between rounded-lg p-3 border bg-panel-bg border-panel-border">
-        <div className="flex items-center gap-3">
-          <StatusDot on={online} tone="success" />
-          <div>
-            <div
-              className={`text-sm font-semibold ${online ? "text-charge-dc" : "text-gray-300"}`}
-            >
-              Starlink
-            </div>
-            {starlink?.power_w != null && (
-              <div className="text-xs text-gray-400">
-                {starlink.power_w.toFixed(0)}W
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="text-right">
-          <div
-            className={clsx(
-              "text-sm font-semibold",
-              online
-                ? "text-lime-700"
-                : reachable
-                  ? "text-amber-500"
-                  : "text-gray-400",
-            )}
-          >
-            {primary}
-          </div>
-          <div className="text-xs text-gray-600">{detail}</div>
-          {(obstructed || (starlink?.alerts.length ?? 0) > 0) && (
-            <div className="text-xs text-amber-600">
-              {obstructed ? "obstructed" : `${starlink!.alerts.length} alert`}
-            </div>
-          )}
-        </div>
-      </div>
-    </Panel>
+    <DeviceRow
+      vc="starlink-card"
+      name="Starlink"
+      state={online ? "on" : reachable ? "off" : "offline"}
+      value={detail + (online && starlink?.power_w != null ? ` · ${starlink.power_w.toFixed(0)}W` : "")}
+      detail={status}
+    />
   );
 }

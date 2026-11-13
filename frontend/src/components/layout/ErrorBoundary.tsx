@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Button, Card } from "../ui";
 
 interface Props {
   children: ReactNode;
@@ -22,21 +23,15 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.error) {
       return (
-        <div className="min-h-dvh bg-panel-bg text-gray-900 p-4 max-w-2xl mx-auto flex flex-col items-center justify-center text-center">
-          <div className="bg-panel-surface border border-panel-border rounded-xl p-6 w-full">
-            <div className="text-xs text-gray-800 uppercase tracking-widest mb-2">
-              Something went wrong
-            </div>
-            <p className="text-sm text-red-500 mb-4">
+        <div className="mx-auto flex min-h-dvh max-w-2xl flex-col items-center justify-center bg-page p-4 text-center text-ink">
+          <Card title="Something went wrong" className="w-full">
+            <p className="text-body text-danger-text">
               {this.state.error.message}
             </p>
-            <button
-              onClick={() => this.setState({ error: null })}
-              className="rounded-lg px-4 py-2 text-sm border border-panel-border text-gray-600 hover:border-gray-500 transition-colors"
-            >
+            <Button onClick={() => this.setState({ error: null })}>
               Try again
-            </button>
-          </div>
+            </Button>
+          </Card>
         </div>
       );
     }
