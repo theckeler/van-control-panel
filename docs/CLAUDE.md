@@ -1,7 +1,7 @@
 # CLAUDE.md — Van Control Panel
 
 
-**Last updated:** 2026-11-12
+**Last updated:** 2026-11-13
 Context file for Claude Code. Gives full project context so sessions don't require re-explaining the architecture.
 
 **Jump to:** [Quick Start](#quick-start) · [Workflow](#workflow) · [Recovery](#recovery) · [Auth](#auth) ·
@@ -204,86 +204,87 @@ frontend/
                          a local change. Click handlers (Shelly toggle, BMS release/
                          connect) update optimistically, roll back on failure, and
                          ignore a second click while one is pending
-    store/settings.ts    Persisted gap / spacing / vanName. Panel and Stack read this
+    store/settings.ts    Persisted vanName. (gap and spacing are no longer read by anything
+                         since the UI redo)
+    store/camera.ts      Camera on/off (a per-browser preference in localStorage), the
+                         latest frame, and on-demand capture. Shared by the camera
+                         card, the action tile and the camera drawer
     store/toast.ts       Toast queue, dedupes by message, kind-based auto-dismiss
     hooks/useVisibleInterval.ts
                          setInterval that pauses while the tab is hidden, fires
                          immediately on regaining visibility
     hooks/usePolling.ts  Thin wrapper — fetchAll on useVisibleInterval, 5s
-    hooks/useModalBehavior.ts
-                         Focus trap, Escape, focus restoration, scroll lock.
-                         Used by modals, drawers, and WifiScanCard
     hooks/useTheme.ts    Theme hook. Dark mode is disabled on purpose right now —
                          index.html force-sets data-theme="light" on load — so the
                          dark-mode state/effect logic here is dead, unreachable code
     types/index.ts        TypeScript interfaces (keep in sync with Pydantic models)
-    components/ui/       Primitives: Panel, Stack (spacing from settings store), Label,
-                         StatusDot, SelectableTile, Button (variant/size, danger=red),
-                         Row (label/value line item), Spinner, Modal + BackDrop
-    components/badges/
-      EthBadge.tsx       eth0 rescue-port cable/link status dot
-      WifiBadge.tsx      Header SSID + band/signal. Amber below -70dBm, red if
-                         unassociated
+    lib/format.ts        Time, countdown and uptime formatting shared by cards/drawers
+    lib/tokens.ts        Reads a design token's CSS variable, for Recharts colors
+    components/ui/       The standard component set (docs/DESIGN-SYSTEM.md): Button,
+                         IconButton, IconCircle, TileButton, SwitchTile, Stat,
+                         StatusList, DeviceRow, Card, Progress, Badge, StatusDot,
+                         KeyValue, Section, TextField, Drawer, Dialog, Icon, Spinner.
+                         Drawer and Dialog are native <dialog>
     components/cards/
-      BatteryCard.tsx    SOC, voltage, temp — shows last known values when offline
-                         with last-seen time and retry countdown
-      Cameras.tsx        Photo gallery. Rendered in Dashboard.tsx. History button
-                         opens CameraHistoryDrawer (24h of captures, click for
-                         full-size in the shared Modal)
+      BatteryCard.tsx    SOC, then volt / watt / temp chips that tint when out of
+                         range (thresholds at the top of the file). Shows last known
+                         values when offline with last-seen time and retry countdown.
+                         The History button opens the History drawer
+      Cameras.tsx        Latest frame plus history, capture and on/off buttons
       ChargeSourcesCard  Solar / Shore rows (Orion/alternator row coded, commented
                          out — Orion-Tr is non-smart, no real telemetry to show yet)
       EcoflowCard.tsx    Battery % plus an inferred charge_state (charging/
                          discharging/idle) from the battery % trend over time —
                          still no real watts, the encrypted protocol limit below
                          still applies to that
-      FridgeCard.tsx     Dometic temp/set-point/compressor; door-open triggers an
-                         orange highlight override
-      HistoryCard.tsx    Recharts SOC 24h + Solar 30d. Falls back from 30-day daily
-                         aggregates to hourly-bucketed raw peaks when daily data
-                         is absent
-      ModeSelector.tsx   Storage / Camp / Trail / In Town. Fully wired to the store,
-                         still not rendered in Dashboard.tsx — the one remaining
-                         card in that original "commented out" state
-      ShellyCard.tsx     Per-unit toggles. Filters installed:false, shows
+      FridgeCard.tsx     Dometic temp/set-point/compressor; door open shows a badge.
+                         Keeps its last reading, dimmed, when unreachable
+      ShellyCard.tsx     Per-unit SwitchTiles. Filters installed:false, shows
                          "unreachable" distinctly from off
       StarlinkCard.tsx   Dish status. Distinguishes "Pi not on Starlink LAN" from
                          "dish unreachable" via IP-prefix check against wifi_ip
-      WifiCard.tsx       Exports WifiCard — hotspot on/off (confirm modal), uplink
-                         status, opens NetworkDetailsDrawer
-    components/drawers/
-      CameraHistoryDrawer.tsx
-                         Lists api.camera.recent() as SelectableTile rows,
-                         click opens the shared Modal with the full image
-      NetworkDetailsDrawer.tsx
-                         Read-only radio stats (uplink SSID/signal/IP, hotspot),
-                         embeds WifiScanCard for connecting
-      SettingsDrawer.tsx Gear icon → Pi health, network overview, backup download,
-                         SD image creation (start/poll/download/cancel), BMS
-                         release, power options. Embeds HistoryCard
-      WifiScanCard.tsx   Scan wlan1, select a network, connect with password.
-                         Connecting saves a NetworkManager profile at
-                         autoconnect-priority 75 (see network.py) — that's the
-                         real "reconnect somewhere already visited" mechanism,
-                         nothing client-side
-    components/modals/
-      ConfirmModal.tsx   Generic yes/no dialog, danger-styled confirm button
-      PowerModal.tsx     Multi-phase restart-API/reboot/shutdown flow, polls /api/health
+      WifiCard.tsx       Read-only StatusList: WiFi uplink, hotspot, and the eth0
+                         rescue-port cable. Changing WiFi is in the WiFi drawer
+    components/drawers/  One drawer per concern. Content mounts only while open,
+                         so data loads on open, not with the 5s poll
+      WifiDrawer.tsx     Uplink and hotspot details, hotspot on/off (confirm dialog),
+                         and WifiScan.tsx to scan and connect. Connecting saves a
+                         NetworkManager profile at autoconnect-priority 75 (see
+                         network.py) — the real "reconnect somewhere already
+                         visited" mechanism, nothing client-side
+      CameraDrawer.tsx   Camera on/off and take a photo now
+      ModeDrawer.tsx     Storage / Camp / Trail / In Town picker, with what the
+                         current mode does (the one place a mode can be switched
+                         from the UI)
+      BackupDrawer.tsx   DB size, row count, nightly job, unsent files, download
+      SystemDrawer.tsx   Pi health, and release or reconnect the BMS
+      HistoryDrawer.tsx  Tabs: SOC 24h, Solar (30 days, or today's peaks until the
+                         first midnight rollup), and Photos (last 24h, tap for
+                         full size)
+    components/dialogs/
+      PowerDialog.tsx    Restart API / Reboot / Shut down. Restart API runs on the
+                         second tap (Power, then Restart API) with no confirm;
+                         Reboot and Shut down confirm first. Polls /api/health
                          every 2s to detect the service or Pi going down and coming
                          back. Restart API has a 20s fallback for a restart quick
                          enough that no poll ever fails, and a Close button since
-                         the Pi is still up
-      ProgressModal.tsx  Determinate-or-spinning progress overlay, always
-                         cancellable
+                         the Pi is still up. Reads no fetched data, so a hung poll
+                         cannot block it
     components/layout/
-      Header.tsx         Title bar. EthBadge / WifiBadge, "demo" pill when isDemo
+      Header.tsx         Van name, demo badge, time and mode name, then round Mode
+                         and System buttons
+      ActionRow.tsx      The 2x2 tiles: WiFi, Camera, Backup, Power
       ErrorBoundary.tsx  Class-based root boundary, console-only logging, "Try
                          again" reset button
       ThemeToggle.tsx    Renders a light/dark toggle button. Not rendered anywhere
                          right now — genuinely unused, not just non-functional
-      Toaster.tsx        Renders the toast queue
+      Toaster.tsx        Toast queue, drawn as a popover so it sits above the
+                         native <dialog> drawers
     pages/
-      Dashboard.tsx      Main view. Cards take no props — Panel handles spacing.
-                         Cameras is rendered; ModeSelector is still not
+      Dashboard.tsx      Main view. Holds which drawer is open (one at a time) and
+                         the Power dialog
+      Components.tsx     Every component in every state. Dev server only, at
+                         /components; not in the production build
 ```
 
 ---
@@ -455,8 +456,8 @@ by itself within ~60s and leaves a stack dump in the journal; to do it by hand:
 `sudo systemctl kill --signal=SIGKILL van-api`. Diagnosis and cause:
 `docs/TROUBLESHOOTING.md`.
 
-**A card is stuck or frozen, and you are not at a terminal** — Settings →
-Power options → **Restart API**. Restarts the backend only (Pi stays on, ~15s,
+**A card is stuck or frozen, and you are not at a terminal** — Power →
+**Restart API** (two taps from the dashboard). Restarts the backend only (Pi stays on, ~15s,
 clears all in-memory caches). Refused for 2 minutes after any restart:
 rapid `van-api` restarts can lock up the BMS.
 
@@ -531,8 +532,7 @@ thins to the 1st of each month. Steady state ~50 files, ~8MB.
 Thinning rather than deleting matters: the live DB prunes raw readings at 30
 days, so older snapshots hold detail the Pi itself has discarded.
 
-**On demand from the dashboard.** Settings drawer → Backup → Download
-database. `GET /system/backup` returns a gzipped snapshot; the drawer fetches
+**On demand from the dashboard.** Backup tile → Download database. `GET /system/backup` returns a gzipped snapshot; the drawer fetches
 it as a blob so the request carries the session cookie and failures surface as
 a toast. Useful when the Mac is asleep or you are away from it.
 
@@ -940,17 +940,18 @@ Details worth knowing:
 
 ## Known Limitations / TODOs
 
-- **Applying a mode only half works** — the selection persists across restarts and drives the camera interval (`camera_loop.py`), but Shelly schedules are not driven by it. `ModeSelector.tsx` itself is also still not rendered in `Dashboard.tsx`, so a mode can only be switched through the API.
+- **SD card image creation has no button.** The API (`/system/disk-image/*`) and `services/disk_image.py` exist, and this file used to say the Settings drawer had it, but neither the old nor the new UI calls it. Add it to the System or Backup drawer if wanted.
+- **Applying a mode only half works** — the selection persists across restarts and drives the camera interval (`camera_loop.py`), but Shelly schedules are not driven by it. A mode can be switched from the Mode drawer (the header's round Mode button) or through the API.
 - **Camera system — live, 2026-09-04.** Interior camera only (`/dev/video0`,
   a Logitech C922 USB UVC camera since 2026-10-19; the cheap camera it replaced had a
   sensor that locked up and needed a physical replug). `Cameras.tsx` is rendered in `Dashboard.tsx`, backed by a
   background capture loop (`camera_loop.py`, mode-driven interval, 24h
   retention) plus on-demand capture via `GET /photos/latest`. History button
-  opens `CameraHistoryDrawer.tsx`. See the Cameras section under Hardware
+  opens the History drawer's Photos tab. See the Cameras section under Hardware
   Reference (`docs/HARDWARE.md`) for the UVC tuning story.
 - **Shore charger** always returns disconnected — no VE.Direct cable purchased
 - **Orion-Tr** is non-smart, returns static config — upgrade to Orion XS 50A planned
-- **History charts** — `HistoryCard` is wired up and rendering. SOC 24h and Solar 30d tabs both work. Daily solar only populates after a midnight rollup, so a fresh install shows the raw-derived fallback.
+- **History charts** — the History drawer (`HistoryDrawer.tsx`) renders them. SOC 24h and Solar 30d tabs both work. Daily solar only populates after a midnight rollup, so a fresh install shows the raw-derived fallback.
 - **CORS** is `allow_origins=["*"]` — fine for local/Tailscale, tighten if Funnel is used long-term
 - **PS Input 1 and PS Input 2** are configured (`installed: True`) but unreachable as of 2026-10-19, which costs a 3s timeout on every Shelly poll. USB Outlets and Garage answer. Decision pending: restore them, or set `installed: False`, or add a backend poller with backoff.
 - **`loads` breakdown in system.py is an estimate** — the old unconditional Starlink 22W and Fridge 40W entries are gone, but each installed Shelly with an `est_watts` is listed whether or not it is on. Latent: the frontend never reads it. See "system.py load estimation" below. **Starlink is now measured:** `loads` lists a `Starlink` entry with `source: "measured"` from the dish's real `power_w`, and omits it when the dish is unreachable or reports no power (unreachable means the Pi cannot see the dish, not that it draws zero, so no number is claimed). Only the BMS-disconnected fallback sum still contains the 22W guess, and only when no measurement is available. Not yet verified against the live dish.
@@ -1302,87 +1303,9 @@ input, which covers most real usage, and unreliable otherwise.
 
 ## Design System
 
-> **Redo in progress (2026-11-12).** The tokens, component set and screen patterns for the new UI are written in `docs/DESIGN-SYSTEM.md` and `docs/UI-PATTERNS.md` (Proposed, not yet built). Until the rebuild lands, the text below describes the **current** code. When it lands, replace this section with a pointer to those two docs so there is one source.
+The tokens, the component set and the screen patterns are in **`docs/DESIGN-SYSTEM.md`** and **`docs/UI-PATTERNS.md`**. Those are the single source; this section used to describe the pre-redo UI and was replaced on 2026-11-13.
 
-Tokens live in `tailwind.config.ts` and `index.css`. Colours are semantic
-(`charge.solar`, `soc.low`, `panel.surface`) and driven by CSS variables, so
-light/dark is a `data-theme` swap on `:root`. No raw hex in components.
-
-### Figma — redesign in progress, not yet built
-
-[Van Control Panel — Dashboard UI](https://www.figma.com/design/793FjJIPcg092uFJuGnVe6/Van-Control-Panel-%E2%80%94-Dashboard-UI)
-
-Discussed 2026-08-27. **The visual direction is a real, confirmed change** —
-light background, bold saturated colour (green for good/on, orange for
-off/warning), rounded corners, sans-serif. This is the actual target, not
-just how the mockup happened to get styled — a genuine departure from the
-dark-mode monospace terminal aesthetic currently built. Nothing has been
-re-themed yet; this is direction, not a merged change.
-
-The data underneath matches closely, which is a good sign the backend work
-was aimed correctly even before the frontend catches up: Battery
-(%/V/W/°F), Solar (`SOURCE`/W/state), EcoFlow (%), Starlink
-(latency/bandwidth/obstruction), CFX5 (°F/running) all correspond to real
-fields already live in the API.
-
-**Confirmed architectural principle, not just for this Figma:** components
-stay separate always. The design shows EcoFlow/Starlink/CFX5 sitting
-visually adjacent in one "Devices" panel — that's about layout proximity
-only. `EcoflowCard`, `StarlinkCard`, `FridgeCard` stay three separate
-components regardless of how close together they're rendered.
-
-**Confirmed, actionable:** the header's row of icon buttons (WiFi, Camera,
-Mode, Backup, Power) is not meant to consolidate into one settings drawer
-the way `SettingsDrawer.tsx` currently does — the intent is **separate
-drawers**, one per concern. Not built yet.
-
-**Still discussing, not yet actionable:**
-
-- A third Shelly switch button in the mockup ("Door Lights" in the visible
-  text, "Ceiling" as the layer name) — placeholder for now, not a confirmed
-  circuit. Likely connects to the door-sensor project already in Known
-  Limitations, but not confirmed.
-- Network status section in the mock only shows the current network + one
-  placeholder row. Real design needs figuring out what's actually available
-  to display per source (Solar/Shore/Orion) before it can be finished —
-  open question, not yet answered.
-
-### Still need (mockups, not code)
-
-- More offline-state mockups as new cards get designed. The pattern itself
-  is already confirmed correct: last-known values replace the live view
-  when a source goes offline, matching what's already built (`BatteryCard`,
-  `FridgeCard`).
-- Camera controls: the design shows five icons (two photo-library variants,
-  options, a light toggle, capture) against the single on/off toggle that
-  exists today. Aspirational, wanted eventually, not committed to a
-  timeline.
-
-Primitives are in `src/components/ui/`:
-
-| Primitive        | Purpose                                                                                    |
-| ---------------- | ------------------------------------------------------------------------------------------ |
-| `Panel`          | Card surface. Reads `spacing` from the settings store and applies it as inline padding/gap |
-| `Stack`          | Outer container. Same, but reads `gap`                                                     |
-| `Label`          | Uppercase mono section label                                                               |
-| `StatusDot`      | 2x2 indicator, `accent` or `success` tone. `aria-hidden`                                   |
-| `SelectableTile` | Shelly toggles and mode buttons. Carries `aria-pressed`                                    |
-| `Button`         | `outline` / `ghost` / `danger`, sizes `icon` / `sm` / `md`                                 |
-
-**Spacing is user-configurable at runtime.** `gap` and `spacing` live in the
-persisted settings store. `Panel` and `Stack` read them directly, which is why
-cards take no `style` prop — an earlier version threaded `innerStyle` through
-every card from Dashboard, and a first pass at `Panel` used hardcoded Tailwind
-padding classes that inline styles would have silently overridden.
-
-**Focus states live in the primitives.** Before these existed, no interactive
-element in the app had `focus-visible` styling at all. Anything new that takes
-a click should go through `Button` or `SelectableTile` rather than a bare
-`<button>`, or it inherits that gap again.
-
-**Deliberately not a component library.** No Storybook, no versioning, no docs
-site. One app, one developer. Add a primitive when the same markup appears a
-third time, not before.
+Two things worth knowing from the Figma history, since the mockup is a guide and not a spec: `EcoflowCard`, `StarlinkCard` and `FridgeCard` stay three separate components even though the Figma lays them out in one "Devices" panel, and the "Door Lights" button in the mock is a placeholder, not a real circuit (the door-sensor idea is under Known Limitations).
 
 ---
 

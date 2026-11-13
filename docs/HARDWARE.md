@@ -1,7 +1,7 @@
 # Hardware Reference — Van Control Panel
 
 
-**Last updated:** 2026-10-19
+**Last updated:** 2026-11-13
 ## Vehicle
 
 **2023 Mercedes Sprinter VS30 AWD 144" High Roof** — cargo conversion.
@@ -227,7 +227,7 @@ Verified live 2026-10-19 (`lsusb`):
 compressed image of the card), label `VAN-PI-BKUP`, mounted at `/mnt/van-pi-bkup`
 by `LABEL=VAN-PI-BKUP /mnt/van-pi-bkup exfat defaults,nofail,uid=1000,gid=1000 0 2`
 in `/etc/fstab`. `nofail` lets the Pi boot without it. The SD-card image job
-(Settings → create image) refuses to start if the drive is not mounted, because
+(`/system/disk-image/start`; the dashboard has no button for it since the 2026-11-13 UI redo, and the old Settings drawer never did either) refuses to start if the drive is not mounted, because
 writing to an unmounted `/mnt/van-pi-bkup` would silently fill the card being imaged.
 
 **WiFi adapter placement — open problem.** The adapter sits in a USB 3.0 port on

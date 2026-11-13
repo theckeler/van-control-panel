@@ -1,6 +1,6 @@
 # CLAUDE.md: Van Control Panel
 
-**Last updated:** 2026-11-12
+**Last updated:** 2026-11-13
 
 Instructions for Claude (and humans) working in this repo.
 
@@ -59,4 +59,4 @@ Every doc starts with `**Last updated:** YYYY-MM-DD` under its title.
 - `van-case-study`: keep `case-study/` updated (run at the end of every session)
 
 ## Where things are
-`frontend/src/components/ui/` primitives · `cards/` dashboard cards · `drawers/` and `modals/` (being merged into one Drawer and one Dialog) · `store/` zustand · `api/mock.ts` demo data · `docs/` reference · `case-study/` log, decisions, baseline · `bin/` scripts · `scripts/` Pi-side scripts (never run on this machine).
+`frontend/src/components/ui/` the standard component set · `cards/` dashboard cards · `drawers/` one drawer per concern · `dialogs/` the Power dialog · `store/` zustand · `api/mock.ts` demo data · `docs/` reference · `case-study/` log, decisions, baseline · `bin/` scripts · `scripts/` Pi-side scripts (never run on this machine).

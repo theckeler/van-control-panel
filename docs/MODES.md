@@ -1,7 +1,7 @@
 # Operating Modes — Van Control Panel
 
 
-**Last updated:** 2026-10-19
+**Last updated:** 2026-11-13
 Modes let you switch the van's behavior based on context — parked for storage, at a campsite, on the trail, or in town. Each mode adjusts camera capture intervals, Shelly automation, and (planned) notification behavior.
 
 **What is live and what is intent.** The *camera interval* of the active mode is real:
@@ -81,10 +81,9 @@ section describes an intended behavior, not something currently running. (See
 
 ## Switching Modes
 
-**Via PWA dashboard:** not currently possible. `ModeSelector.tsx` exists and
-is fully wired to the store, but isn't rendered in `Dashboard.tsx` right now
-— no import, no `<ModeSelector />`. The only way to switch modes today is
-the API below.
+**Via PWA dashboard:** the round Mode button in the header opens the Mode drawer
+(`ModeDrawer.tsx`), which lists the four modes and what the current one does.
+The current mode's name is also shown under the van name.
 
 **Via API:** the backend listens on `127.0.0.1:8000` only, so run it on the Pi
 (loopback calls need no key):
@@ -111,7 +110,6 @@ and changes the camera cadence, but it does not touch a relay.
 - **Apply the Shelly side of a mode** — `shellys_off` and the schedules in this doc
   exist as config in `mode.py` but nothing acts on them. See `docs/FUTURE-FEATURES.md`
   Priority 5, including the pre-switch checklist idea
-- **Render `ModeSelector`** — the component is fully built but not mounted in `Dashboard.tsx`
 - **Shelly schedule push** — mode switch updates Shelly schedules via REST API automatically
 - **Evening auto-extension** of the capture interval (above)
 - **Notification config per mode** — storage mode sends daily SOC alert, camp mode sends low battery warning

@@ -1,7 +1,7 @@
 # Architecture — Van Control Panel
 
 
-**Last updated:** 2026-10-19
+**Last updated:** 2026-11-13
 ## Overview
 
 The system has three physical layers: the van's 12V electrical hardware, a Raspberry Pi 4B that reads and controls it, and a PWA dashboard that the user interacts with from any device on the local network or remotely via Tailscale.
@@ -70,20 +70,20 @@ src/
 │                          FastAPI Pydantic models exactly
 │
 ├── components/            Presentational — read from Zustand, no local state
-│   ├── ui/                Shared primitives: Panel, Stack, Button, Label,
-│   │                      StatusDot, SelectableTile, Row, Spinner, Modal
-│   ├── badges/             EthBadge, WifiBadge — header status indicators
+│   ├── ui/                The standard set (docs/DESIGN-SYSTEM.md): Button,
+│   │                      IconButton, TileButton, SwitchTile, Stat, StatusList,
+│   │                      DeviceRow, Card, Progress, Badge, Drawer, Dialog ...
 │   ├── cards/              One per device: BatteryCard, ChargeSourcesCard,
 │   │                      ShellyCard, EcoflowCard, FridgeCard, StarlinkCard,
-│   │                      WifiCard, HistoryCard, ModeSelector, Cameras
-│   ├── drawers/            SettingsDrawer, NetworkDetailsDrawer, WifiScanCard,
-│   │                      CameraHistoryDrawer
-│   ├── modals/             ConfirmModal, PowerModal, ProgressModal
-│   └── layout/             Header, Toaster, ErrorBoundary, ThemeToggle
+│   │                      WifiCard, Cameras
+│   ├── drawers/            One per concern: WiFi, Camera, Mode, Backup, System,
+│   │                      History (SOC, Solar, Photos)
+│   ├── dialogs/            PowerDialog
+│   └── layout/             Header, ActionRow, Toaster, ErrorBoundary, ThemeToggle
 │
 └── pages/
-    └── Dashboard.tsx       Composes all cards, mounts usePolling. ModeSelector
-                            exists but isn't currently rendered
+    └── Dashboard.tsx       Composes all cards, mounts usePolling, holds which
+                            drawer is open
 ```
 
 **State flow:**
@@ -188,7 +188,7 @@ FastAPI static mount → /static/photos/{cam}/{filename}
 ```
 
 The loop also deletes photos older than 24h (an hourly sweep), so
-`backend/photos/` stays bounded. `CameraHistoryDrawer` lists the retained
+`backend/photos/` stays bounded. The History drawer's Photos tab lists the retained
 photos via `GET /photos/recent`.
 
 Only `interior` is installed. `exterior` (`/dev/video2`) is wired up in code but

@@ -1,6 +1,6 @@
 # Log
 
-**Last updated:** 2026-11-12
+**Last updated:** 2026-11-13
 
 One entry per working session, newest last. Held while work is in progress and finalised at PR time.
 
@@ -31,3 +31,31 @@ One entry per working session, newest last. Held while work is in progress and f
 - The classifier blocked running `bin/rollup.sh` from the playbook repo; its roll-up was read as a file instead.
 
 **Next:** the design system doc and tokens, then the standard components, then the screens. Playbook edits (a row in `projects.md`, `STATUS.md`, a log entry) are pending.
+
+## 2026-11-13: Session 2, the redo built
+
+**Asked for:** start steps 1 and 2 (tokens, standard components), then step 3 (screens and drawers); then a stream of changes from Todd reviewing it in the browser pane; new README and social screenshots; docs, decisions and a PR. Todd's rules held throughout: demo mode only, nothing committed until he said so, Power within two taps.
+
+**Done**
+- Tokens as CSS variables and a Tailwind config from the Figma values; a type scale; a global focus ring and reduced-motion rule.
+- 19 components in `ui/`, a dev-only gallery at `/components`, and every screen rebuilt on them: header, battery, action tiles with a network list, circuits, charging, devices, camera.
+- Six drawers (WiFi, Camera, Mode, Backup, System, History with a Photos tab) replace the Settings drawer. A Power dialog replaces the Power modal, with Restart API on the second tap. The old modals, primitives, header badges and legacy tokens are deleted.
+- Todd's review rounds changed: toast color and layering, lime reserved for "on", device-row borders and type size, a network tile with Ethernet, a round live circle and History button, outlined and value-tinted stat chips, 2x2 shortcut tiles, photo history moved into the History drawer, 4px corners, a round Mode button.
+- README and social images generated with Playwright against the demo build; Open Graph tags and a 1280x640 GitHub image prepared. Docs rewritten to match what was built.
+
+**Found**
+- **A z-index can't lift anything above a modal `<dialog>`.** The native top layer wins, so the toast became a popover that is re-shown on each change. First guess at the cause was z-index, which was wrong.
+- **Demo data carried real WiFi names** (`Sir Salettelot`, `OHeck`, `TwitchWiFi`), which the case-study privacy rule says to keep out of anything public, and the README screenshots would have published one. Generalised in `api/mock.ts`. The real names are still in committed docs and the hotspot confirm text.
+- The old docs said the Settings drawer did SD card image creation. Neither UI ever called it. Recorded as a known gap.
+- At 672px the half-width network tile truncated; widening to `max-w-4xl` fixed it. Caught by looking at a screenshot, not by the build.
+- `git push` is denied in `.claude/settings.json`, so the push to `main` Todd asked for did not run. It would also have deployed a backend change and restarted `van-api` along with the redesign. Todd chose a PR.
+- Vercel SSO protection on the demo project blocks link-preview crawlers. Todd is turning it off himself.
+
+**Not checked**
+- Anything against real hardware or the live Pi. Demo mode only.
+- The reboot and shut-down confirm steps, the WiFi scan-and-connect flow with a real network, and photo capture on the real camera.
+- Stat chip thresholds (guesses, not from the battery datasheet), and 768px in a browser (375 and 1280 were checked).
+- A keyboard-only pass over every drawer and the Power dialog; Esc and focus return were checked on the gallery drawer and dialog only.
+- The Open Graph image on a real link preview, and the done-checklist's contrast check on the new tints (computed for the tokens, not for each tint on its background).
+
+**Next:** merge the PR (Todd), deploy by hand and do one live pass on the Pi, starting with Restart API. Then decide on the open questions at the end of `docs/UI-PATTERNS.md`, the unused `gap`/`spacing` settings, and `ThemeToggle`.
