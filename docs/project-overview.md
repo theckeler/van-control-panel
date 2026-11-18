@@ -1,7 +1,7 @@
 # Van Control Panel — Project Overview
 
 
-**Last updated:** 2026-10-19
+**Last updated:** 2026-11-18
 A Python FastAPI backend + React/TypeScript frontend dashboard for monitoring and controlling the van's 12V electrical system. Runs on a Raspberry Pi mounted in the van, accessible locally and remotely via Tailscale.
 
 Built as a real-world learning project for Python and as a portfolio piece demonstrating full-stack development with IoT hardware integration.
@@ -47,7 +47,7 @@ Built as a real-world learning project for Python and as a portfolio piece demon
 | EcoFlow River 2 Max | BLE advertisement | Battery % only. It also powers the Pi |
 | Dometic CFX5 35 fridge | BLE to an ESP32-S3 bridge, then WiFi | BlueZ cannot bond with it directly |
 | Starlink Mini | Local gRPC (192.168.100.1:9200) | Latency, obstruction, power draw |
-| Shelly 1 Gen4 x4 (USB outlets, Garage, PS Input 1, PS Input 2) | WiFi HTTP REST on the Pi's TwitchWiFi hotspot | Live toggle. PS Input 1 and 2 are unreachable as of 2026-10-19 |
+| Shelly 1 Gen4 x4 (USB outlets, Garage, PS Input 1, PS Input 2) | WiFi HTTP REST on the Pi's own hotspot | Live toggle. PS Input 1 and 2 are unreachable as of 2026-10-19 |
 | Logitech C922 webcam | USB UVC (/dev/video0) | Interior camera, timed and on-demand captures |
 | Raspberry Pi 4B | wlan0 hotspot, wlan1 (USB dongle) uplink | Starlink preferred, home WiFi fallback |
 
@@ -92,7 +92,7 @@ van-control-panel/
 │   ├── src/
 │   │   ├── api/client.ts          # Typed API client for all endpoints
 │   │   ├── components/            # BatteryCard, ChargeSourcesCard, ShellyPanel, etc.
-│   │   ├── hooks/                 # usePolling, useTheme
+│   │   ├── hooks/                 # usePolling, useVisibleInterval
 │   │   ├── pages/Dashboard.tsx    # Main dashboard
 │   │   ├── store/van.ts           # Zustand store, independent per-endpoint polling
 │   │   └── types/index.ts

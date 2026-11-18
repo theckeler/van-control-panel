@@ -1,27 +1,32 @@
 import clsx from "clsx";
 
-type Tone = "accent" | "success";
+export type DotTone = "on" | "off" | "warn" | "unknown" | "ink";
 
-const ON: Record<Tone, string> = {
-  accent: "bg-accent",
-  success: "bg-lime-600",
+const TONE: Record<DotTone, string> = {
+  on: "bg-on",
+  off: "bg-off",
+  warn: "bg-warn",
+  unknown: "bg-disabled",
+  // For a dot that sits on a colored fill, where on/off colors would vanish.
+  ink: "bg-ink",
 };
 
+// 8px dot. Decorative: it is never used without text beside it saying the
+// same thing, because color alone cannot carry state.
 export function StatusDot({
-  on,
-  tone = "accent",
+  tone = "unknown",
   className,
 }: {
-  on: boolean;
-  tone?: Tone;
+  tone?: DotTone;
   className?: string;
 }) {
   return (
     <span
+      data-vc="status-dot"
       aria-hidden="true"
       className={clsx(
-        "min-w-[0.5rem] min-h-[0.5rem] rounded-full flex-shrink-0",
-        on ? ON[tone] : tone === "accent" ? "bg-accent" : "bg-gray-300",
+        "inline-block size-2 shrink-0 rounded-full",
+        TONE[tone],
         className,
       )}
     />

@@ -6,16 +6,24 @@ import { ChargeSourcesCard } from "../components/cards/ChargeSourcesCard";
 import { EcoflowCard } from "../components/cards/EcoflowCard";
 import { FridgeCard } from "../components/cards/FridgeCard";
 import { ShellyCard } from "../components/cards/ShellyCard";
-import { StarlinkCard } from "../components/cards/StarlinkCard";
 import { WifiCard } from "../components/cards/WifiCard";
-import { SettingsDrawer } from "../components/drawers/SettingsDrawer";
+import { StarlinkCard } from "../components/cards/StarlinkCard";
+import { PowerDialog } from "../components/dialogs/PowerDialog";
+import { BackupDrawer } from "../components/drawers/BackupDrawer";
+import { CameraDrawer } from "../components/drawers/CameraDrawer";
+import { HistoryDrawer, type HistoryTab } from "../components/drawers/HistoryDrawer";
+import { ModeDrawer } from "../components/drawers/ModeDrawer";
+import { SystemDrawer } from "../components/drawers/SystemDrawer";
+import { WifiDrawer } from "../components/drawers/WifiDrawer";
+import { ActionRow } from "../components/layout/ActionRow";
 import { Header } from "../components/layout/Header";
-import { PowerModal } from "../components/modals/PowerModal";
 import { Toaster } from "../components/layout/Toaster";
-import { Stack } from "../components/ui";
+import { Card } from "../components/ui";
 import { usePolling } from "../hooks/usePolling";
 import { useSettingsStore } from "../store/settings";
 import { useVanStore } from "../store/van";
+
+type DrawerName = "wifi" | "camera" | "mode" | "backup" | "system" | "history";
 
 export function Dashboard() {
   usePolling(5000);
@@ -23,39 +31,79 @@ export function Dashboard() {
   const lastUpdated = useVanStore((s) => s.lastUpdated);
   const error = useVanStore((s) => s.error);
   const { vanName } = useSettingsStore();
+  // One drawer at a time: a drawer never opens another drawer.
+  const [drawer, setDrawer] = useState<DrawerName | null>(null);
+  const [historyTab, setHistoryTab] = useState<HistoryTab>("soc");
   const [powerOpen, setPowerOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const close = () => setDrawer(null);
 
   return (
-    <Stack className="min-h-dvh bg-panel-bg text-gray-900 max-w-2xl mx-auto items-stretch last:mb-8">
-      <PowerModal open={powerOpen} onClose={() => setPowerOpen(false)} />
+    <div
+      data-vc="dashboard"
+      className="min-h-dvh bg-page text-ink"
+    >
+      <main className="mx-auto flex max-w-2xl flex-col gap-3 px-4 py-4 md:max-w-4xl md:px-6 md:py-6">
+        <Header
+          isDemo={isDemo}
+          vanName={vanName}
+          error={error}
+          lastUpdated={lastUpdated}
+          onOpenMode={() => setDrawer("mode")}
+          onOpenSystem={() => setDrawer("system")}
+        />
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <BatteryCard
+            onOpenHistory={() => {
+              setHistoryTab("soc");
+              setDrawer("history");
+            }}
+          />
+          <Card vc="actions-card">
+            <div className="grid grid-cols-2 items-stretch gap-3">
+              <ActionRow
+                onWifi={() => setDrawer("wifi")}
+                onCamera={() => setDrawer("camera")}
+                onBackup={() => setDrawer("backup")}
+                onPower={() => setPowerOpen(true)}
+              />
+              <WifiCard />
+            </div>
+          </Card>
+
+          <ShellyCard className="md:col-span-2" />
+
+          <ChargeSourcesCard />
+          <Card vc="devices-card" title="Devices">
+            <EcoflowCard />
+            <StarlinkCard />
+            <FridgeCard />
+          </Card>
+
+          <Cameras
+            className="md:col-span-2"
+            onOpenHistory={() => {
+              setHistoryTab("photos");
+              setDrawer("history");
+            }}
+          />
+        </div>
+      </main>
+
       <Toaster />
 
-      <Header
-        isDemo={isDemo}
-        vanName={vanName}
-        error={error}
-        lastUpdated={lastUpdated}
-        setSettingsOpen={setSettingsOpen}
+      <WifiDrawer open={drawer === "wifi"} onClose={close} />
+      <CameraDrawer open={drawer === "camera"} onClose={close} />
+      <ModeDrawer open={drawer === "mode"} onClose={close} />
+      <BackupDrawer open={drawer === "backup"} onClose={close} />
+      <SystemDrawer open={drawer === "system"} onClose={close} />
+      <HistoryDrawer
+        open={drawer === "history"}
+        onClose={close}
+        tab={historyTab}
+        onTabChange={setHistoryTab}
       />
-
-      <ShellyCard />
-      <WifiCard />
-      <BatteryCard />
-      <ChargeSourcesCard />
-      <EcoflowCard />
-      <FridgeCard />
-      <StarlinkCard />
-      <Cameras />
-
-      <SettingsDrawer
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        onPower={() => {
-          setSettingsOpen(false);
-          setPowerOpen(true);
-        }}
-      />
-    </Stack>
+      <PowerDialog open={powerOpen} onClose={() => setPowerOpen(false)} />
+    </div>
   );
 }

@@ -1,7 +1,7 @@
 # Future Features
 
 
-**Last updated:** 2026-10-19
+**Last updated:** 2026-11-13
 This roadmap captures the next useful improvements for the Van Control Panel.
 The focus is reliability, visibility, and recoverable automation rather than
 adding hardware faster than the system can safely support it.
@@ -145,9 +145,8 @@ grounded each is in what already exists vs. speculative:
 ## Priority 5: Make Operating Modes Real
 
 The current mode *selection* is persisted (`backend/mode.json`), but it
-isn't displayed anywhere in the UI right now — `ModeSelector.tsx` is fully
-built and store-wired but not rendered in `Dashboard.tsx` — and it doesn't
-drive the system either. Implement incrementally:
+is shown in the header and switched from the Mode drawer, but it doesn't
+drive the system yet beyond the camera interval. Implement incrementally:
 
 - **Storage:** reduce camera activity and turn off selected nonessential loads.
 - **Camp:** normal monitoring and manual relay control.
@@ -192,8 +191,7 @@ managing entries), keyed by target mode:
 A mode with no key (or an empty list) skips the checklist entirely — purely
 config-driven, no code change needed to add/remove which modes gate on one.
 
-Depends on the "wire `ModeSelector` back into `Dashboard.tsx`" prerequisite
-above — same piece of work, not worth splitting into two passes.
+The Mode drawer already exists, so the checklist would be a step in switching modes there.
 
 ## Priority 6: Improve Power History and Diagnostics
 

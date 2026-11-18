@@ -1,128 +1,65 @@
-import { useEffect, useState } from "react";
-import { api } from "../../api/client";
-import type { Photo } from "../../types";
-import { CameraHistoryDrawer } from "../drawers/CameraHistoryDrawer";
-import { Panel } from "../ui";
+import { useEffect } from "react";
+import { formatDateTime } from "../../lib/format";
+import { useCameraStore } from "../../store/camera";
+import { Card, IconButton, Spinner, Stat } from "../ui";
 
-const STORAGE_KEY = "van-camera-enabled";
-
-function loadEnabled(): boolean {
-  return localStorage.getItem(STORAGE_KEY) !== "false";
-}
-
-export function Cameras({ className }: { className?: string }) {
-  const [interiorLatest, setInteriorLatest] = useState<Photo | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [enabled, setEnabled] = useState(loadEnabled);
-  const [historyOpen, setHistoryOpen] = useState(false);
+export function Cameras({
+  className,
+  onOpenHistory,
+}: {
+  className?: string;
+  onOpenHistory: () => void;
+}) {
+  const { enabled, latest, loading, refresh, setEnabled, capture } =
+    useCameraStore();
 
   useEffect(() => {
-    if (!enabled) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    api.camera
-      .latest("interior")
-      .then((photo) => {
-        setInteriorLatest(photo);
-      })
-      .catch(() => setInteriorLatest(null))
-      .finally(() => setLoading(false));
-  }, [enabled]);
-
-  function toggle() {
-    const next = !enabled;
-    setEnabled(next);
-    localStorage.setItem(STORAGE_KEY, String(next));
-    if (!next) setInteriorLatest(null);
-  }
+    void refresh();
+  }, [enabled, refresh]);
 
   return (
-    <Panel className={className}>
-      {loading ? (
-        <Skeleton />
-      ) : enabled ? (
-        <CameraPane photo={interiorLatest} />
-      ) : (
-        <div className="flex items-center justify-center h-40 text-xs text-black">
-          Camera off
-        </div>
-      )}
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={toggle}
-          className="flex-1 text-xs px-4 py-3 rounded-lg border border-panel-border text-gray-600 hover:border-gray-500 hover:text-gray-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
-        >
-          {enabled ? "Turn camera off" : "Turn camera on"}
-        </button>
-        <button
-          type="button"
-          onClick={() => setHistoryOpen(true)}
-          className="flex-1 text-xs px-4 py-3 rounded-lg border border-panel-border text-gray-600 hover:border-gray-500 hover:text-gray-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-panel-surface"
-        >
-          History
-        </button>
-      </div>
-
-      <CameraHistoryDrawer
-        open={historyOpen}
-        onClose={() => setHistoryOpen(false)}
-        cam="interior"
-      />
-    </Panel>
-  );
-}
-
-function Skeleton() {
-  return (
-    <div className="bg-panel-surface border border-panel-border rounded-xl overflow-hidden">
-      <div className="h-40 bg-gray-800 animate-pulse" />
-    </div>
-  );
-}
-
-function formatCaptureTime(iso: string) {
-  return new Date(iso).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}
-
-function CameraPane({ label, photo }: { label?: string; photo: Photo | null }) {
-  return (
-    <div className="bg-panel-surface border border-panel-border rounded-xl overflow-hidden">
-      <div className="flex items-center justify-between border-b border-panel-border">
-        {label && (
-          <span className="text-xs text-gray-800 uppercase tracking-widest">
-            {label}
-          </span>
-        )}
-        {photo && (
-          <span className="text-xs text-black">
-            {formatCaptureTime(photo.timestamp)}
-          </span>
+    <Card vc="cameras-card" title="Camera" className={className}>
+      <div className="flex aspect-video items-center justify-center overflow-hidden rounded bg-page">
+        {!enabled ? (
+          <p className="text-body text-ink-muted">Camera off</p>
+        ) : loading ? (
+          <Spinner />
+        ) : latest ? (
+          <img
+            src={latest.url}
+            alt={`Interior camera, captured ${formatDateTime(latest.timestamp).time}`}
+            className="size-full object-cover"
+          />
+        ) : (
+          <p className="text-body text-ink-muted">No photo available</p>
         )}
       </div>
-      {photo ? (
-        <img
-          src={photo.url}
-          alt={`${label ?? "interior"} camera`}
-          className="w-full object-cover"
-          style={{ maxHeight: "280px" }}
-        />
-      ) : (
-        <div className="flex items-center justify-center h-40 text-xs text-black">
-          No photo available
+      <div className="flex items-center justify-between gap-3">
+        {latest && enabled ? (
+          <Stat
+            variant="row"
+            value={formatDateTime(latest.timestamp).time}
+            className="min-w-24"
+          />
+        ) : (
+          <span />
+        )}
+        <div className="flex items-center gap-2">
+          <IconButton icon="images" label="Photo history" onClick={onOpenHistory} />
+          <IconButton
+            icon="camera"
+            label="Take a photo now"
+            disabled={!enabled}
+            onClick={() => void capture()}
+          />
+          <IconButton
+            icon={enabled ? "video" : "video-off"}
+            tone={enabled ? "on" : "off"}
+            label={enabled ? "Turn camera off" : "Turn camera on"}
+            onClick={() => setEnabled(!enabled)}
+          />
         </div>
-      )}
-      {photo && (
-        <div className="text-xs text-black text-center py-2 border-t border-panel-border">
-          Captured {formatCaptureTime(photo.timestamp)}
-        </div>
-      )}
-    </div>
+      </div>
+    </Card>
   );
 }

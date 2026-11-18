@@ -1,14 +1,14 @@
 # Van Control Panel
 
 
-**Last updated:** 2026-10-19
+**Last updated:** 2026-11-18
 > A self-hosted monitoring and control dashboard for a 2023 Mercedes Sprinter VS30 AWD 144" High Roof conversion.
 
 ![Stack](https://img.shields.io/badge/stack-React%20%2B%20FastAPI-orange)
 ![Platform](https://img.shields.io/badge/platform-Raspberry%20Pi%204B-red)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-<img width="1008" height="817" alt="image" src="https://github.com/user-attachments/assets/405028d8-65b2-4154-a86d-81c4787dfc2c" />
+<img src="docs/images/dashboard-1280.png" alt="The Van Control Panel dashboard on a desktop: battery, circuits, charging, devices and camera" width="800" />
 
 
 ---
@@ -37,6 +37,17 @@ Run it locally:
 cd frontend && VITE_DEMO=true npm run dev
 ```
 
+Built for a phone first, since that is how it is used in the van. These are
+the demo at 375px: the dashboard, the WiFi drawer, the battery history drawer
+and the Power dialog (Restart API is two taps from the dashboard).
+
+<p>
+  <img src="docs/images/dashboard-375.png" alt="Dashboard on a phone" width="190" />
+  <img src="docs/images/wifi-drawer-375.png" alt="WiFi drawer on a phone" width="190" />
+  <img src="docs/images/history-drawer-375.png" alt="Battery history drawer on a phone" width="190" />
+  <img src="docs/images/power-dialog-375.png" alt="Power dialog on a phone" width="190" />
+</p>
+
 ---
 
 ## What actually works
@@ -48,7 +59,7 @@ cd frontend && VITE_DEMO=true npm run dev
 | **Fridge** — Dometic CFX5 35                | Temp, set point, compressor, door, power source via an ESP32 BLE bridge |
 | **Starlink Mini**                           | Latency, throughput, obstruction, and measured power draw over local gRPC |
 | **EcoFlow River 2 Max**                     | Battery % decoded from the raw BLE advertisement — no auth, no cloud |
-| **Smart relays** — Shelly 1 Gen4 ×4 configured | USB outlets, garage, PS Input 1 and 2 — all on the Pi's TwitchWiFi hotspot (10.42.0.x), local HTTP, no cloud. The two PS Input units are currently unreachable |
+| **Smart relays** — Shelly 1 Gen4 ×4 configured | USB outlets, garage, PS Input 1 and 2 — all on the Pi's own hotspot (10.42.0.x), local HTTP, no cloud. The two PS Input units are currently unreachable |
 | **Interior camera** — Logitech C922        | Timed captures at the active mode's interval (24h retention) plus on-demand snapshots, with UVC settings re-applied before each shot |
 | **History** — SQLite, four tiers            | Raw → hourly → daily → monthly, automatic rollup and pruning     |
 | **Operating modes**                         | Storage / Camp / Trail / In Town, persisted across restarts      |

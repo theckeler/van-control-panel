@@ -1,57 +1,64 @@
 import clsx from "clsx";
-import React from "react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 
-type Variant = "outline" | "ghost" | "danger";
-type Size = "icon" | "sm" | "md";
+export type ButtonVariant = "solid" | "outline" | "ghost" | "danger";
+export type ButtonSize = "sm" | "md";
 
-const VARIANT: Record<Variant, string> = {
-  outline: "border border-panel-border text-gray-800",
-  ghost: "border-transparent text-gray-800",
-  danger: "border bg-red-900 text-red-100",
+const VARIANT: Record<ButtonVariant, string> = {
+  solid: "bg-on text-ink hover:brightness-95",
+  outline: "border border-line bg-surface text-ink hover:bg-page",
+  ghost: "text-ink hover:bg-page",
+  danger: "bg-danger text-surface hover:brightness-95",
 };
 
-const SIZE: Record<Size, string> = {
-  icon: "p-4",
-  sm: "px-3 py-1 text-xs",
-  md: "px-4 py-2 text-sm",
+// Both sizes keep the 44px tap target. `sm` is for a secondary action in a
+// tight row; it is smaller type and padding, not a smaller target.
+const SIZE: Record<ButtonSize, string> = {
+  sm: "px-3 text-caption font-semibold",
+  md: "px-4 text-body font-semibold",
 };
 
 export function Button({
   variant = "outline",
   size = "md",
+  busy = false,
+  fullWidth = false,
   className,
-  bold = false,
-  uppercase = false,
-  fullWidth,
   children,
+  disabled,
   ...props
 }: {
-  variant?: Variant;
-  size?: Size;
-  className?: string;
-  bold?: boolean;
-  uppercase?: boolean;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  /** Shows a spinner and ignores taps. The label stays, so the width holds. */
+  busy?: boolean;
   fullWidth?: boolean;
-  children: React.ReactNode;
-} & React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  // Icon buttons default to hugging their content — an icon stretched to
-  // fill its row is always wrong. Explicit fullWidth still wins either way.
-  const isFullWidth = fullWidth ?? size !== "icon";
-
+  className?: string;
+  children: ReactNode;
+} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className" | "children">) {
   return (
     <button
+      data-vc="button"
       type="button"
+      aria-busy={busy || undefined}
+      disabled={disabled || busy}
       className={clsx(
-        "px-4 py-3 rounded border",
+        "inline-flex min-h-11 items-center justify-center gap-2 rounded transition",
+        "disabled:cursor-not-allowed disabled:bg-page disabled:text-disabled disabled:hover:bg-page",
+        variant === "outline" && "disabled:border-line",
         VARIANT[variant],
         SIZE[size],
+        fullWidth && "w-full",
         className,
-        bold && "font-bold",
-        uppercase && "uppercase",
-        isFullWidth && "w-full",
       )}
       {...props}
     >
+      {busy && (
+        <span
+          aria-hidden="true"
+          className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+        />
+      )}
       {children}
     </button>
   );

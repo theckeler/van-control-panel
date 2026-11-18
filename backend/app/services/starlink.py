@@ -299,9 +299,10 @@ async def poll_power() -> None:
     """
     One history RPC for power draw.
 
-    Worth having beyond curiosity: system.py's loads breakdown currently
-    hardcodes a flat 22W for Starlink regardless of what the dish is doing,
-    and actual draw varies a lot between searching, connected and idle.
+    Worth having beyond curiosity: system.py's loads breakdown lists this as
+    Starlink's measured draw, which varies a lot between searching, connected
+    and idle. The last good value is kept through an outage, so consumers must
+    check `reachable` before treating it as current.
 
     Not all terminal hardware supports this, and unsupported hardware returns
     0.0 rather than erroring — so treat a flat zero as "unsupported" and stop

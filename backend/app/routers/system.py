@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 from pydantic import BaseModel
 from app.services import battery_ble, victron_ble, network, health, db, backup, disk_image
+from app.services import starlink as starlink_service
 from app.routers import mode as mode_router
 from app.routers import orion as orion_router
 from app.routers.shelly import SHELLY_UNITS
@@ -244,12 +245,36 @@ async def set_hotspot(state: str):
     db.log_event("wifi", "TwitchWiFi", "ok" if ok else "failed", message[:200] if message else None)
     return WifiSwitchResult(ok=ok, message=message or ("ok" if ok else "failed"))
 
-# Always-on baseline loads (Pi + Starlink + Fridge average)
+# Always-on baseline loads (Pi + Starlink + Fridge average).
+#
+# Only used as the flat-sum fallback when the BMS is not connected. The
+# Starlink figure is a guess that a measured reading replaces whenever the dish
+# is reachable (see _starlink_measured_w).
 ALWAYS_ON_WATTS = {
     "Pi": 5,
     "Starlink": 22,
     "Fridge": 40,
 }
+
+
+def _starlink_measured_w() -> float | None:
+    """
+    Real Starlink draw in watts, or None when it cannot be stated honestly.
+
+    None covers three cases that all mean "do not claim a number": the Pi
+    cannot reach the dish (it is on the home network, or the dish is
+    unplugged), the terminal does not report power (the service maps a flat 0.0
+    to None), or the first power poll has not completed yet. `reachable` is
+    checked because the service deliberately keeps the last good power reading
+    through an outage, and a stale wattage must not be reported as current.
+
+    Unreachable is not the same as drawing zero, so callers omit the entry
+    rather than listing 0W.
+    """
+    reading = starlink_service.get_latest()
+    if not reading.reachable or reading.power_w is None:
+        return None
+    return round(reading.power_w, 1)
 
 CURRENT_THRESHOLD = 0.3   # A — below this treat as standby
 NET_POWER_THRESHOLD = 5   # W — dead band for charging/discharging state
@@ -339,8 +364,13 @@ async def get_system():
 
     if not bms_ok:
         # No current measurement at all. Fall back to the always-on estimate,
-        # flagged so callers can render it differently.
-        load_watts = float(sum(ALWAYS_ON_WATTS.values()))
+        # flagged so callers can render it differently. Starlink's guess is
+        # swapped for its measured draw when the dish is reporting one.
+        starlink_w = _starlink_measured_w()
+        fallback = dict(ALWAYS_ON_WATTS)
+        if starlink_w is not None:
+            fallback["Starlink"] = starlink_w
+        load_watts = float(sum(fallback.values()))
         load_is_estimate = True
     elif non_solar_charging:
         load_watts = None
@@ -392,9 +422,14 @@ async def get_system():
     # Only the Pi is genuinely always on. Starlink and the fridge used to be
     # listed here unconditionally at 22W and 40W, which meant the breakdown
     # claimed 62W of hardware that is switched off most of the time the van is
-    # parked. Neither reports its state, so they cannot be included honestly
-    # until there is a Shelly on their circuit or the ESP32 BLE bridge exists.
+    # parked. The fridge still cannot be included honestly until its draw is
+    # measured. Starlink now can: it is listed only when the dish is reachable
+    # and reporting its own power, and omitted otherwise.
     loads.append(LoadBreakdown(label="Pi", watts=float(ALWAYS_ON_WATTS["Pi"]), source="always_on"))
+
+    starlink_w = _starlink_measured_w()
+    if starlink_w is not None:
+        loads.append(LoadBreakdown(label="Starlink", watts=starlink_w, source="measured"))
 
     # Shelly-controlled loads — only the ones actually switched on. Live state
     # is not fetched here (that would add an HTTP round trip to every /system/

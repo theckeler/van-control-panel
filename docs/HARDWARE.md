@@ -1,7 +1,7 @@
 # Hardware Reference — Van Control Panel
 
 
-**Last updated:** 2026-10-19
+**Last updated:** 2026-11-18
 ## Vehicle
 
 **2023 Mercedes Sprinter VS30 AWD 144" High Roof** — cargo conversion.
@@ -204,11 +204,11 @@ library decrypts with a per-device key (VictronConnect → the device → Produc
 Opening VictronConnect on a phone silences that device's advertisements while the
 app is connected, so expect a temporary stale reading.
 
----|---|---|
-| MPPT 75/15 | Victron VE.Direct to USB (ASS030530010) | USB port 1 |
-| IP22 12/15A | Victron VE.Direct to USB (ASS030530010) | USB port 2 |
-
-Both appear as `/dev/ttyUSB0` and `/dev/ttyUSB1`. Assign persistent names via udev if needed.
+**If VE.Direct is ever wanted** (for writing settings, which instant readout cannot
+do): each device needs its own cable, because VE.Direct is point-to-point serial with
+no addressing and cannot be daisy-chained. That means one USB port per device (a
+powered hub, kept on a USB 2.0 port away from the WiFi adapter) or one of the Pi's
+spare hardware UARTs. The Pi's USB ports are mostly spoken for (see below).
 
 ---
 
@@ -227,7 +227,7 @@ Verified live 2026-10-19 (`lsusb`):
 compressed image of the card), label `VAN-PI-BKUP`, mounted at `/mnt/van-pi-bkup`
 by `LABEL=VAN-PI-BKUP /mnt/van-pi-bkup exfat defaults,nofail,uid=1000,gid=1000 0 2`
 in `/etc/fstab`. `nofail` lets the Pi boot without it. The SD-card image job
-(Settings → create image) refuses to start if the drive is not mounted, because
+(`/system/disk-image/start`; the dashboard has no button for it since the 2026-11-13 UI redo, and the old Settings drawer never did either) refuses to start if the drive is not mounted, because
 writing to an unmounted `/mnt/van-pi-bkup` would silently fill the card being imaged.
 
 **WiFi adapter placement — open problem.** The adapter sits in a USB 3.0 port on

@@ -1,31 +1,55 @@
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
-import { useSettingsStore } from "../../store/settings";
+import { formatCountdown, formatLastSeen } from "../../lib/format";
 import { useVanStore } from "../../store/van";
-import { ConfirmModal } from "../modals/ConfirmModal";
-import { Button, Panel } from "../ui";
+import {
+  Badge,
+  Button,
+  Card,
+  IconButton,
+  IconCircle,
+  Progress,
+  Stat,
+  type StatTone,
+} from "../ui";
 
-function formatLastSeen(isoStr: string): string {
-  const diff = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
-  if (diff < 60) return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  return `${Math.floor(diff / 3600)}h ago`;
+type Read = { tone: StatTone; hint?: string };
+
+// Thresholds for a 12V LiFePO4 pack. They are starting points to tune, not
+// manufacturer limits: the BMS itself protects the cells.
+function voltageRead(v: number): Read {
+  if (v < 12.0) return { tone: "bad", hint: "low" };
+  if (v < 12.8) return { tone: "warn", hint: "low" };
+  if (v > 14.6) return { tone: "bad", hint: "high" };
+  return { tone: "neutral" };
 }
 
-function formatCountdown(secs: number): string {
-  const m = Math.floor(secs / 60);
-  const s = secs % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
+// Charging (current in) is good news; a heavy draw is the thing to notice.
+function powerRead(watts: number, charging: boolean): Read {
+  if (charging) return { tone: "good" };
+  if (watts >= 300) return { tone: "bad", hint: "heavy" };
+  if (watts >= 150) return { tone: "warn", hint: "high" };
+  return { tone: "neutral" };
 }
 
-export function BatteryCard({ className }: { className?: string }) {
+// LiFePO4 should not be charged below freezing and dislikes heat.
+function tempRead(c: number): Read {
+  if (c >= 55) return { tone: "bad", hint: "hot" };
+  if (c >= 45) return { tone: "warn", hint: "hot" };
+  if (c <= 0) return { tone: "warn", hint: "cold" };
+  return { tone: "neutral" };
+}
+
+export function BatteryCard({
+  className,
+  onOpenHistory,
+}: {
+  className?: string;
+  onOpenHistory: () => void;
+}) {
   const battery = useVanStore((s) => s.battery);
-  const releaseBms = useVanStore((s) => s.releaseBms);
   const connectBms = useVanStore((s) => s.connectBms);
-  const spacing = useSettingsStore((s) => s.spacing);
-  const pad = spacing * 4;
   const [busy, setBusy] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
 
   const [countdown, setCountdown] = useState<number | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -52,17 +76,17 @@ export function BatteryCard({ className }: { className?: string }) {
     };
   }, [battery?.retry_in]);
 
-  if (!battery) return <CardSkeleton />;
+  if (!battery) {
+    return (
+      <Card vc="battery-card" title="Battery" className={className}>
+        <p className="text-body text-ink-muted">Loading…</p>
+      </Card>
+    );
+  }
 
   const isOffline = !battery.connected;
   const isReleased = battery.released;
   const hasCache = battery.soc > 0 || battery.voltage > 0;
-
-  const handleRelease = async () => {
-    setBusy(true);
-    await releaseBms();
-    setBusy(false);
-  };
 
   const handleConnect = async () => {
     setBusy(true);
@@ -70,163 +94,103 @@ export function BatteryCard({ className }: { className?: string }) {
     setBusy(false);
   };
 
-  const socColor =
+  const history = (
+<IconButton icon="history" label="Battery history" onClick={onOpenHistory} />
+  );
+
+  const connectButton = isReleased && (
+    <Button size="sm" busy={busy} onClick={handleConnect}>
+      Reconnect to the battery
+    </Button>
+  );
+
+  const retry =
+    isOffline && !isReleased && countdown !== null && countdown > 0
+      ? `Retrying in ${formatCountdown(countdown)}`
+      : null;
+
+  if (isOffline && !hasCache) {
+    return (
+      <Card vc="battery-card" title="Battery" action={history} className={className}>
+        <p className="text-body text-ink">Offline, no reading yet</p>
+        {retry && <p className="text-caption text-ink-muted">{retry}</p>}
+        {connectButton}
+      </Card>
+    );
+  }
+
+  const socTone =
     battery.soc > 50
-      ? "text-soc-good"
+      ? "text-on-text"
       : battery.soc > 20
-        ? "text-soc-mid"
-        : "text-soc-low";
+        ? "text-warn-text"
+        : "text-danger-text";
 
   const isCharging = battery.current > 0;
-  const drawW = Math.abs(battery.current * battery.voltage).toFixed(0);
+  const wattsNum = Math.abs(battery.current * battery.voltage);
+  const watts = wattsNum.toFixed(0);
+  const volts = voltageRead(battery.voltage);
+  const power = powerRead(wattsNum, isCharging);
+  const temp = tempRead(battery.temperature);
+  const offlineNow = isOffline && !isReleased;
 
   return (
-    <Panel className={clsx(className, isOffline && "opacity-60")}>
-      <ConfirmModal
-        open={showConfirm}
-        title="Release BMS connection?"
-        message="The Pi will drop its Bluetooth connection to the battery. The Power Queen app will be able to connect. Tap Connect when you're done to resume monitoring."
-        confirmLabel="Release"
-        onConfirm={() => {
-          setShowConfirm(false);
-          handleRelease();
-        }}
-        onCancel={() => setShowConfirm(false)}
-      />
-      {isOffline && !hasCache ? (
-        <div className="flex flex-col gap-1 py-2">
-          <span className="text-xs text-amber-500">
-            ○ offline — no data yet
-          </span>
-          {countdown !== null && countdown > 0 && (
-            <span className="text-xs text-black">
-              connecting in {formatCountdown(countdown)}
-            </span>
+    <Card
+      vc="battery-card"
+      offline={offlineNow}
+      lastSeen={battery.last_seen ? formatLastSeen(battery.last_seen) : undefined}
+      className={className}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <span
+          className={clsx(
+            "text-display tabular-nums",
+            offlineNow ? "text-ink-muted" : socTone,
           )}
-          {isReleased && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleConnect}
-              disabled={busy}
-            >
-              connect →
-            </Button>
-          )}
+        >
+          {battery.soc.toFixed(1)}
+          <span className="text-title">%</span>
+        </span>
+        <div className="flex items-center gap-3">
+          {/* Live is a lone circle: every other state says so in words (the
+              "Released" badge, or "Offline · last seen" on the card), and
+              the circle carries a name for screen readers and a tooltip. */}
+          {!offlineNow &&
+            (isReleased ? (
+              <Badge>Released</Badge>
+            ) : (
+              <IconCircle icon="battery" tone="on" label="Live" />
+            ))}
+          {history}
         </div>
-      ) : (
-        <>
-          <div className="flex items-end justify-between">
-            <div
-              className={clsx("text-4xl font-bold tracking-tight", socColor)}
-            >
-              {battery.soc.toFixed(1)}
-              <span className="text-2xl ml-1">%</span>
-            </div>
-            <div className="flex flex-col items-end gap-1">
-              <span
-                className={clsx(
-                  "text-xs ",
-                  isReleased
-                    ? "text-blue-400"
-                    : isOffline
-                      ? "text-amber-500"
-                      : "text-lime-600",
-                )}
-              >
-                {isReleased ? "○ released" : isOffline ? "○ offline" : "● live"}
-              </span>
-
-              {isOffline && battery.last_seen && (
-                <span className="text-xs text-black">
-                  last seen {formatLastSeen(battery.last_seen)}
-                </span>
-              )}
-
-              {isOffline &&
-                !isReleased &&
-                countdown !== null &&
-                countdown > 0 && (
-                  <span className="text-xs text-black">
-                    retry in {formatCountdown(countdown)}
-                  </span>
-                )}
-
-              {isReleased && (
-                <button
-                  onClick={handleConnect}
-                  disabled={busy}
-                  className="text-xs text-black disabled:opacity-40"
-                >
-                  connect →
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="h-2 bg-panel-bg rounded-full overflow-hidden">
-            <div
-              className={clsx(
-                "h-full rounded-full transition-all duration-700",
-                {
-                  "bg-soc-good": battery.soc > 50,
-                  "bg-soc-mid": battery.soc > 20 && battery.soc <= 50,
-                  "bg-soc-low": battery.soc <= 20,
-                },
-              )}
-              style={{ width: `${battery.soc}%` }}
-            />
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <Stat pad={pad} value={`${battery.voltage.toFixed(2)}V`} />
-            <Stat
-              pad={pad}
-              value={`${drawW}W`}
-              highlight={isCharging ? "charge" : "draw"}
-            />
-            <Stat
-              pad={pad}
-              value={`${((battery.temperature * 9) / 5 + 32).toFixed(1)}°F`}
-            />
-          </div>
-        </>
-      )}
-    </Panel>
-  );
-}
-
-function Stat({
-  value,
-  highlight,
-  pad,
-}: {
-  value: string;
-  highlight?: "charge" | "draw";
-  pad: number;
-}) {
-  return (
-    <div className="bg-panel-bg rounded" style={{ padding: `${pad}px` }}>
-      <div
-        className={clsx("text-center text-sm font-semibold", {
-          "text-charge-solar": highlight === "charge",
-          "text-soc-low": highlight === "draw",
-          "text-gray-800": !highlight,
-        })}
-      >
-        {value}
       </div>
-    </div>
-  );
-}
 
-function CardSkeleton() {
-  return (
-    <div className="bg-panel-surface border border-panel-border rounded-xl p-5 animate-pulse">
-      <div className="text-xs text-black uppercase tracking-widest mb-4">
-        Battery
+      <Progress value={battery.soc} label="Battery charge" offline={offlineNow} />
+
+      <div className="grid grid-cols-3 gap-2">
+        <Stat
+          value={`${battery.voltage.toFixed(2)}V`}
+          tone={volts.tone}
+          hint={volts.hint}
+          offline={offlineNow}
+        />
+        <Stat
+          label={isCharging ? "In" : "Out"}
+          value={`${watts}W`}
+          tone={power.tone}
+          hint={power.hint}
+          offline={offlineNow}
+        />
+        <Stat
+          value={`${((battery.temperature * 9) / 5 + 32).toFixed(1)}°F`}
+          tone={temp.tone}
+          hint={temp.hint}
+          offline={offlineNow}
+        />
       </div>
-      <div className="h-16 bg-panel-bg rounded-lg" />
-    </div>
+
+      {retry && <p className="text-caption text-ink-muted">{retry}</p>}
+      {connectButton}
+    </Card>
   );
 }
