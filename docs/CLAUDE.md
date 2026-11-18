@@ -1,7 +1,7 @@
 # CLAUDE.md — Van Control Panel
 
 
-**Last updated:** 2026-11-13
+**Last updated:** 2026-11-18
 Context file for Claude Code. Gives full project context so sessions don't require re-explaining the architecture.
 
 **Jump to:** [Quick Start](#quick-start) · [Workflow](#workflow) · [Recovery](#recovery) · [Auth](#auth) ·
@@ -148,7 +148,7 @@ backend/app/
                          and switching, backup, SD image, reboot / shutdown /
                          restart-api
     orion.py             /orion/ — static config (non-smart unit)
-    shore.py             /shore/ — always returns disconnected (no cable)
+    shore.py             /shore/ — always returns disconnected (IP22 not read yet)
     mode.py              /mode/ — persisted to backend/mode.json, atomic write
     ecoflow.py           /ecoflow/ — battery % and inferred charge_state
     starlink.py          /starlink/ — dish status over local gRPC
@@ -204,8 +204,7 @@ frontend/
                          a local change. Click handlers (Shelly toggle, BMS release/
                          connect) update optimistically, roll back on failure, and
                          ignore a second click while one is pending
-    store/settings.ts    Persisted vanName. (gap and spacing are no longer read by anything
-                         since the UI redo)
+    store/settings.ts    Persisted vanName
     store/camera.ts      Camera on/off (a per-browser preference in localStorage), the
                          latest frame, and on-demand capture. Shared by the camera
                          card, the action tile and the camera drawer
@@ -214,9 +213,6 @@ frontend/
                          setInterval that pauses while the tab is hidden, fires
                          immediately on regaining visibility
     hooks/usePolling.ts  Thin wrapper — fetchAll on useVisibleInterval, 5s
-    hooks/useTheme.ts    Theme hook. Dark mode is disabled on purpose right now —
-                         index.html force-sets data-theme="light" on load — so the
-                         dark-mode state/effect logic here is dead, unreachable code
     types/index.ts        TypeScript interfaces (keep in sync with Pydantic models)
     lib/format.ts        Time, countdown and uptime formatting shared by cards/drawers
     lib/tokens.ts        Reads a design token's CSS variable, for Recharts colors
@@ -276,8 +272,6 @@ frontend/
       ActionRow.tsx      The 2x2 tiles: WiFi, Camera, Backup, Power
       ErrorBoundary.tsx  Class-based root boundary, console-only logging, "Try
                          again" reset button
-      ThemeToggle.tsx    Renders a light/dark toggle button. Not rendered anywhere
-                         right now — genuinely unused, not just non-functional
       Toaster.tsx        Toast queue, drawn as a popover so it sits above the
                          native <dialog> drawers
     pages/
@@ -949,7 +943,7 @@ Details worth knowing:
   retention) plus on-demand capture via `GET /photos/latest`. History button
   opens the History drawer's Photos tab. See the Cameras section under Hardware
   Reference (`docs/HARDWARE.md`) for the UVC tuning story.
-- **Shore charger** always returns disconnected — no VE.Direct cable purchased
+- **Shore charger** always returns disconnected. The Blue Smart IP22 is not read yet; the plan is Bluetooth instant readout, not a VE.Direct cable (`docs/VICTRON-BLE-PLAN.md`)
 - **Orion-Tr** is non-smart, returns static config — upgrade to Orion XS 50A planned
 - **History charts** — the History drawer (`HistoryDrawer.tsx`) renders them. SOC 24h and Solar 30d tabs both work. Daily solar only populates after a midnight rollup, so a fresh install shows the raw-derived fallback.
 - **CORS** is `allow_origins=["*"]` — fine for local/Tailscale, tighten if Funnel is used long-term

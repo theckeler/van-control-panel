@@ -363,7 +363,10 @@ export const useVanStore = create<VanStore>((set, get) => {
           return;
         }
         touch("hotspot");
-        set({ hotspot: { active: on, ssid: on ? "TwitchWiFi" : null } });
+        // The next poll fills in the broadcast name; keep what we last saw.
+        set({
+          hotspot: { active: on, ssid: on ? (get().hotspot?.ssid ?? null) : null },
+        });
         toast.success(`Hotspot ${on ? "on" : "off"}`);
       } catch (err) {
         toast.error(

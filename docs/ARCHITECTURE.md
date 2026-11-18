@@ -1,7 +1,7 @@
 # Architecture — Van Control Panel
 
 
-**Last updated:** 2026-11-13
+**Last updated:** 2026-11-18
 ## Overview
 
 The system has three physical layers: the van's 12V electrical hardware, a Raspberry Pi 4B that reads and controls it, and a PWA dashboard that the user interacts with from any device on the local network or remotely via Tailscale.
@@ -79,7 +79,7 @@ src/
 │   ├── drawers/            One per concern: WiFi, Camera, Mode, Backup, System,
 │   │                      History (SOC, Solar, Photos)
 │   ├── dialogs/            PowerDialog
-│   └── layout/             Header, ActionRow, Toaster, ErrorBoundary, ThemeToggle
+│   └── layout/             Header, ActionRow, Toaster, ErrorBoundary
 │
 └── pages/
     └── Dashboard.tsx       Composes all cards, mounts usePolling, holds which

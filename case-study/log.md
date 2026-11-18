@@ -45,7 +45,7 @@ One entry per working session, newest last. Held while work is in progress and f
 
 **Found**
 - **A z-index can't lift anything above a modal `<dialog>`.** The native top layer wins, so the toast became a popover that is re-shown on each change. First guess at the cause was z-index, which was wrong.
-- **Demo data carried real WiFi names** (`Sir Salettelot`, `OHeck`, `TwitchWiFi`), which the case-study privacy rule says to keep out of anything public, and the README screenshots would have published one. Generalised in `api/mock.ts`. The real names are still in committed docs and the hotspot confirm text.
+- **Demo data carried real WiFi names** (the uplink, the fallback network and the Pi's own hotspot), which the case-study privacy rule says to keep out of anything public, and the README screenshots would have published one. Generalised in `api/mock.ts`. The hotspot confirm text now reads the names from live data instead.
 - The old docs said the Settings drawer did SD card image creation. Neither UI ever called it. Recorded as a known gap.
 - At 672px the half-width network tile truncated; widening to `max-w-4xl` fixed it. Caught by looking at a screenshot, not by the build.
 - `git push` is denied in `.claude/settings.json`, so the push to `main` Todd asked for did not run. It would also have deployed a backend change and restarted `van-api` along with the redesign. Todd chose a PR.
@@ -59,3 +59,24 @@ One entry per working session, newest last. Held while work is in progress and f
 - The Open Graph image on a real link preview, and the done-checklist's contrast check on the new tints (computed for the tokens, not for each tint on its background).
 
 **Next:** merge the PR (Todd), deploy by hand and do one live pass on the Pi, starting with Restart API. Then decide on the open questions at the end of `docs/UI-PATTERNS.md`, the unused `gap`/`spacing` settings, and `ThemeToggle`.
+
+## 2026-11-18: Session 3, cleanup while the Pi is down
+
+**Asked for:** with the Pi offline and no plan to launch it, do the work that needs no hardware: remove the real WiFi names, check 768px and accessibility, fix the stale VE.Direct docs, delete dead code. Dark mode is held for the end.
+
+**Done**
+- The hotspot confirm dialog reads its network names from live data, and the optimistic hotspot update no longer hardcodes one. The README, the project overview and the log no longer name the real networks.
+- 768px checked in the demo build: no horizontal overflow, no tap target under 44px, no text under 12px.
+- Accessibility pass on the dashboard, all six drawers, the Power dialog and the hotspot confirm: no contrast misses, every button named, inputs at 16px, focus lands inside each dialog, tab order follows the page, no positive tabindex.
+- `HARDWARE.md` lost the leftover VE.Direct cable table, and gained a note on what VE.Direct would need if it is ever wanted. `ThemeToggle`, `useTheme` and the `gap` and `spacing` settings are deleted, and the docs that mentioned them are fixed.
+
+**Found**
+- The real network names are in about 190 places, not the three I first reported: the backend, the Pi scripts, the ESP32 config and most runbook docs. Most are the Pi's actual config, so they were left. See the decisions table.
+- `HARDWARE.md` had already been half fixed: the prose said no VE.Direct, but an orphaned table under it still listed the cables.
+
+**Not checked**
+- Anything on real hardware. Demo mode only.
+- A full keyboard-only walk through the WiFi scan-and-connect flow, and the contrast check was computed in the browser, not with a screen reader.
+- Screenshots in `case-study/assets/before-2026-11-12/` may still show real network names (images were not inspected).
+
+**Next:** push and open the PR (Todd). The SSIDs in the backend, scripts and runbooks stay (Todd's call). Then dark mode last.

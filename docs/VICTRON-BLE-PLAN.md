@@ -1,5 +1,7 @@
 # Victron BLE on the Pi: MPPT, IP22, Orion XS
 
+**Last updated:** 2026-11-18
+
 Status: proposal, not started
 Drafted: 2026-09-30
 Scope: `backend/` (services and routers), `.env`, docs. No frontend changes needed for the first pass.
@@ -28,7 +30,7 @@ Scope: `backend/` (services and routers), `.env`, docs. No frontend changes need
 
 **Known problems with inference:** float stage draws under 1A, so the dashboard says "Unplugged" while the charger is plugged in and happily floating. Any other current source that raises BMS current also looks like shore.
 
-**Docs mismatch to fix:** `HARDWARE.md` has a "VE.Direct Connections" section listing USB cables for the MPPT and IP22. The code does not use them and none are planned. Correct that section as part of this work.
+**Docs mismatch (fixed 2026-11-18):** `HARDWARE.md` used to list USB cables for the MPPT and IP22. The code does not use them and none are planned. That section now describes the Bluetooth setup.
 
 ## 3. What I verified
 

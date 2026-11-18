@@ -85,9 +85,10 @@ export function WifiDrawer({
           </>
         }
       >
-        Any device connected over TwitchWiFi, including this one if that's how
-        you're viewing it, will be disconnected. Tailscale and OHeck or
-        Starlink-connected devices are unaffected.
+        Any device connected over {hotspot?.ssid ?? "the hotspot"}, including
+        this one if that's how you're viewing it, will be disconnected.
+        Tailscale and devices on the uplink
+        {system?.ssid ? ` (${system.ssid})` : ""} are unaffected.
       </Dialog>
     </>
   );

@@ -1,6 +1,6 @@
 # UI Patterns
 
-**Last updated:** 2026-11-13
+**Last updated:** 2026-11-18
 
 **Status: Built** (2026-11-13). How screens, drawers and menus are put together from the component set in `docs/DESIGN-SYSTEM.md`. When you build a screen, check here first and reuse a pattern rather than inventing one. `case-study/decisions.md` records which calls Todd made and which are still Claude's proposals.
 
@@ -102,4 +102,3 @@ Confirmed correct in `docs/CLAUDE.md`, kept in the new design. When a source dro
 ## Open questions for Todd
 1. Are the Stat chip thresholds right for the Power Queen pack? Check them against its datasheet and real draws.
 2. The live indicator is a lone lime circle: its meaning is in the accessible name and tooltip, and every other state is spelled out in words. Fine, or add the word "Live" beside it?
-3. `gap` and `spacing` in `store/settings.ts` and `ThemeToggle.tsx` / `useTheme.ts` are now unused. Delete?
