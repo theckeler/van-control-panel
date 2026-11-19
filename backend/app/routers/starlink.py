@@ -38,7 +38,22 @@ async def get_starlink():
     answering, but has no service — SEARCHING, OBSTRUCTED or STOWED. The UI
     should show `state`, not just a green or red dot.
     """
-    r = starlink_service.get_latest()
+    return _to_data(starlink_service.get_latest())
+
+
+@router.post("/recheck", response_model=StarlinkData)
+async def recheck_starlink():
+    """
+    Ask the dish right now instead of waiting for the next poll. Reads status
+    only. While the dish is unreachable the loop backs off to once a minute,
+    so this is the way to find out sooner, for instance just after the Pi
+    rejoins Starlink's network. Can take up to 10s when the dish does not
+    answer.
+    """
+    return _to_data(await starlink_service.recheck())
+
+
+def _to_data(r) -> StarlinkData:
     return StarlinkData(
         reachable=r.reachable,
         online=r.online,

@@ -15,8 +15,22 @@ import {
 
 type Read = { tone: StatTone; hint?: string };
 
-// Thresholds for a 12V LiFePO4 pack. They are starting points to tune, not
-// manufacturer limits: the BMS itself protects the cells.
+// Thresholds for the Power Queen 12.8V 100Ah LiFePO4 pack. The BMS protects
+// the cells itself; these tint the chips before it has to step in.
+//
+// What is confirmed (Power Queen's product pages and listings, 2026-11-18):
+// 12.8V nominal, a 14.6V charger, and charging stopping at 0°C (32°F) on the
+// low-temp line. What is NOT confirmed for this exact pack: the low-voltage
+// cutoff and the high-temperature limit. Those use typical LiFePO4 figures.
+// Check the sticker on the pack and adjust the constants below.
+
+// BMS continuous current rating, amps. Power Queen lists 100A for its 100Ah
+// packs, but this BMS reports itself as P-12100BNNA70, which may mean 70A.
+// The lower number is used, so the chip warns early and not late.
+const BMS_MAX_A = 70;
+
+// Resting voltage of a LiFePO4 pack: 12.8V is roughly 20%, 12.0V is nearly
+// empty. Over 14.6V is above what the pack's own charger delivers.
 function voltageRead(v: number): Read {
   if (v < 12.0) return { tone: "bad", hint: "low" };
   if (v < 12.8) return { tone: "warn", hint: "low" };
@@ -24,19 +38,28 @@ function voltageRead(v: number): Read {
   return { tone: "neutral" };
 }
 
-// Charging (current in) is good news; a heavy draw is the thing to notice.
-function powerRead(watts: number, charging: boolean): Read {
+// Judged by current against the BMS rating, not by watts: the BMS trips on
+// amps, and a few hundred watts is an ordinary load for this pack. Charging
+// (current in) is good news.
+function powerRead(amps: number, charging: boolean): Read {
   if (charging) return { tone: "good" };
-  if (watts >= 300) return { tone: "bad", hint: "heavy" };
-  if (watts >= 150) return { tone: "warn", hint: "high" };
+  if (amps >= BMS_MAX_A) return { tone: "bad", hint: "at limit" };
+  if (amps >= BMS_MAX_A * 0.8) return { tone: "warn", hint: "heavy" };
   return { tone: "neutral" };
 }
 
-// LiFePO4 should not be charged below freezing and dislikes heat.
-function tempRead(c: number): Read {
+// LiFePO4 must not be charged at or below freezing (the BMS stops it on the
+// low-temp line, and plain packs get damaged). Discharge is fine to about
+// -20°C. 45°C is the usual upper charge limit, 55°C is well into hot.
+function tempRead(c: number, charging: boolean): Read {
   if (c >= 55) return { tone: "bad", hint: "hot" };
   if (c >= 45) return { tone: "warn", hint: "hot" };
-  if (c <= 0) return { tone: "warn", hint: "cold" };
+  if (c <= -20) return { tone: "bad", hint: "freezing" };
+  if (c <= 0) {
+    return charging
+      ? { tone: "bad", hint: "no charge" }
+      : { tone: "warn", hint: "cold" };
+  }
   return { tone: "neutral" };
 }
 
@@ -49,6 +72,8 @@ export function BatteryCard({
 }) {
   const battery = useVanStore((s) => s.battery);
   const connectBms = useVanStore((s) => s.connectBms);
+  const retryBms = useVanStore((s) => s.retryBms);
+  const retrying = useVanStore((s) => s.rechecking.includes("bms"));
   const [busy, setBusy] = useState(false);
 
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -104,6 +129,21 @@ export function BatteryCard({
     </Button>
   );
 
+  // Cuts the reconnect wait short, but only once the backend allows it: the
+  // BMS can lock up if it is retried too fast, so the button waits out a
+  // minimum gap and shows how long is left.
+  const retryWait = battery.retry_now_in;
+  const retryButton = isOffline && !isReleased && retryWait != null && (
+    <Button
+      size="sm"
+      busy={retrying}
+      disabled={retryWait > 0}
+      onClick={retryBms}
+    >
+      {retryWait > 0 ? `Retry in ${formatCountdown(retryWait)}` : "Retry now"}
+    </Button>
+  );
+
   const retry =
     isOffline && !isReleased && countdown !== null && countdown > 0
       ? `Retrying in ${formatCountdown(countdown)}`
@@ -114,6 +154,7 @@ export function BatteryCard({
       <Card vc="battery-card" title="Battery" action={history} className={className}>
         <p className="text-body text-ink">Offline, no reading yet</p>
         {retry && <p className="text-caption text-ink-muted">{retry}</p>}
+        {retryButton}
         {connectButton}
       </Card>
     );
@@ -130,8 +171,8 @@ export function BatteryCard({
   const wattsNum = Math.abs(battery.current * battery.voltage);
   const watts = wattsNum.toFixed(0);
   const volts = voltageRead(battery.voltage);
-  const power = powerRead(wattsNum, isCharging);
-  const temp = tempRead(battery.temperature);
+  const power = powerRead(Math.abs(battery.current), isCharging);
+  const temp = tempRead(battery.temperature, isCharging);
   const offlineNow = isOffline && !isReleased;
 
   return (
@@ -190,6 +231,7 @@ export function BatteryCard({
       </div>
 
       {retry && <p className="text-caption text-ink-muted">{retry}</p>}
+      {retryButton}
       {connectButton}
     </Card>
   );

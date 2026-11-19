@@ -11,6 +11,7 @@
  */
 import type {
   BatteryData,
+  DiskImageStatus,
   DailyReading,
   DometicData,
   EcoflowData,
@@ -190,8 +191,34 @@ let shellys: ShellyUnit[] = [
     ip: "shelly-side.local",
     installed: true,
     reachable: false,
+    paused: true,
   },
 ];
+// Demo: the first recheck of a dead unit fails, the second finds it.
+let sideRechecks = 0;
+
+// Demo only: open the dashboard with ?offline=starlink,fridge,bms to start
+// those sources down and try the check-now buttons. The first check of each
+// fails and the second finds it (the BMS retry is allowed after 20s). Off by
+// default, so the public demo shows a healthy van.
+const demoDown = new Set(
+  (typeof location !== "undefined"
+    ? (new URLSearchParams(location.search).get("offline") ?? "")
+    : ""
+  )
+    .split(",")
+    .filter(Boolean),
+);
+let starlinkUp = !demoDown.has("starlink");
+let fridgeUp = !demoDown.has("fridge");
+let bmsUp = !demoDown.has("bms");
+let starlinkChecks = 0;
+let fridgeChecks = 0;
+const bmsDownAt = Date.now();
+const bmsRetryIn = () =>
+  Math.max(0, 20 - Math.floor((Date.now() - bmsDownAt) / 1000));
+
+let diskImageStartedAt: number | null = null;
 
 let currentMode: ModeName = "camp";
 let bmsReleased = false;
@@ -378,11 +405,21 @@ export const mockApi = {
           : p.netW > 0
             ? "charging"
             : "discharging",
-        connected: !bmsReleased,
+        connected: !bmsReleased && bmsUp,
         released: bmsReleased,
-        last_seen: new Date().toISOString(),
-        retry_in: bmsReleased ? 300 : null,
+        last_seen: bmsUp
+          ? new Date().toISOString()
+          : new Date(Date.now() - 6 * 60_000).toISOString(),
+        retry_in: bmsReleased ? 300 : bmsUp ? null : 180,
+        retry_now_in: bmsReleased || bmsUp ? null : bmsRetryIn(),
       });
+    },
+    retry: (): Promise<{ status: string; message: string }> => {
+      if (!bmsUp && bmsRetryIn() > 0) {
+        return Promise.reject(new Error("API error 429: /battery/retry"));
+      }
+      bmsUp = true;
+      return delay({ status: "retrying", message: "Trying the BMS now (demo)" });
     },
     release: () => {
       bmsReleased = true;
@@ -442,23 +479,47 @@ export const mockApi = {
 
   starlink: {
     get: (): Promise<StarlinkData> =>
-      delay({
-        reachable: true,
-        online: true,
-        state: "CONNECTED",
-        uptime_s: 43200,
-        latency_ms: 38.4,
-        ping_drop_rate: 0,
-        downlink_bps: 84_000_000,
-        uplink_bps: 9_500_000,
-        fraction_obstructed: 0.0021,
-        currently_obstructed: false,
-        power_w: 27.4,
-        alerts: [],
-        hardware_version: "mini",
-        software_version: "demo",
-        error: null,
-      }),
+      delay(
+        starlinkUp
+          ? {
+              reachable: true,
+              online: true,
+              state: "CONNECTED",
+              uptime_s: 43200,
+              latency_ms: 38.4,
+              ping_drop_rate: 0,
+              downlink_bps: 84_000_000,
+              uplink_bps: 9_500_000,
+              fraction_obstructed: 0.0021,
+              currently_obstructed: false,
+              power_w: 27.4,
+              alerts: [],
+              hardware_version: "mini",
+              software_version: "demo",
+              error: null,
+            }
+          : {
+              reachable: false,
+              online: false,
+              state: null,
+              uptime_s: null,
+              latency_ms: null,
+              ping_drop_rate: null,
+              downlink_bps: null,
+              uplink_bps: null,
+              fraction_obstructed: null,
+              currently_obstructed: null,
+              power_w: null,
+              alerts: [],
+              hardware_version: null,
+              software_version: null,
+              error: "dish unreachable",
+            },
+      ),
+    recheck: (): Promise<StarlinkData> => {
+      if (!starlinkUp && ++starlinkChecks >= 2) starlinkUp = true;
+      return mockApi.starlink.get();
+    },
   },
 
   dometic: {
@@ -470,9 +531,15 @@ export const mockApi = {
         cooler_on: false,
         door_open: false,
         power_source: "DC",
-        reachable: true,
-        last_seen: new Date().toISOString(),
+        reachable: fridgeUp,
+        last_seen: fridgeUp
+          ? new Date().toISOString()
+          : new Date(Date.now() - 4 * 60_000).toISOString(),
       }),
+    recheck: (): Promise<DometicData> => {
+      if (!fridgeUp && ++fridgeChecks >= 2) fridgeUp = true;
+      return mockApi.dometic.get();
+    },
   },
 
   shore: {
@@ -511,6 +578,19 @@ export const mockApi = {
     toggle: (id: string, on: boolean) => {
       shellys = shellys.map((s) => (s.id === id ? { ...s, on } : s));
       return delay({ unit_id: id, on });
+    },
+    recheck: (id: string): Promise<ShellyUnit> => {
+      const unit = shellys.find((s) => s.id === id)!;
+      if (id === "side" && unit.reachable === false) {
+        sideRechecks += 1;
+        if (sideRechecks >= 2) {
+          sideRechecks = 0;
+          shellys = shellys.map((s) =>
+            s.id === id ? { ...s, reachable: true, paused: false } : s,
+          );
+        }
+      }
+      return delay({ ...shellys.find((s) => s.id === id)! });
     },
   },
 
@@ -643,11 +723,26 @@ export const mockApi = {
         message: "Restart disabled in demo mode",
         retry_in: undefined as number | undefined,
       }),
-    diskImageStart: () =>
-      delay({ ok: false, message: "Disk image disabled in demo mode" }),
-    diskImageStatus: () =>
-      delay({ state: null, bytes_written: null, filename: null, error: null }),
+    // A pretend 20-second image so the section can be tried without a Pi.
+    diskImageStart: () => {
+      diskImageStartedAt = Date.now();
+      return delay({ ok: true, message: "started (demo)" });
+    },
+    diskImageStatus: (): Promise<DiskImageStatus> => {
+      if (diskImageStartedAt == null) {
+        return delay({ state: null, bytes_written: null, filename: null, error: null });
+      }
+      const t = (Date.now() - diskImageStartedAt) / 1000;
+      return delay(
+        t < 20
+          ? { state: "running", bytes_written: Math.round((t / 20) * 1.6e9), filename: null, error: null }
+          : { state: "done", bytes_written: 1.6e9, filename: "van-pi-demo.img.gz", error: null },
+      );
+    },
     diskImageUrl: () => "",
-    diskImageCancel: () => delay({ ok: true }),
+    diskImageCancel: () => {
+      diskImageStartedAt = null;
+      return delay({ ok: true });
+    },
   },
 };

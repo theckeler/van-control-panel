@@ -23,6 +23,8 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 STALE_AFTER = 30  # a few missed polls; matches shelly.py's spirit
+POLL_EVERY = 5
+MAX_BACKOFF = 60  # ceiling while the bridge does not answer
 
 ENTITIES = {
     "temp_c": ("sensor", "Fridge Temperature"),
@@ -72,6 +74,17 @@ class FridgeReading:
 
 
 _cache = FridgeReading()
+
+# Consecutive polls where the bridge showed no real reading. While it keeps
+# failing there is nothing new to learn every 5s (each failed poll costs up to
+# 3s of timeouts across six requests), so the loop backs off like Starlink's.
+_failures = 0
+
+# Lets a manual recheck restart the loop's wait, for the same reason as in
+# starlink.py: the reading goes stale after STALE_AFTER, so a long sleep after
+# a successful recheck would flip the card back to offline.
+_wake = asyncio.Event()
+_recheck_lock = asyncio.Lock()
 
 
 def get_latest() -> FridgeReading:
@@ -133,15 +146,48 @@ async def poll_once() -> bool:
     return True
 
 
+def _next_delay() -> float:
+    """5s while healthy; doubling up to MAX_BACKOFF while the bridge is silent."""
+    if not _failures:
+        return POLL_EVERY
+    return min(POLL_EVERY * (2 ** min(_failures, 6)), MAX_BACKOFF)
+
+
+async def _poll_and_count() -> bool:
+    global _failures
+    ok = await poll_once()
+    _failures = 0 if ok else _failures + 1
+    return ok
+
+
+async def recheck() -> FridgeReading:
+    """
+    Ask the bridge now, without waiting for the loop. For the dashboard's
+    retry button. Reads only. One at a time; a second tap while a check is in
+    flight just returns what we have.
+    """
+    if _recheck_lock.locked():
+        return _cache
+    async with _recheck_lock:
+        await _poll_and_count()
+        _wake.set()
+    return _cache
+
+
 async def run() -> None:
-    """Poll on the dashboard cadence. The ESP32 pushes state near-instantly
-    once connected, so there's no need to poll faster than the UI refreshes."""
+    """Poll on the dashboard cadence while the bridge answers, and back off
+    while it does not. The ESP32 pushes state near-instantly once connected,
+    so there's no need to poll faster than the UI refreshes."""
     logger.info("Dometic fridge poll loop started (%s)", settings.dometic_bridge_host)
     while True:
         try:
-            await poll_once()
+            await _poll_and_count()
         except asyncio.CancelledError:
             raise
         except Exception as exc:
             logger.warning("Dometic poll error: %s", exc)
-        await asyncio.sleep(5)
+        try:
+            await asyncio.wait_for(_wake.wait(), timeout=_next_delay())
+        except asyncio.TimeoutError:
+            pass
+        _wake.clear()

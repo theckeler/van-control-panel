@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 import asyncio
 import concurrent.futures
+import logging
 import socket
 import time
 import httpx
@@ -9,6 +10,7 @@ import httpx
 from app.services import db
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 # mDNS resolution of a .local name costs ~105ms (137ms by name vs 32ms by IP,
 # measured on the Pi). At a 5s poll that is a lot of repeated work for an
@@ -54,6 +56,43 @@ async def _resolve(hostname: str) -> str | None:
 def _evict(hostname: str) -> None:
     _dns_cache.pop(hostname, None)
 
+
+# An unreachable unit costs a 3s timeout on every 5s poll, and a unit that is
+# not wired up yet will never answer. So a unit that keeps failing is PAUSED:
+# it is no longer polled (zero cost) until someone asks for a recheck from the
+# dashboard (POST /shelly/{id}/recheck). In-memory only, so a van-api restart
+# starts every unit unpaused and the policy runs again.
+_failures: dict[str, int] = {}
+_paused: set[str] = set()
+
+
+def _should_pause(consecutive_failures: int) -> bool:
+    """
+    Decide whether a unit that has now failed `consecutive_failures` polls in a
+    row should stop being polled.
+
+    TODO(human): choose the policy. Polls run every 5s, so 3 failures is
+    about 15s. Trade-off: pause too early and a unit that only dropped for a
+    moment needs a manual refresh; pause too late and a dead unit keeps
+    costing a 3s timeout per poll. Returning False means never pause.
+    """
+    return False
+
+
+def _record_failure(unit_id: str) -> None:
+    n = _failures.get(unit_id, 0) + 1
+    _failures[unit_id] = n
+    if unit_id not in _paused and _should_pause(n):
+        _paused.add(unit_id)
+        log.info("shelly %s unreachable %d polls in a row, paused until rechecked", unit_id, n)
+
+
+def _record_success(unit_id: str) -> None:
+    _failures.pop(unit_id, None)
+    if unit_id in _paused:
+        _paused.discard(unit_id)
+        log.info("shelly %s is back, polling resumed", unit_id)
+
 SHELLY_UNITS = {
     "usb": {
         "ip": "shelly1g4-d885acec6aac.local",
@@ -92,6 +131,9 @@ class ShellyStatus(BaseModel):
     ip: str | None
     installed: bool
     reachable: bool = True
+    # True when polling has stopped because the unit kept failing. It only
+    # resumes through POST /shelly/{id}/recheck.
+    paused: bool = False
 
 class ShellyToggle(BaseModel):
     on: bool
@@ -108,10 +150,13 @@ async def get_shelly_state(unit_id: str) -> tuple[bool, bool]:
     unit = SHELLY_UNITS.get(unit_id)
     if not unit or not unit["installed"]:
         return False, False
+    if unit_id in _paused:
+        return False, False  # not polled: no DNS lookup, no timeout
 
     host = unit["ip"]
     ip = await _resolve(host)
     if ip is None:
+        _record_failure(unit_id)
         return False, False
 
     try:
@@ -119,11 +164,14 @@ async def get_shelly_state(unit_id: str) -> tuple[bool, bool]:
             r = await client.get(
                 f"http://{ip}/rpc/Switch.GetStatus?id={unit['channel']}"
             )
-            return r.json().get("output", False), True
+            on = r.json().get("output", False)
+        _record_success(unit_id)
+        return on, True
     except Exception:
         # Could be a genuine outage, or the unit moved networks and the
         # cached IP is stale. Evict either way so the next poll re-resolves.
         _evict(host)
+        _record_failure(unit_id)
         return False, False
 
 def _status(unit_id: str, unit: dict, on: bool, reachable: bool) -> ShellyStatus:
@@ -134,6 +182,7 @@ def _status(unit_id: str, unit: dict, on: bool, reachable: bool) -> ShellyStatus
         ip=unit["ip"],
         installed=unit["installed"],
         reachable=reachable,
+        paused=unit_id in _paused,
     )
 
 @router.get("/", response_model=list[ShellyStatus])
@@ -160,6 +209,25 @@ async def get_shelly(unit_id: str):
     if not unit:
         raise HTTPException(status_code=404, detail=f"Unknown unit: {unit_id}")
     on, reachable = await get_shelly_state(unit_id)
+    return _status(unit_id, unit, on, reachable)
+
+@router.post("/{unit_id}/recheck", response_model=ShellyStatus)
+async def recheck_shelly(unit_id: str):
+    """
+    Probe one unit now, even if it is paused. Reads the relay state only: it
+    never switches anything. If the unit answers, polling resumes. If it does
+    not, it stays paused, so a dead unit costs one timeout per tap and
+    nothing on the 5s poll.
+    """
+    unit = SHELLY_UNITS.get(unit_id)
+    if not unit:
+        raise HTTPException(status_code=404, detail=f"Unknown unit: {unit_id}")
+    _paused.discard(unit_id)
+    _failures.pop(unit_id, None)
+    _evict(unit["ip"])  # force a fresh lookup: the unit may have moved
+    on, reachable = await get_shelly_state(unit_id)
+    if not reachable:
+        _paused.add(unit_id)
     return _status(unit_id, unit, on, reachable)
 
 @router.post("/{unit_id}/toggle")

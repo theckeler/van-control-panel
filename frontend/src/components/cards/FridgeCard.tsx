@@ -4,6 +4,8 @@ import { Badge, DeviceRow } from "../ui";
 
 export function FridgeCard() {
   const fridge = useVanStore((s) => s.dometic);
+  const recheckFridge = useVanStore((s) => s.recheckFridge);
+  const checking = useVanStore((s) => s.rechecking.includes("fridge"));
 
   if (!fridge) {
     return <DeviceRow vc="fridge-card" name="Fridge" state="offline" detail="Loading…" />;
@@ -35,6 +37,8 @@ export function FridgeCard() {
       state={fridge.reachable ? "on" : "offline"}
       value={value}
       detail={detail}
+      onRecheck={recheckFridge}
+      checking={checking}
     >
       {doorOpen && (
         <div>

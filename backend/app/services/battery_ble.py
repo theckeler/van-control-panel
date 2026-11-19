@@ -20,6 +20,7 @@ Protocol (FFE1 characteristic, write + notify):
 """
 import asyncio
 import logging
+import math
 import time
 from datetime import datetime, timezone, timedelta
 
@@ -39,6 +40,12 @@ CMD_BATTERY = bytes.fromhex("000004011355AA17")
 MIN_BYTES       = 90
 READ_EVERY      = 30
 RECONNECT_IN    = 300
+# A manual "retry now" may cut the reconnect wait short, but never to less than
+# this long after the last failed attempt. Rapid connection attempts are what
+# lock the BMS up (it accepts the connection and then stops answering, and the
+# only cure is cutting its power), which is why RECONNECT_IN is 5 minutes at
+# all. Two minutes halves the wait without going back to rapid retries.
+MIN_RETRY_GAP   = 120
 CONNECT_TIMEOUT = 25
 STARTUP_DELAY   = 5
 STALE_AFTER     = 120
@@ -60,6 +67,9 @@ WATCHDOG_GRACE     = 60
 _cache: BatteryInfo | None = None
 _cache_time: datetime | None = None
 _reconnect_after: datetime | None = None
+# time.monotonic() when the last attempt ended (or the service started), for
+# MIN_RETRY_GAP. Monotonic for the same reason as _deadline.
+_last_attempt_end: float | None = None
 _paused: bool = False
 _wake: asyncio.Event = asyncio.Event()
 _current_client: BleakClient | None = None
@@ -79,6 +89,19 @@ def get_retry_in() -> int | None:
         return None
     remaining = (_reconnect_after - datetime.now(timezone.utc)).total_seconds()
     return max(0, int(remaining))
+
+def get_retry_now_in() -> int | None:
+    """Seconds until a manual retry is allowed; 0 means it is allowed now.
+
+    None when there is nothing to retry: the BMS is connected, or released on
+    purpose (a released service has its own Reconnect).
+    """
+    if is_connected() or _paused:
+        return None
+    if _last_attempt_end is None:
+        return 0
+    wait = MIN_RETRY_GAP - (time.monotonic() - _last_attempt_end)
+    return max(0, math.ceil(wait))
 
 def is_connected() -> bool:
     if _cache_time is None:
@@ -127,6 +150,22 @@ async def release():
         logger.info("BMS: released — Power Queen app can now connect")
 
 
+async def retry_now() -> int:
+    """Skip the rest of the reconnect wait, if MIN_RETRY_GAP has passed.
+
+    Returns 0 when the retry was started (or there was nothing to retry), or
+    the seconds still to wait, in which case nothing happens.
+    """
+    global _reconnect_after
+    wait = get_retry_now_in()
+    if wait is None or wait > 0:
+        return wait or 0
+    _reconnect_after = None
+    _wake.set()
+    logger.info("BMS: manual retry requested")
+    return 0
+
+
 async def reconnect():
     """Resume BLE connection immediately."""
     global _paused, _reconnect_after
@@ -140,8 +179,9 @@ async def reconnect():
 
 
 def _set_reconnect_timer():
-    global _reconnect_after
+    global _reconnect_after, _last_attempt_end
     _reconnect_after = datetime.now(timezone.utc) + timedelta(seconds=RECONNECT_IN)
+    _last_attempt_end = time.monotonic()
 
 
 async def _read(client: BleakClient, cmd: bytes, timeout: float = 8.0) -> bytearray:

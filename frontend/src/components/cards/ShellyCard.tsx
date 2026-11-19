@@ -4,6 +4,8 @@ import { Card, SwitchTile, type SwitchState } from "../ui";
 export function ShellyCard({ className }: { className?: string }) {
   const shellys = useVanStore((s) => s.shellys);
   const toggleShelly = useVanStore((s) => s.toggleShelly);
+  const recheckShelly = useVanStore((s) => s.recheckShelly);
+  const rechecking = useVanStore((s) => s.rechecking);
   const installed = shellys.filter((u) => u.installed !== false);
 
   return (
@@ -21,6 +23,8 @@ export function ShellyCard({ className }: { className?: string }) {
                 label={unit.label}
                 state={state}
                 onToggle={() => toggleShelly(unit.id, !unit.on)}
+                onRecheck={() => recheckShelly(unit.id)}
+                checking={rechecking.includes(unit.id)}
               />
             );
           })}

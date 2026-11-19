@@ -21,7 +21,7 @@
 | Backup drive | SanDisk Cruzer USB stick, exFAT, label `VAN-PI-BKUP` | Holds the SD-card image. See "USB devices" below |
 | Fridge bridge | ESP32-S3 running ESPHome | Plugged into a Pi USB port (shows up as an Espressif USB JTAG/serial unit), joins TwitchWiFi. Firmware in `esp32-dometic/` |
 
-**Power draw:** ~3-5W at load. If it were on the 12V house bank that is ≈ 6-10Ah/day, under 3% of a 300Ah battery; today it comes out of the EcoFlow instead (below).
+**Power draw:** ~3-5W at load. If it were on the 12V house bank that is ≈ 6-10Ah/day, which is 6-10% of the installed 100Ah battery (under 3% of the planned 300Ah one); today it comes out of the EcoFlow instead (below).
 
 **Actual power path, confirmed 2026-09-07:** the Pi draws from the EcoFlow
 River 2 Max's 100W USB-C port, not from the house battery (Power Queen) via a
@@ -29,7 +29,7 @@ River 2 Max's 100W USB-C port, not from the house battery (Power Queen) via a
 Sources) describes the originally-planned path, not what's wired today.
 
 This matters because the EcoFlow is a portable, finite battery, not the
-300Ah house bank — during a multi-day trip it can run down (seen at 19%
+house bank (a 100Ah Power Queen today, 300Ah planned) — during a multi-day trip it can run down (seen at 19%
 after a few hot days, partly from its own cooling fans), and low EcoFlow
 charge has been directly correlated with Pi WiFi instability: `vcgencmd
 get_throttled` showed undervoltage/throttling and `dmesg` showed
@@ -227,7 +227,7 @@ Verified live 2026-10-19 (`lsusb`):
 compressed image of the card), label `VAN-PI-BKUP`, mounted at `/mnt/van-pi-bkup`
 by `LABEL=VAN-PI-BKUP /mnt/van-pi-bkup exfat defaults,nofail,uid=1000,gid=1000 0 2`
 in `/etc/fstab`. `nofail` lets the Pi boot without it. The SD-card image job
-(`/system/disk-image/start`; the dashboard has no button for it since the 2026-11-13 UI redo, and the old Settings drawer never did either) refuses to start if the drive is not mounted, because
+(`/system/disk-image/start`, started from the SD card image section of the dashboard's Backup drawer since 2026-11-18) refuses to start if the drive is not mounted, because
 writing to an unmounted `/mnt/van-pi-bkup` would silently fill the card being imaged.
 
 **WiFi adapter placement — open problem.** The adapter sits in a USB 3.0 port on

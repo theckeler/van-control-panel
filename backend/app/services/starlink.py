@@ -152,6 +152,13 @@ _raw: dict[str, Any] = {}
 # writes roughly 17k warnings a day into journald on an SD card.
 _failures = 0
 
+# Lets a manual recheck cut the loop's wait short. Without it, a recheck that
+# found the dish would be followed by up to MAX_BACKOFF seconds of sleep, and
+# the reading (stale after STALE_AFTER) would flip back to unreachable before
+# the loop polled again.
+_wake = asyncio.Event()
+_recheck_lock = asyncio.Lock()
+
 # Single worker: the gRPC channel is not thread-safe, so every call has to
 # happen on the same thread.
 _executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="starlink")
@@ -295,6 +302,23 @@ async def poll_status() -> bool:
     return True
 
 
+async def recheck() -> StarlinkReading:
+    """
+    Ask the dish now, without waiting for the loop. For the dashboard's
+    check-now button. Reads status only, so it is safe to call any time.
+
+    One check at a time: a second tap while one is in flight (a blocked gRPC
+    call can take 10s) just returns what we have. After the check the loop is
+    woken so it carries on from now, at the cadence the result calls for.
+    """
+    if _recheck_lock.locked():
+        return _cache
+    async with _recheck_lock:
+        await poll_status()
+        _wake.set()
+    return _cache
+
+
 async def poll_power() -> None:
     """
     One history RPC for power draw.
@@ -384,7 +408,11 @@ async def run() -> None:
                 logger.warning("Starlink poll error: %s", exc)
             delay = _next_delay()
             elapsed += delay
-            await asyncio.sleep(delay)
+            try:
+                await asyncio.wait_for(_wake.wait(), timeout=delay)
+            except asyncio.TimeoutError:
+                pass
+            _wake.clear()
     finally:
         _reset_context()
         _executor.shutdown(wait=False)

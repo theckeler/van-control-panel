@@ -25,7 +25,20 @@ async def get_fridge():
     fridge itself is unreachable"; the ESP32's own logs are the place to
     check that distinction if it matters.
     """
-    r = dometic.get_latest()
+    return _to_data(dometic.get_latest())
+
+
+@router.post("/recheck", response_model=FridgeData)
+async def recheck_fridge():
+    """
+    Ask the bridge right now instead of waiting for the next poll. Reads only;
+    it never changes the fridge. While the bridge is silent the loop backs off
+    to once a minute, so this is the way to find out sooner.
+    """
+    return _to_data(await dometic.recheck())
+
+
+def _to_data(r) -> FridgeData:
     return FridgeData(
         temp_f=r.temp_f,
         set_temp_f=r.set_temp_f,

@@ -1,7 +1,7 @@
 # Rebuilding the Pi from scratch
 
 
-**Last updated:** 2026-10-19
+**Last updated:** 2026-11-18
 Recovery checklist for a dead SD card or a fresh Pi. Written as an ordered
 walkthrough rather than a script, because several steps need a token, a
 password, or a decision that cannot be committed to the repo.
@@ -624,7 +624,7 @@ getent hosts shelly1g4-d885acf36a28.local                      # 10.42.0.215
 ## 13. USB backup drive (SD-card image)
 
 Optional, but it is what lets you restore a dead SD card in minutes instead of an hour.
-The dashboard's "create image" job writes a gzipped copy of the whole card to this drive.
+The dashboard's SD card image section (Backup drawer) writes a gzipped copy of the whole card to this drive.
 
 **Use exFAT, not FAT32.** FAT32 caps a single file at 4GB, and a compressed image of a
 29GB card can exceed that. An earlier attempt wrote to `/tmp`, which is a 453MB RAM

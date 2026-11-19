@@ -1,6 +1,6 @@
 # CLAUDE.md: Van Control Panel
 
-**Last updated:** 2026-11-13
+**Last updated:** 2026-11-18
 
 Instructions for Claude (and humans) working in this repo.
 
@@ -25,7 +25,7 @@ Read `README.md` first. `docs/CLAUDE.md` is the long hardware and backend refere
 - Auth fails open on purpose when a key is unset, so a bad deploy cannot lock Todd out of the van. Changing that is a decision for Todd, not a cleanup (`docs/FUTURE-FEATURES.md`).
 
 ## Stack facts
-- Frontend: React 18, TypeScript, Vite, Tailwind 3, zustand, recharts, dexie. Served by `frontend/server.mjs` (Express) which also proxies the API.
+- Frontend: React 18, TypeScript, Vite, Tailwind 3, zustand, recharts. (`dexie` is still in `package.json` but nothing imports it.) Served by `frontend/server.mjs` (Express) which also proxies the API.
 - Backend: FastAPI + uvicorn, SQLite, `bleak` for BLE, `starlink-grpc-core` for the dish.
 - Polling every 5s from `usePolling`; cards update independently (`store/van.ts`).
 - Last-known-value pattern: when a source goes offline, cards dim and show the last reading with its age (`BatteryCard`, `FridgeCard`). Keep it in the new design.

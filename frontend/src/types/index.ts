@@ -54,6 +54,9 @@ export interface BatteryData {
   released: boolean;
   last_seen: string | null;
   retry_in: number | null;
+  /** Seconds until a manual retry is allowed (0 = now). null when there is
+   *  nothing to retry: connected, or released on purpose. */
+  retry_now_in: number | null;
 }
 
 export interface MpptData {
@@ -132,6 +135,9 @@ export interface ShellyUnit {
   installed?: boolean;
   /** false when the Pi couldn't reach the switch — distinct from off */
   reachable?: boolean;
+  /** true when the Pi stopped polling this unit because it kept failing;
+   *  it only resumes through a recheck */
+  paused?: boolean;
 }
 
 export interface Photo {

@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from app.services import battery_ble, db
 
@@ -16,6 +16,9 @@ class BatteryData(BaseModel):
     released: bool
     last_seen: str | None
     retry_in: int | None
+    # Seconds until a manual retry is allowed (0 = now). None when there is
+    # nothing to retry: connected, or released on purpose.
+    retry_now_in: int | None
 
 @router.get("/", response_model=BatteryData)
 async def get_battery():
@@ -25,6 +28,7 @@ async def get_battery():
     released   = battery_ble.is_paused()
     last_seen  = battery_ble.get_last_seen()
     retry_in   = battery_ble.get_retry_in()
+    retry_now_in = battery_ble.get_retry_now_in()
     last_seen_str = last_seen.isoformat() if last_seen else None
 
     if b is not None:
@@ -40,6 +44,7 @@ async def get_battery():
             released=released,
             last_seen=last_seen_str,
             retry_in=retry_in,
+            retry_now_in=retry_now_in,
         )
 
     return BatteryData(
@@ -47,7 +52,7 @@ async def get_battery():
         cell_voltages=[], cycle_count=0,
         status="released" if released else "offline",
         connected=False, released=released,
-        last_seen=None, retry_in=retry_in,
+        last_seen=None, retry_in=retry_in, retry_now_in=retry_now_in,
     )
 
 @router.post("/release")
@@ -56,6 +61,26 @@ async def release_bms():
     await battery_ble.release()
     db.log_event("bms", value="released")
     return {"status": "released", "message": "BMS connection released — Power Queen app can now connect"}
+
+@router.post("/retry")
+async def retry_bms():
+    """
+    Try the BMS now instead of waiting out the reconnect timer.
+
+    Refused with 429 until MIN_RETRY_GAP has passed since the last failed
+    attempt: rapid reconnects can lock the BMS up, and the only cure is
+    cutting its power. A released BMS is not retried here; use /connect.
+    """
+    if battery_ble.get_retry_now_in() is None:
+        return {"status": "idle", "message": "Nothing to retry: the BMS is connected or released"}
+    wait = await battery_ble.retry_now()
+    if wait:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too soon: try again in {wait}s. Retrying the BMS too fast can lock it up.",
+        )
+    db.log_event("bms", value="retry")
+    return {"status": "retrying", "message": "Trying the BMS now"}
 
 @router.post("/connect")
 async def connect_bms():

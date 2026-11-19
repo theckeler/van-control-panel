@@ -1,6 +1,8 @@
 # Frontend Refactor Guide
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-11-18
+
+> **Historical record.** This is the checklist for the September 2026 cleanup of the old UI. Most files it names (`Panel`, `Row`, `Label`, `Modal`, `BackDrop`, `SelectableTile`, `ModeSelector`, `ThemeToggle`, `useModalBehavior`) were deleted in the 2026-11-13 rebuild. For the current UI read `docs/DESIGN-SYSTEM.md` and `docs/UI-PATTERNS.md`.
 
 **Status:** §1–§6 and §8 done. §7 mostly resolved on inspection — see below.
 Nothing left on this list that needs more work right now. See the end of
