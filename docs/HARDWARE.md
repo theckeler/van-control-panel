@@ -1,7 +1,7 @@
 # Hardware Reference — Van Control Panel
 
 
-**Last updated:** 2026-11-18
+**Last updated:** 2026-11-20
 ## Vehicle
 
 **2023 Mercedes Sprinter VS30 AWD 144" High Roof** — cargo conversion.
@@ -45,14 +45,14 @@ its own voltage warnings, an open question not yet resolved.
 
 ## Cameras
 
-**Only one camera is physically installed: interior, at `/dev/video0`.** A
+**There is one camera, inside the van, at `/dev/video0`, and a second is not planned for now.** The dashboard calls it "Camera"; the API still calls it `interior`. A
 **Logitech C922 Pro Stream Webcam** (`046d:085c`, USB UVC), in place by
 2026-10-19. It replaced a cheap "HD USB Camera" (`32e4:9520`) that kept
 freezing on one identical frame, even through a held 15-second USB port power
 cycle. Not the originally-planned CSI module — see below. `camera.py`
-still has an `exterior` device slot (`/dev/video2`) wired up in code, but
-there's no hardware behind it yet; requests for it 400 with "exterior camera
-not connected" rather than failing silently.
+still has an unused `exterior` device slot (`/dev/video2`) wired up in code;
+requests for it 503 with "exterior camera not connected" rather than failing
+silently.
 
 **Two capture paths.** A background loop (`services/camera_loop.py`) takes a
 photo every `camera_interval_min` of the active operating mode (60s floor, see
@@ -71,7 +71,7 @@ straight to disk — no transcoding process, no extra package, no ffmpeg at
 all. Also switched the interior camera itself from CSI to USB UVC in the
 process (simpler, one code path for both camera slots instead of two).
 
-**UVC control tuning** (interior camera, applied fresh before every capture
+**UVC control tuning** (the camera, applied fresh before every capture
 since USB controls reset on unplug/reboot — see `camera.py`'s
 `CAMERA_TUNING`). Fitted to the C922 on 2026-10-19: `focus_automatic_continuous=0`
 and `focus_absolute=0` (manual, infinity), `brightness=128` (the default),
@@ -218,7 +218,7 @@ Verified live 2026-10-19 (`lsusb`):
 
 | Device | USB ID | Port | Notes |
 |---|---|---|---|
-| Logitech C922 Pro Stream Webcam | `046d:085c` | USB 2.0 hub | Interior camera, `/dev/video0` |
+| Logitech C922 Pro Stream Webcam | `046d:085c` | USB 2.0 hub | Camera, `/dev/video0` |
 | ESP32-S3 (Dometic fridge bridge) | `303a:1001` | USB 2.0 hub | Powered/serial from the Pi |
 | MediaTek MT7612U WiFi adapter | `0e8d:7612` | **USB 3.0** (`5000M`) | `wlan1`, the uplink radio |
 | SanDisk Cruzer USB stick | `0781:5530` | USB 2.0 hub | Backup drive. **Not plugged in on 2026-10-19** |

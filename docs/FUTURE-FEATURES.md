@@ -1,7 +1,7 @@
 # Future Features
 
 
-**Last updated:** 2026-11-13
+**Last updated:** 2026-11-20
 This roadmap captures the next useful improvements for the Van Control Panel.
 The focus is reliability, visibility, and recoverable automation rather than
 adding hardware faster than the system can safely support it.
@@ -211,7 +211,9 @@ WiFi details, Pi health, service status, and a way to copy a diagnostic report.
 - Cache the last known dashboard state locally.
 - Keep the dashboard useful during short Pi or network outages.
 - Show per-device stale and unavailable states instead of treating old values
-  as current.
+  as current. (Done for the battery and fridge cards: the last reading stays,
+  dimmed, with its age, and an offline Shelly tile says "unreachable" instead of
+  "off".)
 - Display the last successful backup and alert when backups have not succeeded
   for several days.
 - Verify that downloaded backups can be opened.
@@ -227,17 +229,19 @@ Once the existing control paths are hardened, consider:
   to the fridge (set temp, on/off) is not built yet — the fork supports it,
   deliberately not added while the BLE connection was still proving out
 - shore-power detection beyond the current BMS/MPPT delta inference (see
-  `docs/API.md`'s Shore Power section) — real VE.Direct telemetry needs a cable
+  `docs/API.md`'s Shore Power section) — the IP22 has BLE instant readout, so no
+  cable is needed (`docs/VICTRON-BLE-PLAN.md`)
 - smart Orion charger telemetry after a hardware upgrade;
-- an exterior camera (the interior Logitech C922 captures on a mode-driven
-  schedule with 24h retention since 2026-09-04; the exterior slot is wired in
-  the API but no camera is installed);
+- ~~an exterior camera~~ — not planned for now (Todd, 2026-11-20). There is one
+  camera, a Logitech C922 inside the van, capturing on a mode-driven schedule
+  with 24h retention since 2026-09-04; the second slot in the API is unused;
 - door, hatch, motion, or cabinet-temperature sensors; and
 - a physical local emergency control independent of the web UI.
 
 ## Operational follow-ups (2026-10-19)
 
-Found while fixing the BMS hang and the API freeze. None is built.
+Found while fixing the BMS hang and the API freeze. None is built, except the
+Shelly item, which is partly done (below).
 
 - **An external health check.** The in-process watchdogs cannot catch everything
   (a stuck `systemd` stop, a wedged USB camera). A systemd timer on the Pi that
@@ -247,7 +251,12 @@ Found while fixing the BMS hang and the API freeze. None is built.
   a dead unit and pays a 3s timeout. A background task that polls on its own
   schedule, backs off while a unit is unreachable, and serves the cached answer
   would make `GET /shelly/` instant. The simpler option is to mark the two dead
-  PS Input units `installed: False`.
+  PS Input units `installed: False`. **Partly done 2026-11-18, not yet run on the
+  Pi:** a unit that keeps failing can be paused so it stops costing the timeout,
+  and the refresh button on its tile probes it again (`POST /shelly/{id}/recheck`).
+  The rule that decides when to pause (`_should_pause` in `routers/shelly.py`)
+  still returns False, so nothing pauses until it is set. There is still no
+  background poller.
 - **A relay timer.** A per-Shelly "turn off in N minutes" exists on the local
   `feature/relay-timer` branch (`services/relay_timer.py`): a restart or reboot
   must leave relays off, never on. It is unmerged and waits on the UI work in

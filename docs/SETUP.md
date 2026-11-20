@@ -1,7 +1,7 @@
 # Rebuilding the Pi from scratch
 
 
-**Last updated:** 2026-11-18
+**Last updated:** 2026-11-20
 Recovery checklist for a dead SD card or a fresh Pi. Written as an ordered
 walkthrough rather than a script, because several steps need a token, a
 password, or a decision that cannot be committed to the repo.
@@ -480,8 +480,8 @@ Retention runs on the Mac after each successful send: everything from the last
 45 days is kept, then thinned to the 1st of each month. Steady state is ~50
 files, ~8MB.
 
-You can also pull a snapshot on demand from the dashboard — settings drawer →
-Backup → Download database. That path does not need the Mac at all, which
+You can also pull a snapshot on demand from the dashboard — the Backup tile →
+Download database. That path does not need the Mac at all, which
 makes it the quicker option mid-rebuild.
 
 ## 10. GitHub Actions runner (optional)

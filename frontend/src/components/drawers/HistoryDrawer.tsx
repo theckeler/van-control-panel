@@ -261,7 +261,7 @@ function PhotoHistory() {
         {selected && when && (
           <img
             src={selected.url}
-            alt={`Interior camera, captured ${when.time}`}
+            alt={`Camera, captured ${when.time}`}
             className="w-full rounded"
           />
         )}

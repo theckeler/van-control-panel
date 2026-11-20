@@ -1,13 +1,13 @@
 # CLAUDE.md: Van Control Panel
 
-**Last updated:** 2026-11-18
+**Last updated:** 2026-11-20
 
 Instructions for Claude (and humans) working in this repo.
 
 ## What this is
 A self-hosted monitoring and control dashboard for Todd Heckeler's 2023 Mercedes Sprinter conversion. A Raspberry Pi 4B in the van's electrical cabinet runs a FastAPI backend (`backend/`) and a React frontend (`frontend/`). It reads the LiFePO4 battery over Bluetooth, controls Shelly relays over WiFi, logs to SQLite and is reached from a phone over Tailscale. Owner and dev: Todd. There is no client; this is Todd's own project and a case study (see below).
 
-Read `README.md` first. `docs/CLAUDE.md` is the long hardware and backend reference (about 1,300 lines). Don't load it whole: search it for the part you need (batteries, Shelly, Starlink, camera, networking, auth).
+Read `README.md` first. `docs/CLAUDE.md` is the long hardware and backend reference (about 1,400 lines). Don't load it whole: search it for the part you need (batteries, Shelly, Starlink, camera, networking, auth).
 
 ## Start here, every session
 1. Run `bin/doc-dates.sh`. It flags docs that are undated, edited after their stated date, or older than the newest decision.

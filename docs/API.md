@@ -1,7 +1,7 @@
 # API Reference — Van Control Panel
 
 
-**Last updated:** 2026-11-18
+**Last updated:** 2026-11-20
 Base URL (local): `http://van-pi.local/api`
 Base URL (Tailscale): `http://van-pi.tailba93b9.ts.net/api`
 
@@ -309,9 +309,12 @@ mode to actually change camera intervals or Shelly behavior; see
 
 ## Camera
 
-Only `cam=interior` has real hardware behind it (`/dev/video0`); `exterior`
-is wired up in the same code path but 503s with "exterior camera not
-connected" since there's no camera installed for it yet.
+There is one camera, a Logitech C922 inside the van (`/dev/video0`), and no
+second camera is planned for now. The dashboard just calls it "Camera". In the
+API it is still `cam=interior`, which is the default, and its photos are still
+stored under `/static/photos/interior/`: renaming that would orphan the
+retained photos. `cam=exterior` is an unused second slot in the same code path
+and 503s with "exterior camera not connected".
 
 ### `GET /photos/latest?cam=interior`
 Captures a **fresh photo on every call** — it does not serve the background

@@ -42,10 +42,6 @@ export function ModeDrawer({
                   value: `${mode.config.camera_interval_min} min`,
                 },
                 {
-                  label: "Exterior camera only",
-                  value: mode.config.camera_exterior_only ? "yes" : "no",
-                },
-                {
                   label: "Switch circuits off",
                   value: mode.config.shellys_off ? "yes" : "no",
                 },

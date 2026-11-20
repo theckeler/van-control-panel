@@ -1,6 +1,6 @@
 # Log
 
-**Last updated:** 2026-11-13
+**Last updated:** 2026-11-20
 
 One entry per working session, newest last. Held while work is in progress and finalised at PR time.
 
@@ -91,3 +91,27 @@ One entry per working session, newest last. Held while work is in progress and f
 - Whether the repository is public. The GitHub check was blocked from this machine.
 
 **Next:** Todd decides the backup design (destination, whether secrets go offsite, a Back up now button), the tailnet and MAC cleanup, and the pause policy. Dark mode last.
+
+## 2026-11-20: Session 4, the README and docs review
+
+**Asked for:** Todd thought the README was well out of date and asked for a check of the docs in general. Before that, the held batch was committed on a new branch (`add-check-now-buttons`) for its own PR, based on `main`.
+
+**Done**
+- README: the Figma paragraph said the redesign was "not merged". It shipped, so it now describes the component set, tokens, native `<dialog>` and the phone-first rules. The "50A disconnect" is gone (the main disconnect is a 300A Blue Sea 6006, and the cure for a BMS lockout is cutting its power). Added a status note, the new behaviour (check-now buttons, Shelly pause, SD card image, battery chips), a SmartShunt "not planned" row, and links to six docs that were missing from the list. Each new item says it has not run on the Pi.
+- Other docs: `TROUBLESHOOTING.md` and `SETUP.md` pointed at buttons that moved ("Release on the Battery card", "settings drawer"). `PORTFOLIO.md` said "live and running", named the wrong fuse panel and circuits, and described the frontend before the rebuild. `FUTURE-FEATURES.md` had two items that were now partly built or contradicted by the BLE plan. "PWA" was dropped from three places because the app has no manifest or service worker.
+- The `case-study/` folder is deliberately not linked from the README: nothing in it is cleared for publishing.
+- Todd: one camera only, inside the van, and it is just called "Camera". The README, API, ARCHITECTURE, MODES, HARDWARE, FUTURE-FEATURES, project-overview and `docs/CLAUDE.md` now say so. The UI says "Camera" in the drawer, the image alt text and the History drawer, and the Mode drawer lost its "Exterior camera only" row. `HARDWARE.md` had said the unused slot returns 400; the code returns 503.
+
+**Found**
+- Mechanical checks (links, file paths, API routes against the routers) were clean. Every real error was a statement about behaviour, which only reading finds.
+- Docs that are over 30 days old and untouched, waiting on Todd: `powerswitch-control-input.md` (still says 300Ah) and the three `rubber-duck-review` docs. The 2026-08-27 review also names `docs/devices/RIVER_2_MAX.md` and `docs/protocols/ecoflow.md`, which are not in the repo.
+- `case-study/log.md` mentions `bin/rollup.sh`, which does not exist.
+- Kept on purpose, still named `interior`: the `cam` API parameter, the `/static/photos/interior/` folder and filenames, `camera_exterior_only` in the mode config and types, `DEVICE_MAP`, and the `van-interior-cam` udev example in `HARDWARE.md`. Renaming the folder would orphan the retained photos. Waiting on Todd.
+- My own scratch files were wiped overnight, including the PR description for the branch. It was rewritten.
+
+**Not checked**
+- Whether the Pi was ever redeployed after the rebuild. The README and `docs/CLAUDE.md` now say the rebuild has run in demo mode only, which is Claude's reading of the history. Todd to confirm.
+- Whether the Vercel demo link should go in the README.
+
+**Next:** Todd pushes `add-check-now-buttons` and opens the PR, and says whether the docs edits join it.
+

@@ -27,7 +27,7 @@ export function Cameras({
         ) : latest ? (
           <img
             src={latest.url}
-            alt={`Interior camera, captured ${formatDateTime(latest.timestamp).time}`}
+            alt={`Camera, captured ${formatDateTime(latest.timestamp).time}`}
             className="size-full object-cover"
           />
         ) : (

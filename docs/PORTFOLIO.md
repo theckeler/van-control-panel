@@ -1,14 +1,14 @@
 # Van Control Panel — Portfolio
 
 
-**Last updated:** 2026-10-19
+**Last updated:** 2026-11-20
 ## Project Overview
 
 A fully self-hosted IoT monitoring and automation system for a converted 2023 Mercedes Sprinter VS30 AWD van. Built from the ground up combining React/TypeScript front-end development, Python backend engineering, Bluetooth hardware integration, and 12V electrical system design.
 
 The system monitors a custom 12V electrical build in real time — battery state of charge, solar input, charge state — controls smart relays for 12V loads, logs time-series data with tiered rollups, and provides remote access via a secure Tailscale tunnel. It runs entirely on a Raspberry Pi mounted inside the van's electrical cabinet.
 
-**Status:** Live and running in the van.
+**Status (2026-11-20):** Built and run in the van. The Pi is powered down for now, and the November UI rebuild has been checked in demo mode only.
 
 ---
 
@@ -26,8 +26,8 @@ The goal was a single dashboard showing the full electrical picture, live from a
 The software monitors hardware that had to be designed and wired first:
 - Renogy 200W ShadowFlux N-Type rigid panel → Victron SmartSolar MPPT 75/15
 - Power Queen 12V 100Ah LiFePO4 battery with Bluetooth BMS
-- Blue Sea Systems 5025 100A fuse panel for load distribution
-- Shelly 1 Gen4 smart relays on USB outlets, fan, lighting circuits
+- Blue Sea Systems 5046 12-circuit fuse block for load distribution, with a 200A fuse at the battery and a 300A rotary disconnect
+- Shelly 1 Gen4 smart relays on the USB outlets, a garage circuit and the two Garmin PowerSwitch inputs
 - Garmin PowerSwitch for accessory control (Starlink, exterior lights)
 - All wiring sized for planned 300Ah upgrade without rewiring
 
@@ -43,9 +43,10 @@ The software monitors hardware that had to be designed and wired first:
 - Vite + React 18 + TypeScript + Tailwind CSS
 - Zustand store with independent per-endpoint polling — a failed or slow endpoint never breaks or delays the rest of the UI, and a stale in-flight poll can never overwrite a click
 - 5-second polling via custom `usePolling` hook
-- Battery card shows last known values when BLE is offline with elapsed time and reconnect countdown timer
+- Battery card shows last known values when BLE is offline with elapsed time and reconnect countdown timer. Starlink, the fridge, the BMS and the Shellys have check-now buttons
 - Recharts for history charts (data accumulating)
-- Served by Express (Node) with optional basic auth and `/api/*` proxy to FastAPI
+- **Rebuilt in November 2026 on a component set of its own:** no UI library, design tokens in one place, native `<dialog>` for drawers and dialogs, designed at 375px first with 44px tap targets and 16px inputs. A `/components` page shows every component in every state
+- Served by Express (Node) with signed-cookie auth and a `/api/*` proxy to FastAPI, behind nginx on :80
 
 ### Infrastructure
 - Self-hosted GitHub Actions runner on the Pi — push to `backend/**` or `frontend/**` auto-deploys
@@ -65,7 +66,7 @@ The software monitors hardware that had to be designed and wired first:
 
 **Tiered SQLite rollups over a hosted time-series DB.** InfluxDB and TimescaleDB are the standard tools for this. For a single Pi with one user, a 150-line `db.py` using the stdlib `sqlite3` module handles 30 days of raw data, a year of hourly rollups, and unlimited daily/monthly summaries with zero infrastructure overhead.
 
-**Express over nginx for the frontend server.** Nginx is the conventional choice. Express lets the auth middleware, API proxy, and static file serving live in one 40-line JavaScript file that's readable, version-controlled, and restarted by the same systemd pattern as the FastAPI service.
+**Auth, API proxy and static files in Express, not nginx.** Nginx is the conventional choice for all three. Express keeps the signed-cookie auth, the API proxy and the static file serving in one 200-line JavaScript file that's readable, version-controlled, and restarted by the same systemd pattern as the FastAPI service. Nginx still sits in front on :80 but only forwards everything to Express, so it cannot bypass the password.
 
 **Self-hosted CI/CD runner over SSH deployment.** GitHub Actions runners work by polling GitHub from the Pi, so there's no inbound connection needed. This works perfectly behind Starlink CGNAT where port forwarding is unavailable. Push to main, runner picks up the job, deploys in ~10 seconds.
 

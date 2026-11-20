@@ -1,7 +1,7 @@
 # CLAUDE.md — Van Control Panel
 
 
-**Last updated:** 2026-11-18
+**Last updated:** 2026-11-20
 Context file for Claude Code. Gives full project context so sessions don't require re-explaining the architecture.
 
 **Jump to:** [Quick Start](#quick-start) · [Workflow](#workflow) · [Recovery](#recovery) · [Auth](#auth) ·
@@ -17,7 +17,7 @@ Symptom-first fixes: **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)**.
 
 A self-hosted IoT monitoring and control dashboard for a converted 2023 Mercedes Sprinter VS30 AWD van. Runs fully on a Raspberry Pi inside the van. Frontend is a React/TypeScript SPA served by an Express server. Backend is a FastAPI Python server reading real hardware via BLE and WiFi REST.
 
-**Status:** Live and running on the Pi. All core data sources are real — no mock data in production.
+**Status (2026-11-20):** Built and run on the Pi, which is powered down for now. The November UI rebuild, and everything below marked "not yet run on the Pi", has only been checked in demo mode and with isolated tests, never against the live hardware. When it is running, every core data source is real: no mock data in production.
 
 ---
 
@@ -157,7 +157,7 @@ backend/app/
     ecoflow.py           /ecoflow/ — battery % and inferred charge_state
     starlink.py          /starlink/ — dish status over local gRPC
     dometic.py           /dometic/ — fridge, via the ESP32 bridge
-    camera.py            /photos/ — live. v4l2-ctl capture (interior only,
+    camera.py            /photos/ — live. v4l2-ctl capture (one camera,
                          /dev/video0, Logitech C922), UVC tuning re-applied
                          before every shot since USB controls reset on unplug/
                          reboot; rejected settings are logged once
@@ -492,7 +492,7 @@ filter, so verify rather than assume.
 
 | Thing                       | Recoverable?                                                                  |
 | --------------------------- | ----------------------------------------------------------------------------- |
-| `van_power.db`              | Nightly snapshot to the Mac, plus on-demand download from the settings drawer |
+| `van_power.db`              | Nightly snapshot to the Mac, plus on-demand download from the Backup drawer |
 | `backend/.env`              | Copy on the Mac at `backend/.env`. Put the values in a password manager too   |
 | `frontend/.env`             | No — but the session secret is regenerable and the password is yours          |
 | `mode.json`                 | No — defaults to `camp`, one click to fix                                     |
@@ -945,7 +945,8 @@ Details worth knowing:
 
 - **SD card image: button built 2026-11-18, not yet run on the Pi.** The Backup drawer has an SD card image section (start with a confirm, status, stop with a confirm). Things the UI cannot hide: the image is always the one file `/mnt/van-pi-bkup/van-pi-image.img.gz`, so starting a run replaces the previous image at once and a failed or stopped run leaves none; the job state lives in memory, so after a `van-api` restart the status says "not started" even if an image is on the stick; stopping deletes the partial file; and nobody has watched the Pi (BLE reads, WiFi) while it compresses a whole card for about 45 minutes.
 - **Applying a mode only half works** — the selection persists across restarts and drives the camera interval (`camera_loop.py`), but Shelly schedules are not driven by it. A mode can be switched from the Mode drawer (the header's round Mode button) or through the API.
-- **Camera system — live, 2026-09-04.** Interior camera only (`/dev/video0`,
+- **Camera system — live, 2026-09-04.** One camera, inside the van, called just "Camera" in the UI and `interior` in the
+  API and on disk; no second camera is planned for now (`/dev/video0`,
   a Logitech C922 USB UVC camera since 2026-10-19; the cheap camera it replaced had a
   sensor that locked up and needed a physical replug). `Cameras.tsx` is rendered in `Dashboard.tsx`, backed by a
   background capture loop (`camera_loop.py`, mode-driven interval, 24h

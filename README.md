@@ -1,7 +1,7 @@
 # Van Control Panel
 
 
-**Last updated:** 2026-11-18
+**Last updated:** 2026-11-20
 > A self-hosted monitoring and control dashboard for a 2023 Mercedes Sprinter VS30 AWD 144" High Roof conversion.
 
 ![Stack](https://img.shields.io/badge/stack-React%20%2B%20FastAPI-orange)
@@ -21,6 +21,12 @@ everything to SQLite, and is reachable from a phone anywhere via Tailscale.
 
 Everything runs locally. No cloud services, no vendor accounts, no subscriptions.
 The only outbound dependency is Tailscale for remote access.
+
+**Where it stands (2026-11-20).** The dashboard was rebuilt in November on a
+small component set of its own (see [Tech Stack](#tech-stack)). That rebuild has
+been checked in the demo only, with no Pi attached, and has not been deployed to
+the van yet. The backend features added since are marked *not yet run on the Pi*
+in the tables below.
 
 ---
 
@@ -54,19 +60,20 @@ and the Power dialog (Restart API is two taps from the dashboard).
 
 | Feature                                     | Detail                                                           |
 | ------------------------------------------- | ---------------------------------------------------------------- |
-| **Battery** — Power Queen 100Ah LiFePO4 BMS | SOC, voltage, current, temperature, per-cell voltages over BLE   |
+| **Battery** — Power Queen 100Ah LiFePO4 BMS | SOC, voltage, current, temperature, per-cell voltages over BLE. The volt, watt and temperature chips tint when a reading nears the pack's limits |
 | **Solar** — Victron SmartSolar MPPT 75/15   | Panel watts, charge state, daily yield from BLE advertisements   |
 | **Fridge** — Dometic CFX5 35                | Temp, set point, compressor, door, power source via an ESP32 BLE bridge |
 | **Starlink Mini**                           | Latency, throughput, obstruction, and measured power draw over local gRPC |
 | **EcoFlow River 2 Max**                     | Battery % decoded from the raw BLE advertisement — no auth, no cloud |
-| **Smart relays** — Shelly 1 Gen4 ×4 configured | USB outlets, garage, PS Input 1 and 2 — all on the Pi's own hotspot (10.42.0.x), local HTTP, no cloud. The two PS Input units are currently unreachable |
-| **Interior camera** — Logitech C922        | Timed captures at the active mode's interval (24h retention) plus on-demand snapshots, with UVC settings re-applied before each shot |
+| **Smart relays** — Shelly 1 Gen4 ×4 configured | USB outlets, garage, PS Input 1 and 2 — all on the Pi's own hotspot (10.42.0.x), local HTTP, no cloud. The two PS Input units are currently unreachable. An unreachable unit shows as its own state, not as "off", and can be paused and re-checked with a refresh button (*not yet run on the Pi*) |
+| **Camera** — Logitech C922, one, inside the van | Timed captures at the active mode's interval (24h retention) plus on-demand snapshots, with UVC settings re-applied before each shot |
 | **History** — SQLite, four tiers            | Raw → hourly → daily → monthly, automatic rollup and pruning     |
 | **Operating modes**                         | Storage / Camp / Trail / In Town, persisted across restarts      |
 | **Pi health**                               | CPU temp, load, memory, disk, uptime, undervoltage flags         |
 | **Networking**                              | Dual WiFi with automatic failover, switchable from the dashboard |
 | **Event log**                               | Every state change recorded — toggles, mode changes, reboots     |
-| **Backups**                                 | Nightly snapshot over Tailscale, plus on-demand download         |
+| **Backups**                                 | Nightly snapshot over Tailscale, plus on-demand download. The Backup drawer also has a button that writes a gzipped image of the whole SD card to a USB stick (*not yet run on the Pi*) |
+| **Offline devices**                         | A device that stops answering keeps its last reading on screen, dimmed, with its age. Starlink, the fridge and the BMS have check-now buttons, and polling backs off while they are down (*not yet run on the Pi*) |
 | **Remote access**                           | Tailscale — works from any network                               |
 
 ## Not built yet
@@ -76,8 +83,9 @@ than one admitting the gaps.
 
 | Feature                 | Why not                                                                |
 | ----------------------- | ---------------------------------------------------------------------- |
-| **Exterior camera**     | The slot exists in the API; no second camera is installed              |
+| **A second camera**     | Not planned for now. There is one camera, and the API still has an unused second slot |
 | **Shore power**         | Inferred from the BMS/MPPT current delta — no charger telemetry        |
+| **Measured load**       | Load is inferred from the BMS and MPPT. A Victron SmartShunt would measure it, and none is planned |
 | **DC-DC charger**       | Orion-Tr 12/12-18 is non-smart. Static config only                     |
 | **Fridge control**      | Reading works. Writing (set temp, on/off) is supported by the component but not wired up |
 | **Garmin PowerSwitch**  | BlueZ can't connect. Protocol is undocumented — see 2026-08-27 review |
@@ -92,10 +100,23 @@ than one admitting the gaps.
 Served in production by a small Express server that also proxies the API and
 handles auth.
 
-Design work happens in Figma first: **[Van Control Panel — Dashboard UI](https://www.figma.com/design/793FjJIPcg092uFJuGnVe6/Van-Control-Panel-%E2%80%94-Dashboard-UI)**.
-The file currently holds a redesign — lighter surfaces, bolder state colour,
-per-concern drawers instead of one settings panel — that is deliberate
-direction rather than anything merged. The screenshots above are the live build.
+The UI was designed in Figma ([Van Control Panel — Dashboard UI](https://www.figma.com/design/793FjJIPcg092uFJuGnVe6/Van-Control-Panel-%E2%80%94-Dashboard-UI))
+and rebuilt in November 2026 from that file: lighter surfaces, bold state colour,
+one drawer per concern instead of one settings panel. The screenshots above are
+that build, running on demo data.
+
+- **No UI component library.** A small set of its own lives in
+  `frontend/src/components/ui/`. Drawers and dialogs are the native `<dialog>`
+  element, so focus handling, Escape and the backdrop come from the browser.
+- **Design tokens in one place** (`tailwind.config.ts` and CSS variables), used by
+  name (`on`, `off`, `warn`, `info`) rather than as raw colours.
+- **Phone first.** Designed and checked at 375px, then 768 and 1280. Tap targets
+  are at least 44px and inputs are 16px so iPhones do not zoom on tap.
+- `npm run dev` also serves `/components`, a gallery of every component in every
+  state (dev server only, not in the production build).
+
+Rules and the component list: [Design System](docs/DESIGN-SYSTEM.md) and
+[UI Patterns](docs/UI-PATTERNS.md).
 
 **Backend** — FastAPI on uvicorn. `bleak` for BLE, `victron-ble` for the MPPT,
 a vendored fork of `pq_bms_bluetooth` for the BMS, `httpx` for the Shellys,
@@ -114,8 +135,10 @@ self-hosted GitHub Actions runner that deploys on push.
 - **Victron data comes from BLE advertisements**, not a VE.Direct cable — the MPPT
   broadcasts encrypted manufacturer data that decrypts with a key from the app.
 - **The BMS needs a persistent connection.** Rapid reconnects trigger a firmware
-  lockout that requires physically pulling the 50A disconnect, so there is a
-  5-minute cooldown guard.
+  lockout that is only cured by cutting the BMS's power at the house disconnect,
+  so there is a 5-minute cooldown guard. The dashboard's Retry now button can cut
+  that wait short, but never sooner than 2 minutes after the last failed attempt
+  (*not yet run on the Pi*).
 - **The fridge took an ESP32 to reach at all.** Two independent blockers: the
   CFX5 speaks a different protocol generation than the widely-forked CFX3
   component (`537a04xx`, not `537a03xx`), and it requires real BLE bonding that
@@ -132,6 +155,10 @@ self-hosted GitHub Actions runner that deploys on push.
   days, and a gRPC fork deadlock froze the API for 20+ minutes.
 - **Each dashboard card polls its own endpoint.** A slow or dead device delays
   only its own card, and a stale in-flight response can't overwrite a click.
+- **A dead device should not slow everything else down.** An unreachable Shelly
+  costs a 3-second timeout on every poll, so a unit that keeps failing can be
+  paused until someone taps its refresh button. Starlink and the fridge back off
+  from 5 seconds to 60 while they do not answer (*not yet run on the Pi*).
 - **Polling pauses when the tab is hidden**, which cut idle request volume by
   roughly 85%.
 - **NetworkManager won't roam back to a preferred network** on its own — it only
@@ -200,11 +227,17 @@ FastAPI backend for anything not arriving over loopback.
 
 - [Setup](docs/SETUP.md) — rebuild from a blank SD card
 - [Troubleshooting](docs/TROUBLESHOOTING.md) — symptom-first fixes
+- [Project Overview](docs/project-overview.md) — goals, scope and what is done
 - [Architecture](docs/ARCHITECTURE.md)
 - [API Reference](docs/API.md)
 - [Hardware](docs/HARDWARE.md)
 - [Operating Modes](docs/MODES.md)
-- [Design file](https://www.figma.com/design/793FjJIPcg092uFJuGnVe6/Van-Control-Panel-%E2%80%94-Dashboard-UI) — Figma, redesign in progress
+- [Design System](docs/DESIGN-SYSTEM.md) — tokens and the component set
+- [UI Patterns](docs/UI-PATTERNS.md) — how screens are put together
+- [Design file](https://www.figma.com/design/793FjJIPcg092uFJuGnVe6/Van-Control-Panel-%E2%80%94-Dashboard-UI) — the Figma the UI was built from
+- [Victron over Bluetooth](docs/VICTRON-BLE-PLAN.md) — reading the shore charger and DC-DC charger
+- [Fridge bridge](docs/esp32-dometic-bridge.md) — the ESP32 that reaches the Dometic
+- [Starlink status](docs/starlink-status.md) — the dish's local API
 - [Future Features](docs/FUTURE-FEATURES.md) — prioritized roadmap
 - [Claude Code Context](docs/CLAUDE.md) — conventions, gotchas, full system notes
 - [Rubber Duck Review](docs/rubber-duck-review.md) — bugs found, and the reasoning errors behind them

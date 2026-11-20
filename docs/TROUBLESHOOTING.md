@@ -1,7 +1,7 @@
 # Troubleshooting
 
 
-**Last updated:** 2026-10-19
+**Last updated:** 2026-11-20
 Common issues and their fixes for the Van Control Panel system.
 
 ---
@@ -153,7 +153,7 @@ The Pi holds a persistent BLE connection. Only one device can connect at a time.
 
 ### Fix
 
-Use the **Release** button on the Battery card in the dashboard. A confirmation modal will appear. After confirming, the Pi drops its connection and the Power Queen app can connect. When done, tap **Connect** on the dashboard to resume monitoring.
+Tap the round gear button in the header to open the **System** drawer, then **Release BMS** (no confirm step). The Pi drops its connection and the Power Queen app can connect. When done, tap **Reconnect BMS** in the same drawer, or **Reconnect to the battery** on the Battery card, to resume monitoring.
 
 Alternatively via SSH:
 

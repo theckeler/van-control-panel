@@ -26,7 +26,7 @@ function CameraBody() {
       <KeyValue
         items={[
           {
-            label: "Interior camera",
+            label: "Status",
             value: enabled ? "on" : "off",
             tone: enabled ? undefined : "warn",
           },
