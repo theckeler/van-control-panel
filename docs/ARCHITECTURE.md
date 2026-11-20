@@ -1,10 +1,10 @@
 # Architecture — Van Control Panel
 
 
-**Last updated:** 2026-11-18
+**Last updated:** 2026-11-20
 ## Overview
 
-The system has three physical layers: the van's 12V electrical hardware, a Raspberry Pi 4B that reads and controls it, and a PWA dashboard that the user interacts with from any device on the local network or remotely via Tailscale.
+The system has three physical layers: the van's 12V electrical hardware, a Raspberry Pi 4B that reads and controls it, and a web dashboard that the user interacts with from any device on the local network or remotely via Tailscale.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -40,7 +40,7 @@ The system has three physical layers: the van's 12V electrical hardware, a Raspb
 │   PS Input 2) ........ WiFi, TwitchWiFi, local HTTP     │
 │ Dometic CFX5 fridge .. via ESP32-S3 BLE bridge on WiFi  │
 │ Starlink Mini ........ local gRPC 192.168.100.1:9200    │
-│ Logitech C922 webcam (interior) ........ USB, v4l2-ctl  │
+│ Logitech C922 webcam ................... USB, v4l2-ctl  │
 │ Garmin PowerSwitch ... not controllable (BlueZ cannot   │
 │   connect; see CLAUDE.md BLE Device Reference)          │
 └─────────────────────────────────────────────────────────┘
@@ -191,8 +191,10 @@ The loop also deletes photos older than 24h (an hourly sweep), so
 `backend/photos/` stays bounded. The History drawer's Photos tab lists the retained
 photos via `GET /photos/recent`.
 
-Only `interior` is installed. `exterior` (`/dev/video2`) is wired up in code but
-has no hardware, and requests for it 503 with "exterior camera not connected".
+The one camera is called "Camera" in the UI and `interior` in the API and on
+disk. A second camera is not planned for now. `exterior` (`/dev/video2`) is an
+unused slot in the code, and requests for it 503 with "exterior camera not
+connected".
 See `docs/HARDWARE.md` for why `ffmpeg` and the CSI camera module were abandoned
 (2026-08-31, OOM-crashed the Pi's 1GB RAM mid-install) and for the C922 tuning.
 
@@ -282,10 +284,10 @@ POST /mode/{mode_name}
 
 | Mode | Camera interval | Camera scope | Shellys (`shellys_off`) |
 |---|---|---|---|
-| storage | 360 min | Interior only | Flag set, not applied |
-| camp | 30 min | Interior only | Not applied |
-| trail | 15 min | Interior only | Not applied |
-| in_town | 30 min | Interior only | Not applied |
+| storage | 360 min | The one camera | Flag set, not applied |
+| camp | 30 min | The one camera | Not applied |
+| trail | 15 min | The one camera | Not applied |
+| in_town | 30 min | The one camera | Not applied |
 
 Details and the intended behavior: `docs/MODES.md`.
 

@@ -1,6 +1,6 @@
 # Log
 
-**Last updated:** 2026-11-13
+**Last updated:** 2026-11-20
 
 One entry per working session, newest last. Held while work is in progress and finalised at PR time.
 
@@ -62,21 +62,56 @@ One entry per working session, newest last. Held while work is in progress and f
 
 ## 2026-11-18: Session 3, cleanup while the Pi is down
 
-**Asked for:** with the Pi offline and no plan to launch it, do the work that needs no hardware: remove the real WiFi names, check 768px and accessibility, fix the stale VE.Direct docs, delete dead code. Dark mode is held for the end.
+**Asked for:** with the Pi offline and no plan to launch it, do the work that needs no hardware: remove the real WiFi names, check 768px and accessibility, fix the stale VE.Direct docs, delete dead code. Then: check the old screenshots, set the battery chip limits from the datasheet, pause polling for dead Shellys with a refresh button, answer how to back up properly, and review all the docs. Dark mode is held for the end.
 
 **Done**
 - The hotspot confirm dialog reads its network names from live data, and the optimistic hotspot update no longer hardcodes one. The README, the project overview and the log no longer name the real networks.
-- 768px checked in the demo build: no horizontal overflow, no tap target under 44px, no text under 12px.
-- Accessibility pass on the dashboard, all six drawers, the Power dialog and the hotspot confirm: no contrast misses, every button named, inputs at 16px, focus lands inside each dialog, tab order follows the page, no positive tabindex.
-- `HARDWARE.md` lost the leftover VE.Direct cable table, and gained a note on what VE.Direct would need if it is ever wanted. `ThemeToggle`, `useTheme` and the `gap` and `spacing` settings are deleted, and the docs that mentioned them are fixed.
+- 768px checked in the demo build: no horizontal overflow, no tap target under 44px, no text under 12px. Accessibility pass on the dashboard, all six drawers, the Power dialog and the hotspot confirm: no contrast misses, every button named, inputs at 16px, focus lands inside each dialog, tab order follows the page.
+- `HARDWARE.md` lost the leftover VE.Direct cable table. `ThemeToggle`, `useTheme` and the `gap` and `spacing` settings are deleted. PR 32 carried all of this and was merged.
+- Checked all 11 "before" screenshots. Six showed the real hotspot name; each now has a dark bar over it.
+- Battery chip limits: power is judged by amps against a 70A BMS rating, and temperature depends on whether the pack is charging. Only the 12.8V nominal, 14.6V charger, 0°C charge cutoff and a 100A listing could be confirmed online, so the BMS rating and the low-voltage and high-temperature limits are marked as unconfirmed in the code.
+- Shelly pause and recheck: a unit that keeps failing can be paused so it stops costing a 3s timeout per poll. The offline tile is now a `div` with a refresh button (`POST /shelly/{id}/recheck`). The pause policy is left blank for Todd. The backend logic passed an isolated test with stubbed dependencies.
+- Check-now buttons for Starlink, the fridge and the BMS (`POST /starlink/recheck`, `/dometic/recheck`, `/battery/retry`). The first two wake their loops so a successful check is not undone by a long backoff sleep, and the fridge poll now backs off. The BMS retry has a 120s floor and the button shows the time left. Backend logic passed an isolated test; the buttons were tried in the demo with `?offline=...`.
+- SD card image section in the Backup drawer (the API existed, nothing called it): status, confirm to start, confirm to stop, and a pretend 20-second run in the demo. Real clicks confirmed focus returns to the trigger after the confirm closes.
+- Docs review: file paths, links, API routes, the constants table, library versions and section references were checked against the code. One dead reference to a doc that never existed was removed, and `dexie` is noted as unused. `FRONTEND-REFACTOR.md` is marked historical.
 
 **Found**
-- The real network names are in about 190 places, not the three I first reported: the backend, the Pi scripts, the ESP32 config and most runbook docs. Most are the Pi's actual config, so they were left. See the decisions table.
-- `HARDWARE.md` had already been half fixed: the prose said no VE.Direct, but an orphaned table under it still listed the cables.
+- The real network names are in about 190 places, not the three first reported: the backend, the Pi scripts, the ESP32 config and most runbook docs. Most are the Pi's actual config, so they were left (Todd's call).
+- `HARDWARE.md` had been half fixed: the prose said no VE.Direct, but an orphaned table under it still listed the cables.
+- The tailnet name, three Tailscale IPs and the Mac username are in nine tracked files, and real device MAC addresses are in docs and config defaults. The public demo bundle has none of them. Waiting on Todd.
+- The first layout of the refresh button overlapped the word "Unreachable" at phone width (the tile content is about 120px). Caught in the browser, not by the build; phones now say "Offline".
+- `HARDWARE.md` called the house bank 300Ah; the installed battery is a 100Ah Power Queen and 300Ah is a planned upgrade. Fixed there. `powerswitch-control-input.md` still says 300Ah and is waiting for Todd's review.
+- The "still isn't answering" toast showed a green check, which reads as success. Info toasts now have their own icon.
+- Several rows in `decisions.md` that Claude proposed during the redo are built and merged but still Proposed.
 
 **Not checked**
-- Anything on real hardware. Demo mode only.
-- A full keyboard-only walk through the WiFi scan-and-connect flow, and the contrast check was computed in the browser, not with a screen reader.
-- Screenshots in `case-study/assets/before-2026-11-12/` may still show real network names (images were not inspected).
+- Anything on real hardware. Demo mode only. None of the new backend code (Shelly pause and recheck, Starlink and fridge recheck and backoff, the BMS retry) has run under FastAPI or on the Pi. It passed isolated tests with stubbed dependencies, including the real BMS reconnect loop driven by a fake BLE client, but never a real BLE connection, gRPC dish or ESP32.
+- A full keyboard-only walk through the WiFi scan-and-connect flow, and a screen-reader pass. The contrast check was computed in the browser.
+- The BMS current rating (70A or 100A) and the pack's low-voltage and high-temperature limits: Power Queen's pages were rate-limited.
+- Whether the repository is public. The GitHub check was blocked from this machine.
 
-**Next:** push and open the PR (Todd). The SSIDs in the backend, scripts and runbooks stay (Todd's call). Then dark mode last.
+**Next:** Todd decides the backup design (destination, whether secrets go offsite, a Back up now button), the tailnet and MAC cleanup, and the pause policy. Dark mode last.
+
+## 2026-11-20: Session 4, the README and docs review
+
+**Asked for:** Todd thought the README was well out of date and asked for a check of the docs in general. Before that, the held batch was committed on a new branch (`add-check-now-buttons`) for its own PR, based on `main`.
+
+**Done**
+- README: the Figma paragraph said the redesign was "not merged". It shipped, so it now describes the component set, tokens, native `<dialog>` and the phone-first rules. The "50A disconnect" is gone (the main disconnect is a 300A Blue Sea 6006, and the cure for a BMS lockout is cutting its power). Added a status note, the new behaviour (check-now buttons, Shelly pause, SD card image, battery chips), a SmartShunt "not planned" row, and links to six docs that were missing from the list. Each new item says it has not run on the Pi.
+- Other docs: `TROUBLESHOOTING.md` and `SETUP.md` pointed at buttons that moved ("Release on the Battery card", "settings drawer"). `PORTFOLIO.md` said "live and running", named the wrong fuse panel and circuits, and described the frontend before the rebuild. `FUTURE-FEATURES.md` had two items that were now partly built or contradicted by the BLE plan. "PWA" was dropped from three places because the app has no manifest or service worker.
+- The `case-study/` folder is deliberately not linked from the README: nothing in it is cleared for publishing.
+- Todd: one camera only, inside the van, and it is just called "Camera". The README, API, ARCHITECTURE, MODES, HARDWARE, FUTURE-FEATURES, project-overview and `docs/CLAUDE.md` now say so. The UI says "Camera" in the drawer, the image alt text and the History drawer, and the Mode drawer lost its "Exterior camera only" row. `HARDWARE.md` had said the unused slot returns 400; the code returns 503.
+
+**Found**
+- Mechanical checks (links, file paths, API routes against the routers) were clean. Every real error was a statement about behaviour, which only reading finds.
+- Docs that are over 30 days old and untouched, waiting on Todd: `powerswitch-control-input.md` (still says 300Ah) and the three `rubber-duck-review` docs. The 2026-08-27 review also names `docs/devices/RIVER_2_MAX.md` and `docs/protocols/ecoflow.md`, which are not in the repo.
+- `case-study/log.md` mentions `bin/rollup.sh`, which does not exist.
+- Kept on purpose, still named `interior`: the `cam` API parameter, the `/static/photos/interior/` folder and filenames, `camera_exterior_only` in the mode config and types, `DEVICE_MAP`, and the `van-interior-cam` udev example in `HARDWARE.md`. Renaming the folder would orphan the retained photos. Waiting on Todd.
+- My own scratch files were wiped overnight, including the PR description for the branch. It was rewritten.
+
+**Not checked**
+- Whether the Pi was ever redeployed after the rebuild. The README and `docs/CLAUDE.md` now say the rebuild has run in demo mode only, which is Claude's reading of the history. Todd to confirm.
+- Whether the Vercel demo link should go in the README.
+
+**Next:** Todd pushes `add-check-now-buttons` and opens the PR, and says whether the docs edits join it.
+

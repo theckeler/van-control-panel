@@ -1,7 +1,7 @@
 # API Reference — Van Control Panel
 
 
-**Last updated:** 2026-10-19
+**Last updated:** 2026-11-20
 Base URL (local): `http://van-pi.local/api`
 Base URL (Tailscale): `http://van-pi.tailba93b9.ts.net/api`
 
@@ -27,7 +27,8 @@ Current Power Queen BMS state. Returns last known values when BLE is offline.
   "status": "Standby",
   "connected": true,
   "last_seen": "2026-08-22T06:44:00+00:00",
-  "retry_in": null
+  "retry_in": null,
+  "retry_now_in": null
 }
 ```
 
@@ -39,12 +40,21 @@ Current Power Queen BMS state. Returns last known values when BLE is offline.
 | `connected` | bool | True if last read within 120 seconds |
 | `last_seen` | string \| null | ISO8601 UTC of last successful BLE read |
 | `retry_in` | int \| null | Seconds until next reconnect attempt. null when connected |
+| `retry_now_in` | int \| null | Seconds until a manual `POST /battery/retry` is allowed (0 = now). null when connected or released |
 | `released` | bool | True while manually released for the Power Queen app — see below |
 
 When offline, `connected` is false but last known values are still returned so the UI can show "last seen X min ago".
 
 ### `POST /battery/release`
 Drop the BLE connection so the Power Queen mobile app can connect. Logs a `bms` event.
+
+### `POST /battery/retry`
+Try the BMS now instead of waiting out the 5-minute reconnect timer. Refused with
+**429** until 120s (`MIN_RETRY_GAP` in `battery_ble.py`) have passed since the last
+failed attempt, because rapid reconnects can lock the BMS up and the only cure is
+cutting its power. Returns `{"status": "idle"}` and logs nothing when the BMS is
+already connected or released (a released BMS uses `/connect`). Logs a `bms` event
+when it starts a retry. The dashboard's Retry now button calls this.
 
 ### `POST /battery/connect`
 Resume the BLE connection immediately, skipping the reconnect cooldown. Logs a `bms` event.
@@ -191,7 +201,7 @@ Returns `{"status": "restarting", "message": ...}` and restarts about 0.5s later
 ## Shelly
 
 ### `GET /shelly/`
-All configured Shelly unit states. A unit that does not answer shows `reachable: false` and costs a 3s timeout on this call.
+All configured Shelly unit states. A unit that does not answer shows `reachable: false` and costs a 3s timeout on this call, until it is paused (see `paused` below).
 
 ```json
 [
@@ -206,9 +216,22 @@ All configured Shelly unit states. A unit that does not answer shows `reachable:
 (network split, moved networks) reports `reachable: false` rather than
 silently looking identical to a switched-off circuit.
 
+`paused` is `true` when the Pi stopped polling a unit because it kept failing.
+A paused unit costs nothing on this call and reports `reachable: false` until
+`POST /shelly/{unit_id}/recheck` finds it. The number of failures before a
+pause is `_should_pause` in `shelly.py`; the default never pauses. Pause state
+lives in memory, so a `van-api` restart starts every unit unpaused.
+
 ### `GET /shelly/{unit_id}`
 Single unit. Valid IDs: `usb`, `garage`, `ps-input-1`, `ps-input-2` — see
 `SHELLY_UNITS` in `shelly.py`. All four are currently `installed: true`.
+
+### `POST /shelly/{unit_id}/recheck`
+Probe one unit now, even if it is paused. Reads the relay state only and never
+switches anything. If the unit answers, polling resumes. If it does not, it
+stays paused, so a dead unit costs one timeout per tap and nothing on the 5s
+poll. Returns the unit's status (same shape as `GET /shelly/{unit_id}`), or 404
+for an unknown ID. The dashboard's refresh button on an offline tile calls this.
 
 ### `POST /shelly/{unit_id}/toggle`
 Toggle relay. Body: `{ "on": true }`. Returns 503 if the unit isn't installed
@@ -286,9 +309,12 @@ mode to actually change camera intervals or Shelly behavior; see
 
 ## Camera
 
-Only `cam=interior` has real hardware behind it (`/dev/video0`); `exterior`
-is wired up in the same code path but 503s with "exterior camera not
-connected" since there's no camera installed for it yet.
+There is one camera, a Logitech C922 inside the van (`/dev/video0`), and no
+second camera is planned for now. The dashboard just calls it "Camera". In the
+API it is still `cam=interior`, which is the default, and its photos are still
+stored under `/static/photos/interior/`: renaming that would orphan the
+retained photos. `cam=exterior` is an unused second slot in the same code path
+and 503s with "exterior camera not connected".
 
 ### `GET /photos/latest?cam=interior`
 Captures a **fresh photo on every call** — it does not serve the background
@@ -340,6 +366,13 @@ Pi can't talk to the dish at all (unplugged, or the static route to
 the dish is fine but has no service (searching/obstructed/stowed) — check
 `state`, not just these two booleans.
 
+### `POST /starlink/recheck`
+Ask the dish right now instead of waiting for the next poll. Returns the same shape as
+`GET /starlink/`. Reads status only. While the dish is unreachable the loop backs off to
+once a minute, so this is the way to find out sooner (for instance just after the Pi
+rejoins Starlink's network). Can take up to 10s when the dish does not answer. One check
+runs at a time; a second call while one is in flight returns the current reading.
+
 ### `GET /starlink/raw`
 Every field from the last successful poll, unmodelled. Field names shift
 across firmware — check here before trusting anything not in `StarlinkData`.
@@ -357,6 +390,11 @@ CFX535 state via the ESP32 BLE bridge's local JSON API.
 
 `reachable: false` means the ESP32 itself didn't answer — it doesn't
 distinguish that from "ESP32 is up but hasn't rebonded to the fridge yet."
+
+### `POST /dometic/recheck`
+Ask the ESP32 bridge right now. Returns the same shape as `GET /dometic/`. Reads only; it
+never changes the fridge. While the bridge is silent the loop backs off from 5s to once a
+minute, so this is the way to find out sooner. One check at a time.
 
 ---
 
@@ -425,6 +463,8 @@ Start creating a gzipped SD card image. Returns immediately; creation runs in th
 { "ok": false, "message": "image creation already in progress" }
 ```
 
+The output is always the single file `/mnt/van-pi-bkup/van-pi-image.img.gz`, so starting a run replaces any earlier image immediately. The dashboard's SD card image section (Backup drawer) starts it behind a confirm and polls the status.
+
 State resets on van-api restart. If a restart occurs mid-image, `sudo pkill -f "dd if=/dev/mmcblk0"` on the Pi cleans up the process.
 
 ### `GET /system/disk-image/status`
@@ -447,7 +487,7 @@ Poll progress while creation is running.
 Download the completed image. Returns 404 if state is not `done`. File is deleted from the Pi after transfer. Use with Balena Etcher or `gunzip -c van-pi-*.img.gz | sudo dd of=/dev/diskN bs=4M`.
 
 ### `DELETE /system/disk-image`
-Cancel an in-progress image creation or delete a completed image file.
+Cancel an in-progress image creation or delete a completed image file. The dashboard only calls it to stop a running job, behind a confirm.
 
 ```json
 { "ok": true }

@@ -34,6 +34,8 @@ function uptime(seconds: number | null): string | null {
 export function StarlinkCard() {
   const starlink = useVanStore((s) => s.starlink);
   const system = useVanStore((s) => s.system);
+  const recheckStarlink = useVanStore((s) => s.recheckStarlink);
+  const checking = useVanStore((s) => s.rechecking.includes("starlink"));
 
   const online = !!starlink?.online;
   const reachable = !!starlink?.reachable;
@@ -97,6 +99,8 @@ export function StarlinkCard() {
       state={online ? "on" : reachable ? "off" : "offline"}
       value={detail + (online && starlink?.power_w != null ? ` · ${starlink.power_w.toFixed(0)}W` : "")}
       detail={status}
+      onRecheck={recheckStarlink}
+      checking={checking}
     />
   );
 }

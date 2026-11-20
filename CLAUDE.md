@@ -1,13 +1,13 @@
 # CLAUDE.md: Van Control Panel
 
-**Last updated:** 2026-11-13
+**Last updated:** 2026-11-20
 
 Instructions for Claude (and humans) working in this repo.
 
 ## What this is
 A self-hosted monitoring and control dashboard for Todd Heckeler's 2023 Mercedes Sprinter conversion. A Raspberry Pi 4B in the van's electrical cabinet runs a FastAPI backend (`backend/`) and a React frontend (`frontend/`). It reads the LiFePO4 battery over Bluetooth, controls Shelly relays over WiFi, logs to SQLite and is reached from a phone over Tailscale. Owner and dev: Todd. There is no client; this is Todd's own project and a case study (see below).
 
-Read `README.md` first. `docs/CLAUDE.md` is the long hardware and backend reference (about 1,300 lines). Don't load it whole: search it for the part you need (batteries, Shelly, Starlink, camera, networking, auth).
+Read `README.md` first. `docs/CLAUDE.md` is the long hardware and backend reference (about 1,400 lines). Don't load it whole: search it for the part you need (batteries, Shelly, Starlink, camera, networking, auth).
 
 ## Start here, every session
 1. Run `bin/doc-dates.sh`. It flags docs that are undated, edited after their stated date, or older than the newest decision.
@@ -25,7 +25,7 @@ Read `README.md` first. `docs/CLAUDE.md` is the long hardware and backend refere
 - Auth fails open on purpose when a key is unset, so a bad deploy cannot lock Todd out of the van. Changing that is a decision for Todd, not a cleanup (`docs/FUTURE-FEATURES.md`).
 
 ## Stack facts
-- Frontend: React 18, TypeScript, Vite, Tailwind 3, zustand, recharts, dexie. Served by `frontend/server.mjs` (Express) which also proxies the API.
+- Frontend: React 18, TypeScript, Vite, Tailwind 3, zustand, recharts. (`dexie` is still in `package.json` but nothing imports it.) Served by `frontend/server.mjs` (Express) which also proxies the API.
 - Backend: FastAPI + uvicorn, SQLite, `bleak` for BLE, `starlink-grpc-core` for the dish.
 - Polling every 5s from `usePolling`; cards update independently (`store/van.ts`).
 - Last-known-value pattern: when a source goes offline, cards dim and show the last reading with its age (`BatteryCard`, `FridgeCard`). Keep it in the new design.

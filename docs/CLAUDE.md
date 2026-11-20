@@ -1,7 +1,7 @@
 # CLAUDE.md — Van Control Panel
 
 
-**Last updated:** 2026-11-18
+**Last updated:** 2026-11-20
 Context file for Claude Code. Gives full project context so sessions don't require re-explaining the architecture.
 
 **Jump to:** [Quick Start](#quick-start) · [Workflow](#workflow) · [Recovery](#recovery) · [Auth](#auth) ·
@@ -17,7 +17,7 @@ Symptom-first fixes: **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)**.
 
 A self-hosted IoT monitoring and control dashboard for a converted 2023 Mercedes Sprinter VS30 AWD van. Runs fully on a Raspberry Pi inside the van. Frontend is a React/TypeScript SPA served by an Express server. Backend is a FastAPI Python server reading real hardware via BLE and WiFi REST.
 
-**Status:** Live and running on the Pi. All core data sources are real — no mock data in production.
+**Status (2026-11-20):** Built and run on the Pi, which is powered down for now. The November UI rebuild, and everything below marked "not yet run on the Pi", has only been checked in demo mode and with isolated tests, never against the live hardware. When it is running, every core data source is real: no mock data in production.
 
 ---
 
@@ -38,6 +38,8 @@ A self-hosted IoT monitoring and control dashboard for a converted 2023 Mercedes
 **Power Queen 100Ah LiFePO4 BMS** — BLE via `pq_bms_bluetooth` (vendored into `app/services/pq_battery.py` + `pq_request.py`). Uses FFE1 characteristic. Persistent connection — connects once and holds it, reading every 30 seconds. Reconnect cooldown is 5 minutes to prevent BMS firmware lockout.
 
 **BMS lockout behaviour** — If too many rapid connection attempts are made, the BMS accepts connections but stops responding to commands. Fix: physically power-cycle the BMS (flip the house main disconnect). Prevention: the 5-minute `RECONNECT_IN` constant.
+
+**BMS retry now (2026-11-18, not yet run on the Pi)** — the dashboard can skip the 5-minute reconnect wait with `POST /battery/retry`, but only once `MIN_RETRY_GAP` (120s) has passed since the last failed attempt; sooner gets a 429. The floor exists because rapid reconnects are what lock the BMS up. `GET /battery/` reports how long is left as `retry_now_in`.
 
 **BMS service watchdog (2026-10-13)** — The BMS task froze silently inside an un-timed-out BLE call twice (2026-09-04, and 2026-10-05 for 8 days, during which the house battery drained 99% → 19% unseen). Every BLE await in `battery_ble.py` is now hard-bounded, and `ble_orchestrator.py` runs the task under a watchdog that cancels and replaces it if it misses its own progress deadline. A *released* service is exempt. Diagnosis checklist: `docs/TROUBLESHOOTING.md`.
 
@@ -61,7 +63,9 @@ As of 2026-10-19 **PS Input 1 and PS Input 2 do not answer** (the flag in the co
 still `installed: True`). An unreachable unit costs a 3s httpx timeout on every
 `GET /shelly/` poll, which is why that endpoint takes 1-3s while the rest take ~3ms.
 Either bring them back, or mark them `installed: False`, which hides them in the UI
-and skips the poll.
+and skips the poll. Since 2026-11-18 a unit can also be **paused**: after a run of
+failed polls (`_should_pause` in `shelly.py`) it is no longer polled, its dashboard
+tile shows a refresh button, and `POST /shelly/{id}/recheck` brings it back.
 
 Control via httpx async HTTP to Shelly local REST API. The Shellys are on
 TwitchWiFi, so they are reachable as long as the Pi is running, independent of
@@ -153,7 +157,7 @@ backend/app/
     ecoflow.py           /ecoflow/ — battery % and inferred charge_state
     starlink.py          /starlink/ — dish status over local gRPC
     dometic.py           /dometic/ — fridge, via the ESP32 bridge
-    camera.py            /photos/ — live. v4l2-ctl capture (interior only,
+    camera.py            /photos/ — live. v4l2-ctl capture (one camera,
                          /dev/video0, Logitech C922), UVC tuning re-applied
                          before every shot since USB controls reset on unplug/
                          reboot; rejected settings are logged once
@@ -224,7 +228,8 @@ frontend/
     components/cards/
       BatteryCard.tsx    SOC, then volt / watt / temp chips that tint when out of
                          range (thresholds at the top of the file). Shows last known
-                         values when offline with last-seen time and retry countdown.
+                         values when offline with last-seen time and retry countdown,
+                         and a Retry now button that waits out the backend's minimum gap.
                          The History button opens the History drawer
       Cameras.tsx        Latest frame plus history, capture and on/off buttons
       ChargeSourcesCard  Solar / Shore rows (Orion/alternator row coded, commented
@@ -234,10 +239,12 @@ frontend/
                          still no real watts, the encrypted protocol limit below
                          still applies to that
       FridgeCard.tsx     Dometic temp/set-point/compressor; door open shows a badge.
-                         Keeps its last reading, dimmed, when unreachable
+                         Keeps its last reading, dimmed, when unreachable, with a
+                         check-now button
       ShellyCard.tsx     Per-unit SwitchTiles. Filters installed:false, shows
-                         "unreachable" distinctly from off
-      StarlinkCard.tsx   Dish status. Distinguishes "Pi not on Starlink LAN" from
+                         "unreachable" distinctly from off, with a refresh button
+                         on an offline tile
+      StarlinkCard.tsx   Dish status, with a check-now button while unreachable. Distinguishes "Pi not on Starlink LAN" from
                          "dish unreachable" via IP-prefix check against wifi_ip
       WifiCard.tsx       Read-only StatusList: WiFi uplink, hotspot, and the eth0
                          rescue-port cable. Changing WiFi is in the WiFi drawer
@@ -252,7 +259,8 @@ frontend/
       ModeDrawer.tsx     Storage / Camp / Trail / In Town picker, with what the
                          current mode does (the one place a mode can be switched
                          from the UI)
-      BackupDrawer.tsx   DB size, row count, nightly job, unsent files, download
+      BackupDrawer.tsx   DB size, row count, nightly job, unsent files, download,
+                         and the SD card image section (start, status, stop)
       SystemDrawer.tsx   Pi health, and release or reconnect the BMS
       HistoryDrawer.tsx  Tabs: SOC 24h, Solar (30 days, or today's peaks until the
                          first midnight rollup), and Photos (last 24h, tap for
@@ -327,6 +335,7 @@ VAN_API_KEY=<same value as the Pi's backend/.env>
 | Constant             | File                | Value | Notes                                                                                                                                     |
 | -------------------- | ------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | `RECONNECT_IN`       | battery_ble.py      | 300s  | BMS reconnect cooldown                                                                                                                    |
+| `MIN_RETRY_GAP`      | battery_ble.py      | 120s  | Earliest a manual Retry now may cut the cooldown short, counted from the last failed attempt                                              |
 | `STARTUP_DELAY`      | battery_ble.py      | 5s    | Clears BlueZ InProgress on restart                                                                                                        |
 | `READ_EVERY`         | battery_ble.py      | 30s   | BMS read interval                                                                                                                         |
 | `VICTRON_INTERVAL`   | ble_orchestrator.py | 30s   | MPPT scan interval                                                                                                                        |
@@ -353,7 +362,7 @@ Open the repo in VS Code and press **Cmd+Shift+B**, or Cmd+Shift+P → "Run Task
 | -------------------------------------- | ------------------------------------------------------- |
 | **Dev: full stack (local backend)**    | Vite + local uvicorn in parallel. Default build task    |
 | **Dev: frontend against the Pi**       | Vite only, proxies to van-api over Tailscale. Real data |
-| **Dev: frontend with demo data**       | `VITE_DEMO=true`, mock API. No Pi, no Bluetooth needed  |
+| **Dev: frontend with demo data**       | `VITE_DEMO=true`, mock API. No Pi, no Bluetooth needed. Add `?offline=starlink,fridge,bms` to the URL to start those sources down and try the check-now buttons |
 | **Build / Typecheck: frontend**        | `npm run build` / `tsc --noEmit`                        |
 | **Install: frontend deps (incl. dev)** | Use this, not plain `npm install` — see below           |
 | **Pi: status**                         | Service state, WiFi, Shelly reachability                |
@@ -483,7 +492,7 @@ filter, so verify rather than assume.
 
 | Thing                       | Recoverable?                                                                  |
 | --------------------------- | ----------------------------------------------------------------------------- |
-| `van_power.db`              | Nightly snapshot to the Mac, plus on-demand download from the settings drawer |
+| `van_power.db`              | Nightly snapshot to the Mac, plus on-demand download from the Backup drawer |
 | `backend/.env`              | Copy on the Mac at `backend/.env`. Put the values in a password manager too   |
 | `frontend/.env`             | No — but the session secret is regenerable and the password is yours          |
 | `mode.json`                 | No — defaults to `camp`, one click to fix                                     |
@@ -934,9 +943,10 @@ Details worth knowing:
 
 ## Known Limitations / TODOs
 
-- **SD card image creation has no button.** The API (`/system/disk-image/*`) and `services/disk_image.py` exist, and this file used to say the Settings drawer had it, but neither the old nor the new UI calls it. Add it to the System or Backup drawer if wanted.
+- **SD card image: button built 2026-11-18, not yet run on the Pi.** The Backup drawer has an SD card image section (start with a confirm, status, stop with a confirm). Things the UI cannot hide: the image is always the one file `/mnt/van-pi-bkup/van-pi-image.img.gz`, so starting a run replaces the previous image at once and a failed or stopped run leaves none; the job state lives in memory, so after a `van-api` restart the status says "not started" even if an image is on the stick; stopping deletes the partial file; and nobody has watched the Pi (BLE reads, WiFi) while it compresses a whole card for about 45 minutes.
 - **Applying a mode only half works** — the selection persists across restarts and drives the camera interval (`camera_loop.py`), but Shelly schedules are not driven by it. A mode can be switched from the Mode drawer (the header's round Mode button) or through the API.
-- **Camera system — live, 2026-09-04.** Interior camera only (`/dev/video0`,
+- **Camera system — live, 2026-09-04.** One camera, inside the van, called just "Camera" in the UI and `interior` in the
+  API and on disk; no second camera is planned for now (`/dev/video0`,
   a Logitech C922 USB UVC camera since 2026-10-19; the cheap camera it replaced had a
   sensor that locked up and needed a physical replug). `Cameras.tsx` is rendered in `Dashboard.tsx`, backed by a
   background capture loop (`camera_loop.py`, mode-driven interval, 24h
@@ -947,7 +957,7 @@ Details worth knowing:
 - **Orion-Tr** is non-smart, returns static config — upgrade to Orion XS 50A planned
 - **History charts** — the History drawer (`HistoryDrawer.tsx`) renders them. SOC 24h and Solar 30d tabs both work. Daily solar only populates after a midnight rollup, so a fresh install shows the raw-derived fallback.
 - **CORS** is `allow_origins=["*"]` — fine for local/Tailscale, tighten if Funnel is used long-term
-- **PS Input 1 and PS Input 2** are configured (`installed: True`) but unreachable as of 2026-10-19, which costs a 3s timeout on every Shelly poll. USB Outlets and Garage answer. Decision pending: restore them, or set `installed: False`, or add a backend poller with backoff.
+- **PS Input 1 and PS Input 2** are configured (`installed: True`) but unreachable as of 2026-10-19, which costs a 3s timeout on every Shelly poll. USB Outlets and Garage answer. Todd will probably restore them. Built 2026-11-18, not yet deployed or run on the Pi: a unit that keeps failing can be paused so it stops costing that timeout, and the offline tile's refresh button probes it again (`POST /shelly/{id}/recheck`). The pause policy `_should_pause` in `routers/shelly.py` still returns False, so nothing pauses until it is set.
 - **`loads` breakdown in system.py is an estimate** — the old unconditional Starlink 22W and Fridge 40W entries are gone, but each installed Shelly with an `est_watts` is listed whether or not it is on. Latent: the frontend never reads it. See "system.py load estimation" below. **Starlink is now measured:** `loads` lists a `Starlink` entry with `source: "measured"` from the dish's real `power_w`, and omits it when the dish is unreachable or reports no power (unreachable means the Pi cannot see the dish, not that it draws zero, so no number is claimed). Only the BMS-disconnected fallback sum still contains the 22W guess, and only when no measurement is available. Not yet verified against the live dish.
 - **Vercel demo build** — built and deployed; the SSO-protection caveat in "Vercel Demo Mode" below is still open.
 - **Dometic CFX5 fridge — LIVE, 2026-08-27.** Multi-day blocker resolved.
@@ -1074,7 +1084,11 @@ ecoflow_ble.py`, `/ecoflow/`, `EcoflowCard.tsx`.
     on first success, and only the first failure logs at warning. An
     unreachable dish is routine here rather than exceptional — the Pi sits on
     OHeck for days at a time — and at a flat 5s it wrote ~17k warnings a day
-    into journald on an SD card.
+    into journald on an SD card. Since 2026-11-18 `POST /starlink/recheck` asks
+    the dish immediately and wakes the loop, so the dashboard's check-now button
+    does not have to wait out a 60s backoff. The fridge poll backs off the same
+    way (5s up to 60s) and has `POST /dometic/recheck`. Neither stops polling:
+    both recover by themselves. Not yet run on the Pi.
   - `reachable` and `online` are deliberately separate. A stowed dish answers
     the API fine, and "searching for satellites" is a different problem from
     "unplugged". Note that when the Pi falls back to OHeck, it is off
@@ -1286,9 +1300,11 @@ input, which covers most real usage, and unreliable otherwise.
   as the flat-sum fallback for the separate "BMS not connected at all" case
   (`load_is_estimate: true`), just no longer looped into the per-item
   breakdown unconditionally.
-- _Real — not done:_ measure instead of infer. A Victron SmartShunt reports
+- _Real — not planned:_ measure instead of infer. A Victron SmartShunt reports
   over the same BLE advertisement protocol the MPPT already uses, and would
-  make load, runtime, and shore detection all real.
+  make load, runtime, and shore detection all real. Todd decided on
+  2026-11-18 that one is not coming soon, maybe never, so load stays inferred
+  from the BMS and MPPT and the limits above stand.
 
 `estimated_runtime_hrs` is **not** affected — it derives from
 `remainAh / abs(current)`, both measured, and is sound.

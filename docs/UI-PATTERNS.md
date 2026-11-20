@@ -77,7 +77,7 @@ The Power tile opens one `Dialog` with the three actions stacked, the primary at
 Confirmed correct in `docs/CLAUDE.md`, kept in the new design. When a source drops: the card keeps its last reading, dims it, and says "Offline · last seen 4 min ago". Device rows go to a dashed border with "Offline". Circuit tiles go dashed with "Unreachable". Never blank a card on one missed poll.
 
 ## Relay tiles
-`SwitchTile` states: **on** (lime fill, "ON"), **off** (white, "OFF"), **offline** (dashed, "Unreachable"), **busy** (taps ignored). A tap toggles and waits for the backend's confirmed state before showing the new one: the UI never claims on until the Shelly said so. The mock's "Door Lights" tile is a placeholder and is not built.
+`SwitchTile` states: **on** (lime fill, "ON"), **off** (white, "OFF"), **offline** (dashed, "Unreachable"; not a button, so it can hold a refresh button that probes the unit again, and phones and tablets say "Offline" beside it because the longer word does not fit until 1024px), **busy** (taps ignored). A tap toggles and waits for the backend's confirmed state before showing the new one: the UI never claims on until the Shelly said so. The mock's "Door Lights" tile is a placeholder and is not built.
 
 ## Feedback
 - **Toast** for the result of a quick action ("Found 4 networks", "Hotspot off"). Dark, red for errors, never green, because it floats over the lime tiles. It is a popover so it sits above open drawers; while a modal is open the page behind it is inert, so a toast over a drawer can't be tapped (it times out on its own).
@@ -96,7 +96,6 @@ Confirmed correct in `docs/CLAUDE.md`, kept in the new design. When a source dro
 ## Not built
 - The Figma's camera light and options buttons: there is no API for either.
 - A per-relay overflow menu (timers), from `docs/FUTURE-FEATURES.md`.
-- SD card image creation in the UI (the API exists).
 - Dark theme.
 
 ## Open questions for Todd

@@ -31,6 +31,7 @@ function describe(err: unknown): string {
   const status = msg.match(/API error (\d+)/)?.[1];
   if (status === "401" || status === "403")
     return "session expired, reload to sign in";
+  if (status === "429") return "too soon, wait a little and try again";
   if (status === "502" || status === "503") return "the backend is down";
   if (status) return `server returned ${status}`;
   return msg;
@@ -113,6 +114,9 @@ interface VanStore {
   shore: ShoreData | null;
   orion: OrionData | null;
   shellys: ShellyUnit[];
+  /** Ids with a check-now in flight ("starlink", "fridge", "bms", or a Shelly
+   *  id), for the refresh buttons. */
+  rechecking: string[];
   system: SystemData | null;
   hotspot: HotspotStatus | null;
   mode: ModeResponse | null;
@@ -131,6 +135,10 @@ interface VanStore {
   fetchAll: () => Promise<void>;
   fetchHistory: () => Promise<void>;
   toggleShelly: (id: string, on: boolean) => Promise<void>;
+  recheckShelly: (id: string) => Promise<void>;
+  recheckStarlink: () => Promise<void>;
+  recheckFridge: () => Promise<void>;
+  retryBms: () => Promise<void>;
   setMode: (mode: string) => Promise<void>;
   releaseBms: () => Promise<void>;
   connectBms: () => Promise<void>;
@@ -167,6 +175,39 @@ export const useVanStore = create<VanStore>((set, get) => {
     return true;
   }
 
+  /**
+   * Ask a source to check itself now, for the refresh buttons. Shared by
+   * Starlink and the fridge. Holds the same `pending` key as that source's
+   * poll, so a poll that was already in flight cannot overwrite the answer.
+   */
+  async function checkNow<T>(
+    id: string,
+    key: PollKey,
+    label: string,
+    call: () => Promise<T>,
+    apply: (value: T) => void,
+    answered: (value: T) => boolean,
+  ): Promise<void> {
+    if (pending.has(key)) return;
+    pending.add(key);
+    set((state) => ({ rechecking: [...state.rechecking, id] }));
+    try {
+      const value = await call();
+      touch(key);
+      apply(value);
+      if (answered(value)) toast.success(`${label} is back`);
+      else toast.info(`${label} still isn't answering`);
+    } catch (err) {
+      toast.error(`Couldn't check ${label} — ${describe(err)}`);
+    } finally {
+      touch(key);
+      pending.delete(key);
+      set((state) => ({
+        rechecking: state.rechecking.filter((r) => r !== id),
+      }));
+    }
+  }
+
   return {
     battery: null,
     mppt: null,
@@ -176,6 +217,7 @@ export const useVanStore = create<VanStore>((set, get) => {
     shore: null,
     orion: null,
     shellys: [],
+    rechecking: [],
     system: null,
     hotspot: null,
     mode: null,
@@ -293,6 +335,73 @@ export const useVanStore = create<VanStore>((set, get) => {
         // Any poll that started before now predates the outcome.
         touch(key);
         pending.delete(key);
+      }
+    },
+
+    // Ask the Pi to probe one unit now. Used by the refresh button on an
+    // unreachable tile, and the only way a paused unit starts being polled
+    // again. Reads state only; it never switches the relay.
+    recheckShelly: async (id: string) => {
+      const key = `shelly:${id}`;
+      if (pending.has(key)) return;
+      const label = get().shellys.find((s) => s.id === id)?.label ?? id;
+      pending.add(key);
+      set((state) => ({ rechecking: [...state.rechecking, id] }));
+      try {
+        const unit = await api.shelly.recheck(id);
+        touch(key);
+        set((state) => ({
+          shellys: state.shellys.map((s) => (s.id === id ? { ...s, ...unit } : s)),
+        }));
+        if (unit.reachable === false) toast.info(`${label} still isn't answering`);
+        else toast.success(`${label} is back`);
+      } catch (err) {
+        toast.error(`Couldn't check ${label} — ${describe(err)}`);
+      } finally {
+        touch(key);
+        pending.delete(key);
+        set((state) => ({ rechecking: state.rechecking.filter((r) => r !== id) }));
+      }
+    },
+
+    recheckStarlink: () =>
+      checkNow(
+        "starlink",
+        "starlink",
+        "Starlink",
+        () => api.starlink.recheck(),
+        (value) => set({ starlink: value }),
+        (value) => value.reachable,
+      ),
+
+    recheckFridge: () =>
+      checkNow(
+        "fridge",
+        "dometic",
+        "The fridge",
+        () => api.dometic.recheck(),
+        (value) => set({ dometic: value }),
+        (value) => value.reachable,
+      ),
+
+    // Try the BMS now instead of waiting out its reconnect timer. The backend
+    // refuses (429) until a minimum gap has passed, because retrying the BMS
+    // too fast can lock it up, so the button is disabled until then too.
+    retryBms: async () => {
+      if (pending.has("battery")) return;
+      pending.add("battery");
+      set((state) => ({ rechecking: [...state.rechecking, "bms"] }));
+      try {
+        await api.battery.retry();
+        toast.info("Trying the battery again — this can take up to 35s");
+      } catch (err) {
+        toast.error(`Couldn't retry the battery — ${describe(err)}`);
+      } finally {
+        touch("battery");
+        pending.delete("battery");
+        set((state) => ({
+          rechecking: state.rechecking.filter((r) => r !== "bms"),
+        }));
       }
     },
 

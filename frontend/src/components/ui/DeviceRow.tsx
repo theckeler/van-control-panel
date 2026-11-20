@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import type { ReactNode } from "react";
+import { IconButton } from "./IconButton";
 import { StatusDot } from "./StatusDot";
 
 export type DeviceState = "on" | "off" | "offline";
@@ -17,6 +18,8 @@ export function DeviceRow({
   state = "on",
   children,
   rawName = false,
+  onRecheck,
+  checking = false,
   vc,
 }: {
   name: string;
@@ -27,19 +30,15 @@ export function DeviceRow({
   children?: ReactNode;
   /** The name is data, like a WiFi SSID, so keep its case. */
   rawName?: boolean;
+  /** Offline only: ask the source again now. Shows a refresh button. */
+  onRecheck?: () => void;
+  /** Offline only: a check is in flight. */
+  checking?: boolean;
   vc?: string;
 }) {
   const offline = state === "offline";
-  return (
-    <div
-      data-vc={vc ?? "device-row"}
-      className={clsx(
-        "flex flex-col gap-0.5 rounded border px-3 py-2",
-        state === "on" && "border-on bg-surface text-ink",
-        state === "off" && "border-line bg-surface text-ink",
-        offline && "border-dashed border-line bg-page text-ink-muted",
-      )}
-    >
+  const content = (
+    <>
       <div className="flex items-center justify-between gap-3">
         <span
           className={clsx(
@@ -58,6 +57,31 @@ export function DeviceRow({
         <span className="text-body font-semibold tabular-nums">{value}</span>
       )}
       {children}
+    </>
+  );
+  return (
+    <div
+      data-vc={vc ?? "device-row"}
+      className={clsx(
+        "rounded border px-3 py-2",
+        state === "on" && "border-on bg-surface text-ink",
+        state === "off" && "border-line bg-surface text-ink",
+        offline && "border-dashed border-line bg-page text-ink-muted",
+      )}
+    >
+      {offline && onRecheck ? (
+        <div className="flex items-center gap-3">
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">{content}</div>
+          <IconButton
+            icon="refresh"
+            label={`Check ${name} again`}
+            busy={checking}
+            onClick={onRecheck}
+          />
+        </div>
+      ) : (
+        <div className="flex flex-col gap-0.5">{content}</div>
+      )}
     </div>
   );
 }

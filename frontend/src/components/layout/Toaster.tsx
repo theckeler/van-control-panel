@@ -21,7 +21,7 @@ const ICON_TONE: Record<ToastKind, string> = {
 const ICON: Record<ToastKind, IconName> = {
   success: "check",
   error: "x",
-  info: "check",
+  info: "info",
 };
 
 // Quick-action results. The icon and the message carry the meaning together,

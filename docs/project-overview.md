@@ -1,7 +1,7 @@
 # Van Control Panel — Project Overview
 
 
-**Last updated:** 2026-11-18
+**Last updated:** 2026-11-20
 A Python FastAPI backend + React/TypeScript frontend dashboard for monitoring and controlling the van's 12V electrical system. Runs on a Raspberry Pi mounted in the van, accessible locally and remotely via Tailscale.
 
 Built as a real-world learning project for Python and as a portfolio piece demonstrating full-stack development with IoT hardware integration.
@@ -13,7 +13,7 @@ Built as a real-world learning project for Python and as a portfolio piece demon
 - Monitor battery SOC, voltage, current, temperature, and cell balance in real time
 - Track solar input, charge state, and daily yield from the Victron MPPT
 - Control 12V loads via Shelly smart switches
-- Watch the rest of the van too: Starlink, the EcoFlow, the Dometic fridge, the interior camera
+- Watch the rest of the van too: Starlink, the EcoFlow, the Dometic fridge, the camera
 - Serve a mobile-first dashboard accessible on the local network and remotely
 - Learn Python through a meaningful, hardware-connected project
 
@@ -48,7 +48,7 @@ Built as a real-world learning project for Python and as a portfolio piece demon
 | Dometic CFX5 35 fridge | BLE to an ESP32-S3 bridge, then WiFi | BlueZ cannot bond with it directly |
 | Starlink Mini | Local gRPC (192.168.100.1:9200) | Latency, obstruction, power draw |
 | Shelly 1 Gen4 x4 (USB outlets, Garage, PS Input 1, PS Input 2) | WiFi HTTP REST on the Pi's own hotspot | Live toggle. PS Input 1 and 2 are unreachable as of 2026-10-19 |
-| Logitech C922 webcam | USB UVC (/dev/video0) | Interior camera, timed and on-demand captures |
+| Logitech C922 webcam | USB UVC (/dev/video0) | The camera (one, inside the van), timed and on-demand captures |
 | Raspberry Pi 4B | wlan0 hotspot, wlan1 (USB dongle) uplink | Starlink preferred, home WiFi fallback |
 
 Full detail: [HARDWARE.md](HARDWARE.md).
@@ -71,7 +71,7 @@ van-control-panel/
 │   │   │   ├── mode.py            # /mode/ — camp/trail/storage/in_town
 │   │   │   ├── shore.py           # /shore/ — shore charger (always disconnected)
 │   │   │   ├── orion.py           # /orion/ — DC-DC charger (static)
-│   │   │   ├── camera.py          # /photos/ — interior camera
+│   │   │   ├── camera.py          # /photos/ — the camera
 │   │   │   ├── ecoflow.py         # /ecoflow/
 │   │   │   ├── starlink.py        # /starlink/
 │   │   │   └── dometic.py         # /dometic/ — fridge, via the ESP32 bridge
@@ -172,7 +172,7 @@ The frontend has its own `frontend/.env` (`VAN_PORT=3000`, `VAN_PASSWORD`, `VAN_
 | EcoFlow, Starlink, Dometic fridge | Done, live (EcoFlow: battery % only; fridge: read only) |
 | System endpoint (net power, runtime) | Done |
 | SQLite logging, history charts | Done |
-| Interior camera, timed capture | Done (Logitech C922). No exterior camera |
+| Camera, timed capture | Done (Logitech C922). One camera; a second is not planned for now |
 | Mode persistence | Done, and the mode sets the camera interval |
 | Applying a mode to the Shellys | Not built |
 | Auto-deploy CI/CD, Tailscale | Done |

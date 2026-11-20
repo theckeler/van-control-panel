@@ -1,7 +1,7 @@
 # Operating Modes — Van Control Panel
 
 
-**Last updated:** 2026-11-13
+**Last updated:** 2026-11-20
 Modes let you switch the van's behavior based on context — parked for storage, at a campsite, on the trail, or in town. Each mode adjusts camera capture intervals, Shelly automation, and (planned) notification behavior.
 
 **What is live and what is intent.** The *camera interval* of the active mode is real:
@@ -20,7 +20,7 @@ data (`shellys_off`, `camera_exterior_only`).
 | Setting | Value |
 |---|---|
 | Camera interval | 6 hours (`camera_interval_min: 360`, fixed — not a range) |
-| Camera scope | Interior only — exterior camera isn't physically installed |
+| Camera scope | The one camera (no second camera planned for now) |
 | Shellys | All off |
 | Description | Battery preservation priority. Minimum parasitic draw. |
 
@@ -34,7 +34,7 @@ Best for: leaving the van at the trailhead for a multi-day trip, parking at home
 | Setting | Value |
 |---|---|
 | Camera interval | 30 min |
-| Camera scope | Interior only — exterior camera isn't physically installed |
+| Camera scope | The one camera (no second camera planned for now) |
 | Shellys | Scheduled (lights off midnight, fan off midnight, USB off 11PM) |
 | Description | Normal monitoring. Automation schedules active. |
 
@@ -48,7 +48,7 @@ Best for: dispersed camping in the Adirondacks, Hiawatha NF, any overnight stay.
 | Setting | Value |
 |---|---|
 | Camera interval | 15 min |
-| Camera scope | Interior only — exterior camera isn't physically installed |
+| Camera scope | The one camera (no second camera planned for now) |
 | Shellys | Manual only, automation paused |
 | Description | Van unattended at a trailhead or similar. Shorter camera interval than camp for a light security-watch posture while you're away from it. |
 
@@ -62,7 +62,7 @@ Best for: parked at the trailhead in Copper Harbor or the Adirondacks while out 
 | Setting | Value |
 |---|---|
 | Camera interval | 30 min |
-| Camera scope | Interior only — exterior camera isn't physically installed |
+| Camera scope | The one camera (no second camera planned for now) |
 | Shellys | Manual control |
 | Description | Full connectivity. Cooler monitoring. Starlink typically running. |
 
@@ -81,7 +81,7 @@ section describes an intended behavior, not something currently running. (See
 
 ## Switching Modes
 
-**Via PWA dashboard:** the round Mode button in the header opens the Mode drawer
+**Via the dashboard:** the round Mode button in the header opens the Mode drawer
 (`ModeDrawer.tsx`), which lists the four modes and what the current one does.
 The current mode's name is also shown under the van name.
 
@@ -92,7 +92,7 @@ ssh todd@van-pi.local 'curl -s -X POST http://127.0.0.1:8000/mode/camp'
 ```
 
 **Via Siri (Apple Home):**
-Not directly available for mode switching — use the PWA dashboard or API.
+Not directly available for mode switching — use the dashboard or API.
 
 ---
 

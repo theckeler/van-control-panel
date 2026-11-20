@@ -194,7 +194,7 @@ Workflow as usual: branch, stage, diff summary, explicit approval before any com
 
 - Any ESP32 for Victron (see section 1).
 - VE.Direct cables or ports.
-- The SvelteKit migration (`docs/SVELTEKIT-MIGRATION.md`). The only API change here is that `inferred` becomes `False` for real IP22 data, which the frontend already tolerates.
+- Frontend work. The only API change here is that `inferred` becomes `False` for real IP22 data, which the frontend already tolerates.
 
 ## 8. Docs to update when done
 

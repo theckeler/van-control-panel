@@ -61,6 +61,8 @@ const realApi = {
       post<{ status: string; message: string }>("/battery/release"),
     connect: () =>
       post<{ status: string; message: string }>("/battery/connect"),
+    /** Try now instead of waiting out the reconnect timer. 429 if too soon. */
+    retry: () => post<{ status: string; message: string }>("/battery/retry"),
     history: {
       raw: (hours = 24) =>
         get<RawReading[]>(`/battery/history/raw?hours=${hours}`),
@@ -88,9 +90,13 @@ const realApi = {
   },
   starlink: {
     get: () => get<StarlinkData>("/starlink/"),
+    /** Ask the dish now. Can take up to 10s when it does not answer. */
+    recheck: () => post<StarlinkData>("/starlink/recheck"),
   },
   dometic: {
     get: () => get<DometicData>("/dometic/"),
+    /** Ask the ESP32 bridge now. Reads only. */
+    recheck: () => post<DometicData>("/dometic/recheck"),
   },
   shore: {
     get: () => get<ShoreData>("/shore/"),
@@ -105,6 +111,8 @@ const realApi = {
     get: (id: string) => get<ShellyUnit>(`/shelly/${id}`),
     toggle: (id: string, on: boolean) =>
       post<{ unit_id: string; on: boolean }>(`/shelly/${id}/toggle`, { on }),
+    /** Probe one unit now, even if paused. Reads state only. */
+    recheck: (id: string) => post<ShellyUnit>(`/shelly/${id}/recheck`),
   },
   camera: {
     latest: (cam: "interior" | "exterior") =>

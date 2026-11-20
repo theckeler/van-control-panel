@@ -96,6 +96,19 @@ export function Components() {
             <SwitchTile label="Garage" state="on" onToggle={() => {}} />
             <SwitchTile label="USB" state="off" onToggle={() => {}} />
             <SwitchTile label="Side" state="offline" onToggle={() => {}} />
+            <SwitchTile
+              label="PS Input 1"
+              state="offline"
+              onToggle={() => {}}
+              onRecheck={() => {}}
+            />
+            <SwitchTile
+              label="PS Input 2"
+              state="offline"
+              onToggle={() => {}}
+              onRecheck={() => {}}
+              checking
+            />
             <SwitchTile label="Roof" state="busy" onToggle={() => {}} />
             <SwitchTile
               label="Tap me"
@@ -147,6 +160,21 @@ export function Components() {
           </DeviceRow>
           <DeviceRow name="Starlink" value="28 ms · 0.7 Mbps" detail="obstructed" />
           <DeviceRow name="CFX5" value="64.4°F" detail="Running" />
+          <DeviceRow
+            name="Fridge"
+            state="offline"
+            value="39.6°F · set 39°F"
+            detail="Offline · last seen 4m ago"
+            onRecheck={() => {}}
+          />
+          <DeviceRow
+            name="Starlink"
+            state="offline"
+            value="Dish unreachable"
+            detail="Offline"
+            onRecheck={() => {}}
+            checking
+          />
           <DeviceRow name="Shore" state="off" detail="Unplugged" />
           <DeviceRow name="Starlink" state="offline" />
         </Block>

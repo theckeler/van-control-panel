@@ -18,6 +18,7 @@ export function IconButton({
   label,
   tone = "control",
   badge,
+  busy = false,
   className,
   disabled,
   ...props
@@ -28,6 +29,8 @@ export function IconButton({
   tone?: IconButtonTone;
   /** Small count or marker in the corner. */
   badge?: string | number;
+  /** Spins the icon and ignores taps while something is in flight. */
+  busy?: boolean;
   className?: string;
 } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className" | "children" | "aria-label">) {
   return (
@@ -36,16 +39,18 @@ export function IconButton({
       type="button"
       aria-label={label}
       title={label}
+      aria-busy={busy || undefined}
       disabled={disabled}
       className={clsx(
         "relative inline-flex size-11 shrink-0 items-center justify-center rounded-full transition hover:brightness-110",
         "disabled:cursor-not-allowed disabled:bg-line disabled:text-disabled disabled:hover:brightness-100",
+        busy && "pointer-events-none",
         ICON_TONE[tone],
         className,
       )}
       {...props}
     >
-      <Icon name={icon} />
+      <Icon name={icon} className={busy ? "animate-spin" : undefined} />
       {badge !== undefined && (
         <span
           aria-hidden="true"
