@@ -74,6 +74,7 @@ export function DeviceRow({
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">{content}</div>
           <IconButton
             icon="refresh"
+            tone="quiet"
             label={`Check ${name} again`}
             busy={checking}
             onClick={onRecheck}

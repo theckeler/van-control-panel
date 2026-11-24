@@ -1,7 +1,7 @@
 # Hardware Reference — Van Control Panel
 
 
-**Last updated:** 2026-11-20
+**Last updated:** 2026-11-24
 ## Vehicle
 
 **2023 Mercedes Sprinter VS30 AWD 144" High Roof** — cargo conversion.
@@ -45,13 +45,12 @@ its own voltage warnings, an open question not yet resolved.
 
 ## Cameras
 
-**There is one camera, inside the van, at `/dev/video0`, and a second is not planned for now.** The dashboard calls it "Camera"; the API still calls it `interior`. A
+**There is one camera, inside the van, at `/dev/video0`, and a second is not planned for now.** The dashboard, the API and the photo folder all just call it "camera". A
 **Logitech C922 Pro Stream Webcam** (`046d:085c`, USB UVC), in place by
 2026-10-19. It replaced a cheap "HD USB Camera" (`32e4:9520`) that kept
 freezing on one identical frame, even through a held 15-second USB port power
-cycle. Not the originally-planned CSI module — see below. `camera.py`
-still has an unused `exterior` device slot (`/dev/video2`) wired up in code;
-requests for it 503 with "exterior camera not connected" rather than failing
+cycle. Not the originally-planned CSI module — see below. With the camera
+unplugged, `camera.py` answers 503 "camera not connected" rather than failing
 silently.
 
 **Two capture paths.** A background loop (`services/camera_loop.py`) takes a
@@ -61,15 +60,15 @@ captures fresh on every call rather than serving the loop's last frame.
 
 **Why `ffmpeg` and the CSI module got abandoned, 2026-08-31:** the original
 plan was the Pi Camera Module 3 (CSI, via `rpicam-still`/`libcamera`) for
-interior and `fswebcam`/`ffmpeg` for a USB exterior camera. Installing
+the van camera and `fswebcam`/`ffmpeg` for a USB camera outside. Installing
 ffmpeg's dependency chain (mesa, gtk3, vulkan, etc.) **OOM-crashed the Pi's
 1GB RAM twice mid-install** — not a runtime failure, the install itself was
 too heavy. Switched to `v4l2-ctl` for both cameras instead: it's already on
 the box, and this UVC camera does its own onboard MJPEG encoding, so
 `v4l2-ctl --stream-to=<path>` writes one already-complete JPEG frame
 straight to disk — no transcoding process, no extra package, no ffmpeg at
-all. Also switched the interior camera itself from CSI to USB UVC in the
-process (simpler, one code path for both camera slots instead of two).
+all. Also switched the camera itself from CSI to USB UVC in the
+process (simpler, one code path).
 
 **UVC control tuning** (the camera, applied fresh before every capture
 since USB controls reset on unplug/reboot — see `camera.py`'s
@@ -77,18 +76,18 @@ since USB controls reset on unplug/reboot — see `camera.py`'s
 and `focus_absolute=0` (manual, infinity), `brightness=128` (the default),
 `auto_exposure=3` (auto) and `backlight_compensation=1`.
 
-Why those, measured on the real interior scene:
+Why those, measured on the real scene:
 
 - **Brightness:** the C922 is 0-255 with a default of 128, and **0 is the
-  darkest setting**, not a reset. At 0 the interior was nearly black (mean
+  darkest setting**, not a reset. At 0 the scene was nearly black (mean
   luma ~26); at 128 it is ~76 (~86 with backlight compensation).
 - **Exposure:** the camera only accepts `1` (manual) or `3` (aperture
   priority, i.e. auto). `0` fails with `Invalid argument`.
 - **Focus:** fixed focus 0-20 is sharp and 30+ is soft. Continuous autofocus
   came out *blurry*, so it stays off.
 - **Backlight compensation:** the scene is lit from the window, so this lifts
-  the interior at the cost of some window highlight. Remove that line from
-  `CAMERA_TUNING` if the window matters more than the interior.
+  the scene at the cost of some window highlight. Remove that line from
+  `CAMERA_TUNING` if the window matters more than the room.
 
 The numbers do not transfer between cameras: the previous camera's ranges were
 brightness 0-15 (default 8), so values tuned for it (`brightness=4`,
@@ -104,9 +103,9 @@ the C922 exposes **two** nodes: `video0` (capture, `index` 0) and `video1`
 pins the capture node would be:
 ```bash
 # /etc/udev/rules.d/99-van-cam.rules
-SUBSYSTEM=="video4linux", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="085c", ATTR{index}=="0", SYMLINK+="van-interior-cam"
+SUBSYSTEM=="video4linux", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="085c", ATTR{index}=="0", SYMLINK+="van-cam"
 ```
-and `DEVICE_MAP["interior"]` would then point at `/dev/van-interior-cam`. A second
+and `CAMERA_DEVICE` would then point at `/dev/van-cam`. A second
 camera would need its own `idProduct` (from `lsusb`) and, if it is the same model,
 a USB-port path match, since two identical cameras share one ID.
 

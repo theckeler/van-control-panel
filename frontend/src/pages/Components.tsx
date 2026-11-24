@@ -69,6 +69,8 @@ export function Components() {
             <IconButton icon="power" label="Power" tone="on" />
             <IconButton icon="save" label="Backup" badge={3} />
             <IconButton icon="images" label="Photos" disabled />
+            <IconButton icon="refresh" label="Check again" tone="quiet" />
+            <IconButton icon="refresh" label="Checking" tone="quiet" busy />
             <IconCircle icon="battery" tone="on" label="Live" />
             <IconCircle icon="battery" label="Battery, offline" />
           </div>

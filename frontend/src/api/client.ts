@@ -115,12 +115,10 @@ const realApi = {
     recheck: (id: string) => post<ShellyUnit>(`/shelly/${id}/recheck`),
   },
   camera: {
-    latest: (cam: "interior" | "exterior") =>
-      get<Photo>(`/photos/latest?cam=${cam}`),
-    recent: (cam: "interior" | "exterior", limit = 20) =>
-      get<Photo[]>(`/photos/recent?cam=${cam}&limit=${limit}`),
-    capture: (cam: "interior" | "exterior") =>
-      post(`/photos/capture?cam=${cam}`),
+    latest: () => get<Photo>("/photos/latest"),
+    recent: (limit = 20) =>
+      get<Photo[]>(`/photos/recent?limit=${limit}`),
+    capture: () => post("/photos/capture"),
   },
   mode: {
     current: () => get<ModeResponse>("/mode/current"),

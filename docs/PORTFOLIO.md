@@ -1,7 +1,7 @@
 # Van Control Panel — Portfolio
 
 
-**Last updated:** 2026-11-20
+**Last updated:** 2026-11-24
 ## Project Overview
 
 A fully self-hosted IoT monitoring and automation system for a converted 2023 Mercedes Sprinter VS30 AWD van. Built from the ground up combining React/TypeScript front-end development, Python backend engineering, Bluetooth hardware integration, and 12V electrical system design.
@@ -28,7 +28,7 @@ The software monitors hardware that had to be designed and wired first:
 - Power Queen 12V 100Ah LiFePO4 battery with Bluetooth BMS
 - Blue Sea Systems 5046 12-circuit fuse block for load distribution, with a 200A fuse at the battery and a 300A rotary disconnect
 - Shelly 1 Gen4 smart relays on the USB outlets, a garage circuit and the two Garmin PowerSwitch inputs
-- Garmin PowerSwitch for accessory control (Starlink, exterior lights)
+- Garmin PowerSwitch for accessory control (Starlink, lights)
 - All wiring sized for planned 300Ah upgrade without rewiring
 
 ### Backend (Python / FastAPI)

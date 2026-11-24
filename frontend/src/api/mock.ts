@@ -228,28 +228,24 @@ const MODE_CONFIG: Record<ModeName, ModeResponse["config"]> = {
   storage: {
     label: "Storage",
     camera_interval_min: 300,
-    camera_exterior_only: false,
     shellys_off: true,
     description: "Battery preservation priority. Minimum parasitic draw.",
   },
   camp: {
     label: "Camp",
     camera_interval_min: 30,
-    camera_exterior_only: false,
     shellys_off: false,
     description: "Normal monitoring. Automation schedules active.",
   },
   trail: {
     label: "Trail",
     camera_interval_min: 15,
-    camera_exterior_only: false,
     shellys_off: false,
     description: "Van unattended at a trailhead. Shorter camera interval.",
   },
   in_town: {
     label: "In Town",
     camera_interval_min: 30,
-    camera_exterior_only: false,
     shellys_off: false,
     description: "Full connectivity. Cooler monitoring. Starlink running.",
   },
@@ -260,8 +256,8 @@ function delay<T>(value: T, ms = 120): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms));
 }
 
-function mockPhoto(): Photo {
-  const timestamp = new Date().toISOString();
+function mockPhoto(minutesAgo = 0): Photo {
+  const timestamp = new Date(Date.now() - minutesAgo * 60_000).toISOString();
   const time = new Date(timestamp).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
@@ -279,7 +275,8 @@ function mockPhoto(): Photo {
     <text x="320" y="254" text-anchor="middle" fill="#71717a" font-family="monospace" font-size="13">${time}</text>
   </svg>`;
   const url = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-  return { filename: `interior_demo.svg`, url, timestamp };
+  // Unique per photo: the History list keys its rows by filename.
+  return { filename: `camera_demo_${timestamp}.svg`, url, timestamp };
 }
 
 // --- History generators ----------------------------------------------------
@@ -602,7 +599,7 @@ export const mockApi = {
     // reach out to the internet for anything but Tailscale).
     latest: (): Promise<Photo> => delay(mockPhoto()),
     recent: (): Promise<Photo[]> =>
-      delay(Array.from({ length: 5 }, () => mockPhoto())),
+      delay(Array.from({ length: 5 }, (_, i) => mockPhoto(i * 45))),
     capture: (): Promise<Photo> => delay(mockPhoto()),
   },
 

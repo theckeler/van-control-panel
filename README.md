@@ -1,7 +1,7 @@
 # Van Control Panel
 
 
-**Last updated:** 2026-11-20
+**Last updated:** 2026-11-24
 > A self-hosted monitoring and control dashboard for a 2023 Mercedes Sprinter VS30 AWD 144" High Roof conversion.
 
 ![Stack](https://img.shields.io/badge/stack-React%20%2B%20FastAPI-orange)
@@ -175,7 +175,7 @@ self-hosted GitHub Actions runner that deploys on push.
 Open in VS Code and press **Cmd+Shift+B**, or:
 
 ```bash
-# frontend — proxies to the Pi over Tailscale by default (override with VAN_API_TARGET)
+# frontend — proxies to http://van-pi.local by default; set VAN_API_TARGET in frontend/.env.local for Tailscale
 cd frontend && npm install --include=dev && npm run dev
 
 # backend

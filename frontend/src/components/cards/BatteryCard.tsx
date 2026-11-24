@@ -24,10 +24,10 @@ type Read = { tone: StatTone; hint?: string };
 // cutoff and the high-temperature limit. Those use typical LiFePO4 figures.
 // Check the sticker on the pack and adjust the constants below.
 
-// BMS continuous current rating, amps. Power Queen lists 100A for its 100Ah
-// packs, but this BMS reports itself as P-12100BNNA70, which may mean 70A.
-// The lower number is used, so the chip warns early and not late.
-const BMS_MAX_A = 70;
+// BMS continuous current rating, amps. Power Queen's listing for this pack
+// says 100A (Todd, 2026-11-24), about 1,300W at 12.8V. The "70" in the BMS's
+// own name, P-12100BNNA70, is only a part number.
+const BMS_MAX_A = 100;
 
 // Resting voltage of a LiFePO4 pack: 12.8V is roughly 20%, 12.0V is nearly
 // empty. Over 14.6V is above what the pack's own charger delivers.

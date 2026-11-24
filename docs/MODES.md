@@ -1,14 +1,14 @@
 # Operating Modes — Van Control Panel
 
 
-**Last updated:** 2026-11-20
+**Last updated:** 2026-11-24
 Modes let you switch the van's behavior based on context — parked for storage, at a campsite, on the trail, or in town. Each mode adjusts camera capture intervals, Shelly automation, and (planned) notification behavior.
 
 **What is live and what is intent.** The *camera interval* of the active mode is real:
 `services/camera_loop.py` reads it and captures on that schedule. Everything in the
 *Shellys* rows below is the intended behavior and is **not applied** by anything yet
 (no schedules exist; the Shellys are toggled by hand). The flags are in `mode.py` as
-data (`shellys_off`, `camera_exterior_only`).
+data (`shellys_off`).
 
 ---
 

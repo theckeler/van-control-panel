@@ -1,7 +1,7 @@
 # ESP32-S3 → Dometic CFX5 BLE Bridge — Setup Guide
 
 
-**Last updated:** 2026-10-19
+**Last updated:** 2026-11-24
 **Goal:** Get an ESP32-S3 talking to the Dometic CFX5 over BLE (bypassing the
 Pi's BlueZ stack, which can't hold a stable connection to it), publishing
 fridge state to `van-api` over WiFi like every other device.
@@ -46,7 +46,7 @@ the same protocol at two addresses — they are different generations:
 | Handshake    | PING → ACK → HELLO → ACK, then subscribe | subscribe directly                 |
 | Values       | one byte per switch/enum                 | 32-bit little-endian               |
 
-Our fridge advertises as `MC1_8d87f4`, so it is DDM2. The patched component
+Our fridge advertises as `MC1_<id>`, so it is DDM2. The patched component
 was writing DDM1 frames to a DDM2 device.
 
 This is also why testing all three `product_type` values changed nothing: the

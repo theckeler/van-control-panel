@@ -1,7 +1,7 @@
 # Troubleshooting
 
 
-**Last updated:** 2026-11-20
+**Last updated:** 2026-11-24
 Common issues and their fixes for the Van Control Panel system.
 
 ---
@@ -22,7 +22,7 @@ Common issues and their fixes for the Van Control Panel system.
 KEY=$(grep VAN_API_KEY ~/van-control-panel/backend/.env | cut -d= -f2)
 curl -s -H "X-API-Key: $KEY" http://127.0.0.1:8000/battery/ | python3 -m json.tool
 journalctl -u van-api --since '1 hour ago' --no-pager | grep 'BMS:'
-bluetoothctl info C8:47:80:5D:08:6F | grep -E 'Connected|RSSI'
+bluetoothctl info <bms-mac> | grep -E 'Connected|RSSI'
 ```
 
 | What you see | Meaning |
@@ -513,7 +513,7 @@ when the session ends.
 - Photos are nearly black, washed out, or soft, even though the capture itself
   succeeds
 - `journalctl -u van-api | grep "was not applied"` shows
-  `camera interior: <control>=<value> was not applied (...)`
+  `camera: <control>=<value> was not applied (...)`
 
 ### Cause
 
@@ -521,7 +521,7 @@ when the session ends.
 meaning depends on the camera**. The same number can be the darkest setting on
 one model and neutral on another. This happened on 2026-10-19: values tuned for
 the old cheap camera (`brightness=0`) were left in place after the swap to a
-Logitech C922, where 0 is the *minimum* (default 128), and the interior came out
+Logitech C922, where 0 is the *minimum* (default 128), and the photos came out
 nearly black. At the same time `auto_exposure=0` was rejected on every capture
 (the C922 only accepts 1 or 3) and nothing said so, because stderr was being
 thrown away.
@@ -609,7 +609,7 @@ off the USB bus entirely** after the reboots — `lsusb` no longer lists it,
 end-to-end. The `Cameras` card is commented out in `Dashboard.tsx` until
 that's confirmed working — re-enable by uncommenting the two lines flagged
 `disabled 2026-08-31` once a capture succeeds via `curl
-http://localhost:8000/photos/latest?cam=interior`.
+http://localhost:8000/photos/latest`.
 
 Also note `camera.py`'s `DEVICE_MAP` hardcodes `/dev/video0`/`/dev/video2` —
 confirmed fragile: this camera's node numbers actually shifted (`/dev/video0`
@@ -743,7 +743,7 @@ a failure. Confirm it is genuinely advertising rather than restarting anything:
 
 ```bash
 (echo "scan on"; sleep 20; echo "scan off"; echo "exit") | bluetoothctl \
-  | grep -i "C8:47:80:5D:08:6F"
+  | grep -i "<bms-mac>"
 ```
 
 If it appears, wait the cooldown out. Restarting `van-api` repeatedly to force
@@ -754,11 +754,11 @@ to prevent that.
 
 ## Tailscale hostname is van-pi-2, not van-pi
 
-> **Resolved 2026-10-19:** the Pi is `van-pi` again (`100.127.9.125`). This entry stays because every fresh OS install will recreate the problem.
+> **Resolved 2026-10-19:** the Pi is `van-pi` again (its Tailscale IP). This entry stays because every fresh OS install will recreate the problem.
 
 ### Symptoms
 
-- `van-pi.tailba93b9.ts.net` does not resolve
+- `van-pi.<tailnet>.ts.net` does not resolve
 - `tailscale status` shows `van-pi-2` as the active node, with `van-pi` and
   `van-pi-1` listed as offline
 

@@ -245,7 +245,7 @@ if [ ! -f ~/.ssh/id_ed25519 ]; then
 fi
 echo ""
 echo "The backup script needs this Pi's key trusted on the Mac. Confirm the"
-echo "Mac's actual username first (todd vs toddheckeler bit us tonight —"
+echo "Mac's actual username first (the short and full names can differ —"
 echo "check with 'whoami' in a Mac terminal), then:"
 echo "  ssh-copy-id <mac-username>@<mac-tailscale-ip>"
 echo "This needs the Mac's password, typed interactively — not automatable."

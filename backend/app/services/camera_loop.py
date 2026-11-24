@@ -7,7 +7,7 @@ hardware. /photos/latest still always captures fresh on request (see its
 docstring) — this loop exists to build up history, not to serve the live
 dashboard view.
 
-Retention: sweeps each camera's photo directory once an hour and deletes
+Retention: sweeps the photo directory once an hour and deletes
 anything older than 24h. Checked every cycle but only actually runs once
 RETAIN_SWEEP_EVERY has elapsed, so a short capture interval (trail mode,
 15 min) doesn't mean an unnecessary directory scan every 15 min too.
@@ -29,14 +29,14 @@ RETAIN_SWEEP_EVERY = 3600
 _last_sweep = 0.0
 
 
-def _prune_old(cam: str) -> None:
+def _prune_old() -> None:
     global _last_sweep
     now = time.time()
     if now - _last_sweep < RETAIN_SWEEP_EVERY:
         return
     _last_sweep = now
 
-    cam_dir = os.path.join(camera.PHOTOS_BASE, cam)
+    cam_dir = os.path.join(camera.PHOTOS_BASE, camera.CAMERA_NAME)
     cutoff = now - RETAIN_SECONDS
     removed = 0
     for path in glob.glob(os.path.join(cam_dir, "*.jpg")):
@@ -47,7 +47,7 @@ def _prune_old(cam: str) -> None:
         except OSError:
             pass
     if removed:
-        logger.info("camera_loop: pruned %d photo(s) older than 24h from %s", removed, cam)
+        logger.info("camera_loop: pruned %d photo(s) older than 24h", removed)
 
 
 async def run() -> None:
@@ -57,15 +57,13 @@ async def run() -> None:
         config = mode.get_current_mode_config()
         interval_s = max(60, config["camera_interval_min"] * 60)
 
-        for cam, device in camera.DEVICE_MAP.items():
-            if not os.path.exists(device):
-                continue  # not physically installed — exterior, today
+        if os.path.exists(camera.CAMERA_DEVICE):
             try:
-                await camera.capture(cam)
+                await camera.capture()
             except Exception as exc:
                 # Best-effort: a stuck/unplugged camera shouldn't take down
                 # the loop or spam retries faster than the interval allows.
-                logger.warning("camera_loop: %s capture failed — %s", cam, exc)
-            _prune_old(cam)
+                logger.warning("camera_loop: capture failed — %s", exc)
+            _prune_old()
 
         await asyncio.sleep(interval_s)

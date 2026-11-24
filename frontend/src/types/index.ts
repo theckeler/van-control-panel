@@ -151,7 +151,6 @@ export type ModeName = "storage" | "camp" | "trail" | "in_town";
 export interface ModeConfig {
   label: string;
   camera_interval_min: number;
-  camera_exterior_only: boolean;
   shellys_off: boolean;
   description: string;
 }

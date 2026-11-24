@@ -1,7 +1,7 @@
 # Architecture — Van Control Panel
 
 
-**Last updated:** 2026-11-20
+**Last updated:** 2026-11-24
 ## Overview
 
 The system has three physical layers: the van's 12V electrical hardware, a Raspberry Pi 4B that reads and controls it, and a web dashboard that the user interacts with from any device on the local network or remotely via Tailscale.
@@ -10,7 +10,7 @@ The system has three physical layers: the van's 12V electrical hardware, a Raspb
 ┌─────────────────────────────────────────────────────────┐
 │ USER DEVICES                                            │
 │ iPhone / iPad / Mac browser → http://van-pi.local       │
-│ or via Tailscale → http://van-pi.tailba93b9.ts.net      │
+│ or via Tailscale → http://van-pi.<tailnet>.ts.net      │
 └─────────────────────────────────────────────────────────┘
                           │ HTTP
 ┌─────────────────────────────────────────────────────────┐
@@ -168,7 +168,7 @@ One camera, a Logitech C922 on `/dev/video0` (see `docs/HARDWARE.md`). Two paths
 take photos, both through the same `capture()` function in `camera.py`:
 
 ```
-services/camera_loop.py (background)        GET /photos/latest?cam=interior
+services/camera_loop.py (background)        GET /photos/latest
   every camera_interval_min of the            (on demand, fresh on every call)
   active mode, 60s floor
         └──────────────┬────────────────────────────┘
@@ -191,10 +191,9 @@ The loop also deletes photos older than 24h (an hourly sweep), so
 `backend/photos/` stays bounded. The History drawer's Photos tab lists the retained
 photos via `GET /photos/recent`.
 
-The one camera is called "Camera" in the UI and `interior` in the API and on
-disk. A second camera is not planned for now. `exterior` (`/dev/video2`) is an
-unused slot in the code, and requests for it 503 with "exterior camera not
-connected".
+There is one camera, called "Camera" in the UI, the API and on disk
+(`backend/photos/camera/`). A second camera is not planned for now. With none
+plugged in, the routes 503 with "camera not connected".
 See `docs/HARDWARE.md` for why `ffmpeg` and the CSI camera module were abandoned
 (2026-08-31, OOM-crashed the Pi's 1GB RAM mid-install) and for the C922 tuning.
 

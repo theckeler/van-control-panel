@@ -1,6 +1,6 @@
 # Design System
 
-**Last updated:** 2026-11-18
+**Last updated:** 2026-11-24
 
 **Status: Built** (2026-11-13). Tokens and the component set are in `frontend/`, and the screens use them. Todd directed most of the visual calls during the build; `case-study/decisions.md` records which are agreed and which are still Claude's proposals. The Figma file ([Van Control Panel, Dashboard UI](https://www.figma.com/design/793FjJIPcg092uFJuGnVe6/Van-Control-Panel-%E2%80%94-Dashboard-UI)) is a guide for how buttons and the UI look, not a spec. Screens and drawers are in `docs/UI-PATTERNS.md`.
 
@@ -81,7 +81,7 @@ All live in `frontend/src/components/ui/`. Each has one key used in the file nam
 | Key | Component | What it is | States |
 |---|---|---|---|
 | `button` | `Button` | Text button. Variants `solid` (lime), `outline`, `ghost`, `danger`. Sizes `sm`, `md` (both keep 44px). | default, hover, focus, disabled, busy |
-| `icon-button` | `IconButton` | 44px round icon button. `aria-label` required. Tones `control`, `on`, `off`. `busy` spins the icon and ignores taps. | default, disabled, busy |
+| `icon-button` | `IconButton` | 44px round icon button. `aria-label` required. Tones `control`, `on`, `off`, and `quiet` (a 48px tap area around a small translucent disc, for a secondary "check again" inside a tile or row). `busy` spins the icon and ignores taps. | default, disabled, busy |
 | `icon-circle` | `IconCircle` | The IconButton look without the button: a 44px circle that reports a state (the battery's live circle). `role="img"`. | tones `control`, `on`, `off` |
 | `tile-button` | `TileButton` | A shortcut tile: icon centered over its label, bordered. Tones `neutral`, `on` (lime border and tint), `off` (orange). Used for the 2x2 action grid. | neutral, on, off |
 | `switch-tile` | `SwitchTile` | A relay: name, big ON/OFF, dot. Tap toggles. ON is the one solid lime fill. The offline state is a `div` with an optional refresh `IconButton` (`onRecheck`). | on, off, offline (dashed, optional refresh), busy |

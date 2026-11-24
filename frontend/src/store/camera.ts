@@ -47,7 +47,7 @@ export const useCameraStore = create<CameraStore>((set, get) => ({
     }
     set({ loading: true });
     try {
-      set({ latest: await api.camera.latest("interior") });
+      set({ latest: await api.camera.latest() });
     } catch {
       set({ latest: null });
     } finally {
@@ -57,7 +57,7 @@ export const useCameraStore = create<CameraStore>((set, get) => ({
 
   capture: async () => {
     try {
-      await api.camera.capture("interior");
+      await api.camera.capture();
       toast.success("Photo taken");
       await get().refresh();
     } catch (err) {

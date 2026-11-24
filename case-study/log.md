@@ -115,3 +115,25 @@ One entry per working session, newest last. Held while work is in progress and f
 
 **Next:** Todd pushes `add-check-now-buttons` and opens the PR, and says whether the docs edits join it.
 
+
+## 2026-11-24: Session 5, after the merge
+
+**Asked for:** Todd merged PR #33 and asked what was still open. He then answered the list: a 3-poll Shelly pause, the BMS rating from the Power Queen listing, one camera named "camera" everywhere, a clean-up of the personal details in tracked files, and a question about idle drain.
+
+**Done**
+- The Shelly pause rule is set: 3 failed polls in a row, about 15 seconds. A constant (`PAUSE_AFTER_FAILURES`) replaces the stub.
+- Battery chips now judge amps against 100A (the 70 in the BMS name is a part number).
+- Camera: no `cam` parameter, one folder `backend/photos/camera/`, `camera_exterior_only` removed from the mode config, types, mock and docs. A page that still sends `?cam=interior` is ignored, so old and new frontend and backend can deploy in either order.
+- Personal details out of tracked files: tailnet name, three Tailscale IPs, the Mac username, device MACs and serials, and the fridge MAC in the ESP32 file (now `!secret dometic_mac`). `config.py` has no device-address defaults, the backup script reads `~/.van-backup.conf`, and the dev proxy defaults to `van-pi.local`.
+
+**Found**
+- The BMS reports exactly 0.0A on every overnight sample in the newest backup snapshot (4 nights, to 2026-10-22), so the dashboard cannot see a small idle draw. The state of charge did move: flat on three nights, 41% to 37% in 5 hours on 2026-10-21. State of charge is whole percents, so this is a rough figure.
+- The Pi is powered from the EcoFlow, not the house battery, so the dashboard is not part of the house battery's idle drain.
+- `.vscode/tasks.json` could not be edited through the shell sandbox; the edit tool worked.
+- `backend/.env.example` cannot be read or written from the sandbox, so it still needs an `ECOFLOW_MAC=` line added by hand.
+
+**Not checked**
+- Anything on the Pi. Before the next deploy: add `ECOFLOW_MAC` to the Pi's `backend/.env`, delete `backend/photos/interior` and `exterior` after the deploy, add `DEST_HOST` to `~/.van-backup.conf` before reinstalling the backup script, and add `dometic_mac` to `esp32-dometic/secrets.yaml` before the next ESP32 flash.
+- The low-voltage cutoff and high-temperature limit of the BMS.
+
+**Next:** Todd decides on the idle-drain work (a nightly drain readout from data already logged, applying a mode to the Shellys, the fridge setpoint).

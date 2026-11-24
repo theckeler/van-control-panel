@@ -17,28 +17,24 @@ MODES = {
     "storage": {
         "label": "Storage",
         "camera_interval_min": 360,
-        "camera_exterior_only": False,
         "shellys_off": True,
         "description": "Minimum draw. Battery preservation. Long term parking.",
     },
     "camp": {
         "label": "Camp",
         "camera_interval_min": 30,
-        "camera_exterior_only": False,
         "shellys_off": False,
         "description": "Default active use mode. Shelly schedules active.",
     },
     "trail": {
         "label": "Trail",
         "camera_interval_min": 15,
-        "camera_exterior_only": False,
         "shellys_off": False,
         "description": "Van parked and unattended while you're out biking or hiking. Both cameras active, Shellys manual only.",
     },
     "in_town": {
         "label": "In Town",
         "camera_interval_min": 30,
-        "camera_exterior_only": False,
         "shellys_off": False,
         "description": "Full connectivity. Cooler monitoring active.",
     },
