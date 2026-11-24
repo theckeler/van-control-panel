@@ -215,7 +215,7 @@ function PhotoHistory() {
 
   useEffect(() => {
     api.camera
-      .recent("interior", 20)
+      .recent(20)
       .then(setPhotos)
       .catch(() => setPhotos([]))
       .finally(() => setLoading(false));

@@ -52,7 +52,7 @@ esp32_ble_tracker:
 # Short version: 537a03xx and 537a04xx are not the same protocol at different
 # addresses, they are different generations. 537a03xx is DDM1 (CFX3);
 # 537a04xx is DDM2 (CFX5/CFX2, firmware IDs MC1/MC2/MC3). Our fridge
-# advertises MC1_8d87f4, so it is DDM2. The vendored component patched the
+# advertises MC1_<id>, so it is DDM2. The vendored component patched the
 # UUIDs correctly but still spoke DDM1 opcodes (PUB 0x00 / SUB 0x01 / PING
 # 0x02) and one-byte values, where DDM2 uses PUB 0x10 / SET 0x11 / SUB 0x12
 # and 32-bit little-endian values. The subscribe frame we were writing was
@@ -83,7 +83,7 @@ esp32_ble:
     # reader doesn't "fix" it, since bonding depends on it.
 
 ble_client:
-  - mac_address: "88:13:BF:8D:87:F6" # Replace with your Dometic fridge MAC address
+  - mac_address: !secret dometic_mac # The fridge's MAC, in secrets.yaml (gitignored)
     id: dometic_fridge # This ID must match your ble_client_id
 
 dometic_cfx_ble:

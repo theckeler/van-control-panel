@@ -7,7 +7,15 @@
 set -euo pipefail
 
 DB="$HOME/van-control-panel/backend/van_power.db"
-DEST_HOST="toddheckeler@100.100.169.71"
+# Where the snapshots go: user@host of the Mac, over Tailscale. Kept out of git.
+# Put it in ~/.van-backup.conf on the Pi as one line:
+#   DEST_HOST="your-mac-user@your-mac-tailscale-name"
+[ -f "$HOME/.van-backup.conf" ] && . "$HOME/.van-backup.conf"
+DEST_HOST="${DEST_HOST:-}"
+if [ -z "$DEST_HOST" ]; then
+  echo "van-backup: DEST_HOST is not set (see the note in the script header)" >&2
+  exit 1
+fi
 DEST_DIR="van-backups"
 KEEP_LOCAL=3          # failed sends held on the Pi
 KEEP_DAILY_DAYS=45    # keep every snapshot this recent on the Mac

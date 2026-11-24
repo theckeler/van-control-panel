@@ -1,9 +1,9 @@
 # API Reference — Van Control Panel
 
 
-**Last updated:** 2026-11-20
+**Last updated:** 2026-11-24
 Base URL (local): `http://van-pi.local/api`
-Base URL (Tailscale): `http://van-pi.tailba93b9.ts.net/api`
+Base URL (Tailscale): `http://van-pi.<tailnet>.ts.net/api`
 
 All endpoints return JSON with snake_case fields. The Express frontend server at port 80 proxies `/api/*` to uvicorn at port 8000. You can also hit uvicorn directly at `:8000` without the `/api` prefix.
 
@@ -219,7 +219,7 @@ silently looking identical to a switched-off circuit.
 `paused` is `true` when the Pi stopped polling a unit because it kept failing.
 A paused unit costs nothing on this call and reports `reachable: false` until
 `POST /shelly/{unit_id}/recheck` finds it. The number of failures before a
-pause is `_should_pause` in `shelly.py`; the default never pauses. Pause state
+pause is 3 polls in a row, about 15 seconds (`PAUSE_AFTER_FAILURES` in `shelly.py`). Pause state
 lives in memory, so a `van-api` restart starts every unit unpaused.
 
 ### `GET /shelly/{unit_id}`
@@ -291,7 +291,6 @@ Manual display toggle only — does not control the physical unit.
   "config": {
     "label": "Camp",
     "camera_interval_min": 30,
-    "camera_exterior_only": false,
     "shellys_off": false,
     "description": "Default active use mode."
   },
@@ -310,25 +309,24 @@ mode to actually change camera intervals or Shelly behavior; see
 ## Camera
 
 There is one camera, a Logitech C922 inside the van (`/dev/video0`), and no
-second camera is planned for now. The dashboard just calls it "Camera". In the
-API it is still `cam=interior`, which is the default, and its photos are still
-stored under `/static/photos/interior/`: renaming that would orphan the
-retained photos. `cam=exterior` is an unused second slot in the same code path
-and 503s with "exterior camera not connected".
+second camera is planned for now. It is just called "camera" everywhere: no
+`cam` parameter, and photos are stored under `/static/photos/camera/`. (Before
+2026-11-24 it was `cam=interior`; a request that still sends `cam=` is simply
+ignored.) With no camera plugged in, the routes 503 with "camera not connected".
 
-### `GET /photos/latest?cam=interior`
+### `GET /photos/latest`
 Captures a **fresh photo on every call** — it does not serve the background
 loop's last frame (the loop takes its own photos on the active mode's
 `camera_interval_min`), so this isn't a cached/recent file.
 
 ```json
-{ "filename": "interior_20260904T120000Z.jpg", "url": "/static/photos/interior/interior_20260904T120000Z.jpg", "cam": "interior", "timestamp": "2026-09-04T12:00:00+00:00" }
+{ "filename": "camera_20260904T120000Z.jpg", "url": "/static/photos/camera/camera_20260904T120000Z.jpg", "timestamp": "2026-09-04T12:00:00+00:00" }
 ```
 
-### `GET /photos/recent?cam=interior&limit=20`
-List of previously-captured photos for that camera, most recent first (does not trigger a new capture).
+### `GET /photos/recent?limit=20`
+List of previously-captured photos, most recent first (does not trigger a new capture).
 
-### `POST /photos/capture?cam=interior`
+### `POST /photos/capture`
 Same as `/photos/latest` — a fresh on-demand capture. Undocumented until now; exists for triggering a capture from something other than the gallery view (e.g. a Shelly motion event).
 
 ---
@@ -411,7 +409,7 @@ async rescan request plus a short wait keeps the whole call under that.
 
 ```json
 [
-  { "ssid": "Sir Salettelot", "bssid": "72:52:A8:29:1D:7C", "band": "2.4GHz", "signal": 97, "security": "WPA2" },
+  { "ssid": "Sir Salettelot", "bssid": "AA:BB:CC:00:00:01", "band": "2.4GHz", "signal": 97, "security": "WPA2" },
   { "ssid": "OHeck",          "bssid": "...", "band": "5GHz", "signal": 61, "security": "WPA2" }
 ]
 ```

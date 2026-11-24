@@ -31,8 +31,7 @@ esp32-dometic/.esphome/
 esp32-dometic/*.bin
 
 # Photos (local only, not committed)
-backend/photos/interior/*.jpg
-backend/photos/exterior/*.jpg
+backend/photos/camera/*.jpg
 
 # OS
 .DS_Store

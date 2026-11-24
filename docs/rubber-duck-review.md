@@ -121,7 +121,7 @@ This entry is written as a correction record as much as a review. Two confident 
 | Scan cycles (enable/disable pairs) | 264 |
 | Active scans, no accept-list filter | 249 |
 | Passive scans, accept-list only | 15 |
-| `LE Create Connection` commands | 15, all to `C8:47:80:5D:08:6F` |
+| `LE Create Connection` commands | 15, all to `<bms-mac>` |
 | Failed with 0x3e | 14 |
 | Succeeded | 1 |
 | Successful `Handle notify` reads | 216 |
@@ -205,7 +205,7 @@ Until that is measured, the correct action is to change nothing. The failure was
 
 ## Unrelated finding from the same capture: the Dometic CFX5
 
-Across 8,937 advertising reports and 249 unfiltered active scans, the fridge (`MC1_8d87f4`) never appeared once. Devices that did appear, with report counts: KS03-3926A9 (340), Govee_H6199_388A (218), Aqa (44), PLAF108 (38), PowerSwitch-99B4 (25), EF-R10314 (16), SmartSolar HQ2218GMEKM (6), Govee_H5074_35C8 (6), DA1 (1).
+Across 8,937 advertising reports and 249 unfiltered active scans, the fridge (`MC1_<id>`) never appeared once. Devices that did appear, with report counts: KS03-3926A9 (340), Govee_H6199_388A (218), Aqa (44), PLAF108 (38), PowerSwitch-<id> (25), EF-<serial> (16), SmartSolar <serial> (6), Govee_H5074_35C8 (6), DA1 (1).
 
 The Victron only advertised 6 times in the whole window, so the capture was catching even very infrequent advertisers. The fridge was genuinely not broadcasting.
 
@@ -223,8 +223,8 @@ A long session attempting to reach two non-integrated devices from the Pi over B
 
 | Device | MAC | Advertised name | Notes |
 |---|---|---|---|
-| Dometic CFX5 35 | `88:13:BF:8D:87:F6` | `MC1_8d87f4` | Public OUI address, stable. Rare advertiser. |
-| Garmin PowerSwitch | `F0:53:20:C3:99:B4` | `PowerSwitch-99B4` | RSSI -18 to -38. Constant advertiser. |
+| Dometic CFX5 35 | `<fridge-mac>` | `MC1_<id>` | Public OUI address, stable. Rare advertiser. |
+| Garmin PowerSwitch | `<powerswitch-mac>` | `PowerSwitch-<id>` | RSSI -18 to -38. Constant advertiser. |
 
 Dometic GATT (from iOS BLE explorer, phone side):
 - Service `537A0400-0995-481F-926C-1604E23FD515` (vendor specific, 1 service reported)

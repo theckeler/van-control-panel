@@ -1,7 +1,7 @@
 # Future Features
 
 
-**Last updated:** 2026-11-20
+**Last updated:** 2026-11-24
 This roadmap captures the next useful improvements for the Van Control Panel.
 The focus is reliability, visibility, and recoverable automation rather than
 adding hardware faster than the system can safely support it.
@@ -234,7 +234,7 @@ Once the existing control paths are hardened, consider:
 - smart Orion charger telemetry after a hardware upgrade;
 - ~~an exterior camera~~ — not planned for now (Todd, 2026-11-20). There is one
   camera, a Logitech C922 inside the van, capturing on a mode-driven schedule
-  with 24h retention since 2026-09-04; the second slot in the API is unused;
+  with 24h retention since 2026-09-04;
 - door, hatch, motion, or cabinet-temperature sensors; and
 - a physical local emergency control independent of the web UI.
 
@@ -254,9 +254,9 @@ Shelly item, which is partly done (below).
   PS Input units `installed: False`. **Partly done 2026-11-18, not yet run on the
   Pi:** a unit that keeps failing can be paused so it stops costing the timeout,
   and the refresh button on its tile probes it again (`POST /shelly/{id}/recheck`).
-  The rule that decides when to pause (`_should_pause` in `routers/shelly.py`)
-  still returns False, so nothing pauses until it is set. There is still no
-  background poller.
+  A unit pauses after 3 failed polls in a row, about 15 seconds
+  (`PAUSE_AFTER_FAILURES` in `routers/shelly.py`, Todd 2026-11-24). There is
+  still no background poller.
 - **A relay timer.** A per-Shelly "turn off in N minutes" exists on the local
   `feature/relay-timer` branch (`services/relay_timer.py`): a restart or reboot
   must leave relays off, never on. It is unmerged and waits on the UI work in

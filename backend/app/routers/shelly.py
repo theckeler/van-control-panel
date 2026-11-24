@@ -66,17 +66,15 @@ _failures: dict[str, int] = {}
 _paused: set[str] = set()
 
 
-def _should_pause(consecutive_failures: int) -> bool:
-    """
-    Decide whether a unit that has now failed `consecutive_failures` polls in a
-    row should stop being polled.
+# Polls run every 5s, so 3 failures in a row is about 15s (Todd, 2026-11-24).
+# Pause too early and a unit that only dropped for a moment needs a manual
+# refresh; pause too late and a dead unit keeps costing a 3s timeout per poll.
+PAUSE_AFTER_FAILURES = 3
 
-    TODO(human): choose the policy. Polls run every 5s, so 3 failures is
-    about 15s. Trade-off: pause too early and a unit that only dropped for a
-    moment needs a manual refresh; pause too late and a dead unit keeps
-    costing a 3s timeout per poll. Returning False means never pause.
-    """
-    return False
+
+def _should_pause(consecutive_failures: int) -> bool:
+    """True once a unit has failed this many polls in a row."""
+    return consecutive_failures >= PAUSE_AFTER_FAILURES
 
 
 def _record_failure(unit_id: str) -> None:

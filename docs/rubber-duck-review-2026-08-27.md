@@ -81,7 +81,7 @@ generations, and the vendored component only implements the older one.
 | Handshake | PING → ACK → HELLO → ACK, then subscribe | subscribe directly, no PING, no HELLO |
 | Value encoding | one byte per switch/enum | 32-bit little-endian integers |
 
-Our fridge advertises as `MC1_8d87f4`. `MC1` is DDM2.
+Our fridge advertises as `MC1_<id>`. `MC1` is DDM2.
 
 So the subscribe payload currently being written — `[0x01, product_type, 0x00,
 0x00, 0x81]`, a DDM1 SUB frame — would be meaningless to the fridge even over

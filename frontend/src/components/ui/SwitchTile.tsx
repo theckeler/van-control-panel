@@ -60,6 +60,7 @@ export function SwitchTile({
         {onRecheck && (
           <IconButton
             icon="refresh"
+            tone="quiet"
             label={`Check ${label} again`}
             busy={checking}
             onClick={onRecheck}

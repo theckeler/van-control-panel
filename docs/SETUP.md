@@ -1,7 +1,7 @@
 # Rebuilding the Pi from scratch
 
 
-**Last updated:** 2026-11-20
+**Last updated:** 2026-11-24
 Recovery checklist for a dead SD card or a fresh Pi. Written as an ordered
 walkthrough rather than a script, because several steps need a token, a
 password, or a decision that cannot be committed to the repo.
@@ -281,8 +281,10 @@ echo "NODE_ENV=$NODE_ENV"; npm config get omit
 `backend/.env` — copy from the Mac, or recreate:
 
 ```
-VICTRON_MAC=E8:18:52:D1:81:B7
+VICTRON_MAC=<victron-mac>
 VICTRON_KEY=<32-char hex, VictronConnect → SmartSolar → Product info>
+BMS_MAC=<bms-mac>
+ECOFLOW_MAC=<ecoflow-mac>
 VAN_API_KEY=<generate, see below>
 ```
 
@@ -430,7 +432,7 @@ chmod 600 ~/.ssh/authorized_keys
 Test from the Pi before going further:
 
 ```bash
-ssh -o StrictHostKeyChecking=accept-new toddheckeler@100.100.169.71 "echo connected"
+ssh -o StrictHostKeyChecking=accept-new <mac-user>@<mac-tailscale-name> "echo connected"
 ```
 
 Then the script:
@@ -595,11 +597,11 @@ D=/etc/NetworkManager/dnsmasq-shared.d
 echo 'address=/van-pi.local/10.42.0.1'  | sudo tee $D/van-pi.conf       # step 11
 echo 'address=/van-pi.local/10.55.0.1'  | sudo tee $D/eth0-van-pi.conf  # wired rescue port
 sudo tee $D/known-devices.conf >/dev/null <<'DHCPEOF'
-dhcp-host=28:84:85:48:12:84,10.42.0.37
-dhcp-host=d8:85:ac:ec:6a:ac,10.42.0.102
-dhcp-host=d8:85:ac:f3:6a:28,10.42.0.215
-dhcp-host=98:a3:16:77:ca:34,10.42.0.27
-dhcp-host=48:f6:ee:d0:a8:9c,10.42.0.26
+dhcp-host=<mac-1>,10.42.0.37
+dhcp-host=<mac-usb-outlets>,10.42.0.102
+dhcp-host=<mac-garage>,10.42.0.215
+dhcp-host=<mac-ps-input-1>,10.42.0.27
+dhcp-host=<mac-ps-input-2>,10.42.0.26
 DHCPEOF
 # DNS for hotspot clients is forwarded to OHeck's router. How this behaves while the
 # uplink is Starlink has not been verified.

@@ -1,7 +1,7 @@
 # Van Control Panel — Project Overview
 
 
-**Last updated:** 2026-11-20
+**Last updated:** 2026-11-24
 A Python FastAPI backend + React/TypeScript frontend dashboard for monitoring and controlling the van's 12V electrical system. Runs on a Raspberry Pi mounted in the van, accessible locally and remotely via Tailscale.
 
 Built as a real-world learning project for Python and as a portfolio piece demonstrating full-stack development with IoT hardware integration.
@@ -128,8 +128,8 @@ van-control-panel/
 | Method | URL | When |
 |---|---|---|
 | Local network | `http://van-pi.local` | On same WiFi as Pi |
-| Tailscale | `http://van-pi.tailba93b9.ts.net` | Any device with Tailscale |
-| Tailscale Funnel | `https://van-pi.tailba93b9.ts.net` | Public internet (run: `sudo tailscale funnel --bg 80`) |
+| Tailscale | `http://van-pi.<tailnet>.ts.net` | Any device with Tailscale |
+| Tailscale Funnel | `https://van-pi.<tailnet>.ts.net` | Public internet (run: `sudo tailscale funnel --bg 80`) |
 
 ---
 
@@ -152,9 +152,10 @@ Both BLE services run as concurrent asyncio tasks via `ble_orchestrator.py`.
 See `backend/.env.example`. Copy to `backend/.env` on the Pi and fill in values.
 
 ```
-VICTRON_MAC=E8:18:52:D1:81:B7
+VICTRON_MAC=<victron-mac>
 VICTRON_KEY=<32-char hex from VictronConnect app>
-BMS_MAC=C8:47:80:5D:08:6F
+BMS_MAC=<bms-mac>
+ECOFLOW_MAC=<ecoflow-mac>
 VAN_API_KEY=<32-byte hex>
 ```
 

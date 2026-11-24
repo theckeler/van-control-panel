@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => {
   //   VAN_API_TARGET=http://localhost:8000   local backend on this machine
   //
   // The VS Code "Dev: full stack (local)" task sets VAN_API_TARGET=localhost.
-  const target = env.VAN_API_TARGET || 'http://van-pi.tailba93b9.ts.net'
+  const target = env.VAN_API_TARGET || 'http://van-pi.local'
   const isLocal = target.includes('localhost') || target.includes('127.0.0.1')
 
   return {

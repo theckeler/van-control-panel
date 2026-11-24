@@ -1,7 +1,7 @@
 # CLAUDE.md — Van Control Panel
 
 
-**Last updated:** 2026-11-20
+**Last updated:** 2026-11-24
 Context file for Claude Code. Gives full project context so sessions don't require re-explaining the architecture.
 
 **Jump to:** [Quick Start](#quick-start) · [Workflow](#workflow) · [Recovery](#recovery) · [Auth](#auth) ·
@@ -64,7 +64,7 @@ still `installed: True`). An unreachable unit costs a 3s httpx timeout on every
 `GET /shelly/` poll, which is why that endpoint takes 1-3s while the rest take ~3ms.
 Either bring them back, or mark them `installed: False`, which hides them in the UI
 and skips the poll. Since 2026-11-18 a unit can also be **paused**: after a run of
-failed polls (`_should_pause` in `shelly.py`) it is no longer polled, its dashboard
+failed polls (3 in a row, about 15s: `PAUSE_AFTER_FAILURES` in `shelly.py`) it is no longer polled, its dashboard
 tile shows a refresh button, and `POST /shelly/{id}/recheck` brings it back.
 
 Control via httpx async HTTP to Shelly local REST API. The Shellys are on
@@ -95,8 +95,8 @@ Rollups happen automatically at hour/day/month boundaries in `app/services/data_
 | Method          | URL                                                                       |
 | --------------- | ------------------------------------------------------------------------- |
 | Local           | `http://van-pi.local`                                                     |
-| Tailscale       | `http://van-pi.tailba93b9.ts.net`                                         |
-| Public (Funnel) | `https://van-pi.tailba93b9.ts.net` (run: `sudo tailscale funnel --bg 80`) |
+| Tailscale       | `http://van-pi.<tailnet>.ts.net`                                         |
+| Public (Funnel) | `https://van-pi.<tailnet>.ts.net` (run: `sudo tailscale funnel --bg 80`) |
 
 ### CI/CD
 
@@ -299,14 +299,17 @@ overwrite them.
 `backend/.env` — read by pydantic-settings via `app/config.py`:
 
 ```
-VICTRON_MAC=E8:18:52:D1:81:B7
+VICTRON_MAC=<victron-mac>
 VICTRON_KEY=<32-char hex from VictronConnect → Product info>
-BMS_MAC=C8:47:80:5D:08:6F
+BMS_MAC=<bms-mac>
 VAN_API_KEY=<32-byte hex — REQUIRED, see Auth>
 ```
 
-Optional, with working defaults in `config.py`: `ECOFLOW_MAC` (`80:65:99:08:76:D9`),
-`STARLINK_TARGET` (`192.168.100.1:9200`), `STARLINK_ENABLED` (true) and
+`ECOFLOW_MAC` is also set there. Since 2026-11-24 none of the three device addresses
+has a default in `config.py`, so a Pi whose `.env` lacks one skips that service (logged)
+instead of connecting to it.
+
+Optional, with working defaults in `config.py`: `STARLINK_TARGET` (`192.168.100.1:9200`), `STARLINK_ENABLED` (true) and
 `DOMETIC_BRIDGE_HOST` (`dometic-bridge.local`).
 
 An empty `VAN_API_KEY` fails open, leaving port 8000 reachable by anyone on the
@@ -733,10 +736,11 @@ sleep 5; ip neigh | grep -v FAILED
 
 ### Development access
 
-`vite.config.ts` proxies `/api` to the Pi's Tailscale name
-(`http://van-pi.tailba93b9.ts.net`, port 80, through nginx) by default, adding the
-`X-API-Key` header from `frontend/.env.local`. It is not `van-pi.local:8000`: uvicorn
-binds loopback only. Override with `VAN_API_TARGET` when needed:
+`vite.config.ts` proxies `/api` to `http://van-pi.local` (port 80, through nginx) by
+default, which works on the same LAN. Away from home, set `VAN_API_TARGET` in
+`frontend/.env.local` to the Pi's Tailscale name (`http://van-pi.<your-tailnet>.ts.net`).
+That file also holds the `X-API-Key` the proxy adds. It is not `:8000`: uvicorn
+binds loopback only. Override `VAN_API_TARGET` when needed:
 
 - `VAN_API_TARGET=http://localhost:8000` — local backend on the Mac
 
@@ -945,8 +949,8 @@ Details worth knowing:
 
 - **SD card image: button built 2026-11-18, not yet run on the Pi.** The Backup drawer has an SD card image section (start with a confirm, status, stop with a confirm). Things the UI cannot hide: the image is always the one file `/mnt/van-pi-bkup/van-pi-image.img.gz`, so starting a run replaces the previous image at once and a failed or stopped run leaves none; the job state lives in memory, so after a `van-api` restart the status says "not started" even if an image is on the stick; stopping deletes the partial file; and nobody has watched the Pi (BLE reads, WiFi) while it compresses a whole card for about 45 minutes.
 - **Applying a mode only half works** — the selection persists across restarts and drives the camera interval (`camera_loop.py`), but Shelly schedules are not driven by it. A mode can be switched from the Mode drawer (the header's round Mode button) or through the API.
-- **Camera system — live, 2026-09-04.** One camera, inside the van, called just "Camera" in the UI and `interior` in the
-  API and on disk; no second camera is planned for now (`/dev/video0`,
+- **Camera system — live, 2026-09-04.** One camera, inside the van, called just "Camera" in the UI, the API and on disk
+  (`backend/photos/camera/`); no second camera is planned for now (`/dev/video0`,
   a Logitech C922 USB UVC camera since 2026-10-19; the cheap camera it replaced had a
   sensor that locked up and needed a physical replug). `Cameras.tsx` is rendered in `Dashboard.tsx`, backed by a
   background capture loop (`camera_loop.py`, mode-driven interval, 24h
@@ -957,7 +961,7 @@ Details worth knowing:
 - **Orion-Tr** is non-smart, returns static config — upgrade to Orion XS 50A planned
 - **History charts** — the History drawer (`HistoryDrawer.tsx`) renders them. SOC 24h and Solar 30d tabs both work. Daily solar only populates after a midnight rollup, so a fresh install shows the raw-derived fallback.
 - **CORS** is `allow_origins=["*"]` — fine for local/Tailscale, tighten if Funnel is used long-term
-- **PS Input 1 and PS Input 2** are configured (`installed: True`) but unreachable as of 2026-10-19, which costs a 3s timeout on every Shelly poll. USB Outlets and Garage answer. Todd will probably restore them. Built 2026-11-18, not yet deployed or run on the Pi: a unit that keeps failing can be paused so it stops costing that timeout, and the offline tile's refresh button probes it again (`POST /shelly/{id}/recheck`). The pause policy `_should_pause` in `routers/shelly.py` still returns False, so nothing pauses until it is set.
+- **PS Input 1 and PS Input 2** are configured (`installed: True`) but unreachable as of 2026-10-19, which costs a 3s timeout on every Shelly poll. USB Outlets and Garage answer. Todd will probably restore them. Built 2026-11-18, not yet deployed or run on the Pi: a unit that keeps failing can be paused so it stops costing that timeout, and the offline tile's refresh button probes it again (`POST /shelly/{id}/recheck`). A unit pauses after 3 failed polls in a row, about 15 seconds (`PAUSE_AFTER_FAILURES`, set 2026-11-24).
 - **`loads` breakdown in system.py is an estimate** — the old unconditional Starlink 22W and Fridge 40W entries are gone, but each installed Shelly with an `est_watts` is listed whether or not it is on. Latent: the frontend never reads it. See "system.py load estimation" below. **Starlink is now measured:** `loads` lists a `Starlink` entry with `source: "measured"` from the dish's real `power_w`, and omits it when the dish is unreachable or reports no power (unreachable means the Pi cannot see the dish, not that it draws zero, so no number is claimed). Only the BMS-disconnected fallback sum still contains the 22W guess, and only when no measurement is available. Not yet verified against the live dish.
 - **Vercel demo build** — built and deployed; the SSO-protection caveat in "Vercel Demo Mode" below is still open.
 - **Dometic CFX5 fridge — LIVE, 2026-08-27.** Multi-day blocker resolved.
@@ -1167,11 +1171,11 @@ Devices seen on `hci0`, including ones not integrated.
 
 | Device             | MAC                 | Adv name                 | Status                                                                                                                                                                                                                                                            |
 | ------------------ | ------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Power Queen BMS    | `C8:47:80:5D:08:6F` | `P-12100BNNA70-B00793`   | Integrated                                                                                                                                                                                                                                                        |
-| Victron SmartSolar | `E8:18:52:D1:81:B7` | `SmartSolar HQ2218GMEKM` | Integrated                                                                                                                                                                                                                                                        |
-| Dometic CFX5 35    | `88:13:BF:8D:87:F6` | `MC1_8d87f4`             | Integrated through the ESP32 bridge, not from the Pi (BlueZ cannot bond with it)                                                                                                                                                                                 |
-| EcoFlow River 2 Max | `80:65:99:08:76:D9` | `EF-R10314`              | Integrated (passive advert: battery % only). Also powers the Pi                                                                                                                                                                                                   |
-| Garmin PowerSwitch | `F0:53:20:C3:99:B4` | `PowerSwitch-99B4`       | Blocked — 4 attempts, always `le-connection-abort-by-local`, including with van-api stopped. Same BlueZ incompatibility as the Dometic, not a bonding refusal (2026-08-27). Controls Starlink and the EcoFlow charge toggle as well as lighting — see safety note |
+| Power Queen BMS    | `<bms-mac>` | `P-12100BNNA70-<serial>`   | Integrated                                                                                                                                                                                                                                                        |
+| Victron SmartSolar | `<victron-mac>` | `SmartSolar <serial>` | Integrated                                                                                                                                                                                                                                                        |
+| Dometic CFX5 35    | `<fridge-mac>` | `MC1_<id>`             | Integrated through the ESP32 bridge, not from the Pi (BlueZ cannot bond with it)                                                                                                                                                                                 |
+| EcoFlow River 2 Max | `<ecoflow-mac>` | `EF-<serial>`              | Integrated (passive advert: battery % only). Also powers the Pi                                                                                                                                                                                                   |
+| Garmin PowerSwitch | `<powerswitch-mac>` | `PowerSwitch-<id>`       | Blocked — 4 attempts, always `le-connection-abort-by-local`, including with van-api stopped. Same BlueZ incompatibility as the Dometic, not a bonding refusal (2026-08-27). Controls Starlink and the EcoFlow charge toggle as well as lighting — see safety note |
 
 The Dometic is a rare advertiser. Expect to wait through several scan cycles before it appears.
 
