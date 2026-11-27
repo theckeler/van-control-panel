@@ -194,13 +194,16 @@ let shellys: ShellyUnit[] = [
     paused: true,
   },
 ];
-// Demo: the first recheck of a dead unit fails, the second finds it.
+// Demo: a dead source answers on its fifth probe. A tap probes up to three
+// times, so the first tap gives up and the second one finds it.
+const DEMO_ANSWERS_ON = 5;
 let sideRechecks = 0;
 
 // Demo only: open the dashboard with ?offline=starlink,fridge,bms to start
-// those sources down and try the check-now buttons. The first check of each
-// fails and the second finds it (the BMS retry is allowed after 20s). Off by
-// default, so the public demo shows a healthy van.
+// those sources down and try checking them again. For Starlink and the fridge
+// the first tap fails and the second succeeds (the BMS retry is allowed after
+// 20s). Off by default, so the public demo shows
+// a healthy van.
 const demoDown = new Set(
   (typeof location !== "undefined"
     ? (new URLSearchParams(location.search).get("offline") ?? "")
@@ -514,7 +517,7 @@ export const mockApi = {
             },
       ),
     recheck: (): Promise<StarlinkData> => {
-      if (!starlinkUp && ++starlinkChecks >= 2) starlinkUp = true;
+      if (!starlinkUp && ++starlinkChecks >= DEMO_ANSWERS_ON) starlinkUp = true;
       return mockApi.starlink.get();
     },
   },
@@ -534,7 +537,7 @@ export const mockApi = {
           : new Date(Date.now() - 4 * 60_000).toISOString(),
       }),
     recheck: (): Promise<DometicData> => {
-      if (!fridgeUp && ++fridgeChecks >= 2) fridgeUp = true;
+      if (!fridgeUp && ++fridgeChecks >= DEMO_ANSWERS_ON) fridgeUp = true;
       return mockApi.dometic.get();
     },
   },
@@ -580,7 +583,7 @@ export const mockApi = {
       const unit = shellys.find((s) => s.id === id)!;
       if (id === "side" && unit.reachable === false) {
         sideRechecks += 1;
-        if (sideRechecks >= 2) {
+        if (sideRechecks >= DEMO_ANSWERS_ON) {
           sideRechecks = 0;
           shellys = shellys.map((s) =>
             s.id === id ? { ...s, reachable: true, paused: false } : s,

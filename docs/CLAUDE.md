@@ -1,7 +1,7 @@
 # CLAUDE.md — Van Control Panel
 
 
-**Last updated:** 2026-11-24
+**Last updated:** 2026-11-27
 Context file for Claude Code. Gives full project context so sessions don't require re-explaining the architecture.
 
 **Jump to:** [Quick Start](#quick-start) · [Workflow](#workflow) · [Recovery](#recovery) · [Auth](#auth) ·
@@ -65,7 +65,7 @@ still `installed: True`). An unreachable unit costs a 3s httpx timeout on every
 Either bring them back, or mark them `installed: False`, which hides them in the UI
 and skips the poll. Since 2026-11-18 a unit can also be **paused**: after a run of
 failed polls (3 in a row, about 15s: `PAUSE_AFTER_FAILURES` in `shelly.py`) it is no longer polled, its dashboard
-tile shows a refresh button, and `POST /shelly/{id}/recheck` brings it back.
+tile is a "check again" button, and `POST /shelly/{id}/recheck` brings it back.
 
 Control via httpx async HTTP to Shelly local REST API. The Shellys are on
 TwitchWiFi, so they are reachable as long as the Pi is running, independent of
@@ -239,12 +239,12 @@ frontend/
                          still no real watts, the encrypted protocol limit below
                          still applies to that
       FridgeCard.tsx     Dometic temp/set-point/compressor; door open shows a badge.
-                         Keeps its last reading, dimmed, when unreachable, with a
-                         check-now button
+                         Keeps its last reading, dimmed, when unreachable; tapping
+                         the row checks again
       ShellyCard.tsx     Per-unit SwitchTiles. Filters installed:false, shows
-                         "unreachable" distinctly from off, with a refresh button
-                         on an offline tile
-      StarlinkCard.tsx   Dish status, with a check-now button while unreachable. Distinguishes "Pi not on Starlink LAN" from
+                         "unreachable" distinctly from off; tapping an offline
+                         tile checks it again
+      StarlinkCard.tsx   Dish status; while unreachable, tapping the row checks again. Distinguishes "Pi not on Starlink LAN" from
                          "dish unreachable" via IP-prefix check against wifi_ip
       WifiCard.tsx       Read-only StatusList: WiFi uplink, hotspot, and the eth0
                          rescue-port cable. Changing WiFi is in the WiFi drawer
@@ -365,7 +365,7 @@ Open the repo in VS Code and press **Cmd+Shift+B**, or Cmd+Shift+P → "Run Task
 | -------------------------------------- | ------------------------------------------------------- |
 | **Dev: full stack (local backend)**    | Vite + local uvicorn in parallel. Default build task    |
 | **Dev: frontend against the Pi**       | Vite only, proxies to van-api over Tailscale. Real data |
-| **Dev: frontend with demo data**       | `VITE_DEMO=true`, mock API. No Pi, no Bluetooth needed. Add `?offline=starlink,fridge,bms` to the URL to start those sources down and try the check-now buttons |
+| **Dev: frontend with demo data**       | `VITE_DEMO=true`, mock API. No Pi, no Bluetooth needed. Add `?offline=starlink,fridge,bms` to the URL to start those sources down and try checking them again |
 | **Build / Typecheck: frontend**        | `npm run build` / `tsc --noEmit`                        |
 | **Install: frontend deps (incl. dev)** | Use this, not plain `npm install` — see below           |
 | **Pi: status**                         | Service state, WiFi, Shelly reachability                |
@@ -961,7 +961,7 @@ Details worth knowing:
 - **Orion-Tr** is non-smart, returns static config — upgrade to Orion XS 50A planned
 - **History charts** — the History drawer (`HistoryDrawer.tsx`) renders them. SOC 24h and Solar 30d tabs both work. Daily solar only populates after a midnight rollup, so a fresh install shows the raw-derived fallback.
 - **CORS** is `allow_origins=["*"]` — fine for local/Tailscale, tighten if Funnel is used long-term
-- **PS Input 1 and PS Input 2** are configured (`installed: True`) but unreachable as of 2026-10-19, which costs a 3s timeout on every Shelly poll. USB Outlets and Garage answer. Todd will probably restore them. Built 2026-11-18, not yet deployed or run on the Pi: a unit that keeps failing can be paused so it stops costing that timeout, and the offline tile's refresh button probes it again (`POST /shelly/{id}/recheck`). A unit pauses after 3 failed polls in a row, about 15 seconds (`PAUSE_AFTER_FAILURES`, set 2026-11-24).
+- **PS Input 1 and PS Input 2** are configured (`installed: True`) but unreachable as of 2026-10-19, which costs a 3s timeout on every Shelly poll. USB Outlets and Garage answer. Todd will probably restore them. Built 2026-11-18, not yet deployed or run on the Pi: a unit that keeps failing can be paused so it stops costing that timeout, and tapping the offline tile probes it again, up to three times (`POST /shelly/{id}/recheck`). A unit pauses after 3 failed polls in a row, about 15 seconds (`PAUSE_AFTER_FAILURES`, set 2026-11-24).
 - **`loads` breakdown in system.py is an estimate** — the old unconditional Starlink 22W and Fridge 40W entries are gone, but each installed Shelly with an `est_watts` is listed whether or not it is on. Latent: the frontend never reads it. See "system.py load estimation" below. **Starlink is now measured:** `loads` lists a `Starlink` entry with `source: "measured"` from the dish's real `power_w`, and omits it when the dish is unreachable or reports no power (unreachable means the Pi cannot see the dish, not that it draws zero, so no number is claimed). Only the BMS-disconnected fallback sum still contains the 22W guess, and only when no measurement is available. Not yet verified against the live dish.
 - **Vercel demo build** — built and deployed; the SSO-protection caveat in "Vercel Demo Mode" below is still open.
 - **Dometic CFX5 fridge — LIVE, 2026-08-27.** Multi-day blocker resolved.
@@ -1089,7 +1089,7 @@ ecoflow_ble.py`, `/ecoflow/`, `EcoflowCard.tsx`.
     unreachable dish is routine here rather than exceptional — the Pi sits on
     OHeck for days at a time — and at a flat 5s it wrote ~17k warnings a day
     into journald on an SD card. Since 2026-11-18 `POST /starlink/recheck` asks
-    the dish immediately and wakes the loop, so the dashboard's check-now button
+    the dish immediately and wakes the loop, so tapping the offline row
     does not have to wait out a 60s backoff. The fridge poll backs off the same
     way (5s up to 60s) and has `POST /dometic/recheck`. Neither stops polling:
     both recover by themselves. Not yet run on the Pi.

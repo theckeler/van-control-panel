@@ -11,6 +11,7 @@ export { IconButton, type IconButtonTone } from "./IconButton";
 export { IconCircle } from "./IconCircle";
 export { KeyValue, type KeyValueItem } from "./KeyValue";
 export { Progress } from "./Progress";
+export { RetryGlyph } from "./RetryGlyph";
 export { Section } from "./Section";
 export { Spinner } from "./Spinner";
 export { Stat, type StatTone } from "./Stat";

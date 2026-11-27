@@ -1,6 +1,6 @@
 # Design System
 
-**Last updated:** 2026-11-24
+**Last updated:** 2026-11-27
 
 **Status: Built** (2026-11-13). Tokens and the component set are in `frontend/`, and the screens use them. Todd directed most of the visual calls during the build; `case-study/decisions.md` records which are agreed and which are still Claude's proposals. The Figma file ([Van Control Panel, Dashboard UI](https://www.figma.com/design/793FjJIPcg092uFJuGnVe6/Van-Control-Panel-%E2%80%94-Dashboard-UI)) is a guide for how buttons and the UI look, not a spec. Screens and drawers are in `docs/UI-PATTERNS.md`.
 
@@ -81,13 +81,14 @@ All live in `frontend/src/components/ui/`. Each has one key used in the file nam
 | Key | Component | What it is | States |
 |---|---|---|---|
 | `button` | `Button` | Text button. Variants `solid` (lime), `outline`, `ghost`, `danger`. Sizes `sm`, `md` (both keep 44px). | default, hover, focus, disabled, busy |
-| `icon-button` | `IconButton` | 44px round icon button. `aria-label` required. Tones `control`, `on`, `off`, and `quiet` (a 48px tap area around a small translucent disc, for a secondary "check again" inside a tile or row). `busy` spins the icon and ignores taps. | default, disabled, busy |
+| `icon-button` | `IconButton` | 44px round icon button. `aria-label` required. Tones `control`, `on`, `off`. `busy` spins the icon and ignores taps. | default, disabled, busy |
 | `icon-circle` | `IconCircle` | The IconButton look without the button: a 44px circle that reports a state (the battery's live circle). `role="img"`. | tones `control`, `on`, `off` |
 | `tile-button` | `TileButton` | A shortcut tile: icon centered over its label, bordered. Tones `neutral`, `on` (lime border and tint), `off` (orange). Used for the 2x2 action grid. | neutral, on, off |
-| `switch-tile` | `SwitchTile` | A relay: name, big ON/OFF, dot. Tap toggles. ON is the one solid lime fill. The offline state is a `div` with an optional refresh `IconButton` (`onRecheck`). | on, off, offline (dashed, optional refresh), busy |
+| `switch-tile` | `SwitchTile` | A relay: name, big ON/OFF, dot. Tap toggles. ON is the one solid lime fill. Offline with `onRecheck`, the whole tile is a "check again" button that shows "Checking…" while it works; without it, a plain `div`. A tile that has just come back ignores taps for 1s, so a late "check again" can't switch the relay. | on, off, offline (dashed), checking, busy |
 | `stat` | `Stat` | Label and value. `chip` (centered, outlined in `info`) or `row`. Tones `neutral`, `good`, `warn`, `bad` tint the chip; a `hint` word ("low", "hot") says why. | neutral, good, warn, bad, offline |
 | `status-list` | `StatusList` | A compact box of status lines: dot, name, state under it, dividers. For a few related links (WiFi, hotspot, Ethernet). | per-item tone |
-| `device-row` | `DeviceRow` | One source or device: dot and name, headline value, detail on the right. White, with a lime 1px border when on, grey dot when idle, dashed when offline. For solar, shore, EcoFlow, Starlink, fridge. An offline row can take `onRecheck`, which adds a 44px refresh button that asks the source again. | on, off, offline (optional refresh) |
+| `device-row` | `DeviceRow` | One source or device: dot and name, headline value, detail on the right. White, with a lime 1px border when on, grey dot when idle, dashed when offline. For solar, shore, EcoFlow, Starlink, fridge. With `onRecheck`, an offline row is one button that asks the source again and shows "Checking…" while it works. | on, off, offline, checking |
+| `retry-glyph` | `RetryGlyph` | The 32px translucent disc with a refresh icon on an offline tile or row. Decoration only: the tile or row around it is the button. | idle, busy (spins) |
 | `card` | `Card` | Container with an optional title and header action, and an offline treatment (dim plus "Offline · last seen"). | default, offline |
 | `progress` | `Progress` | Bar for SOC and EcoFlow, with an optional text value. Turns `warn` under 20%. | default, low, offline |
 | `badge` | `Badge` | Small outlined pill: Demo, Released, Connected. Tones `neutral`, `on`, `off`, `warn`. | |

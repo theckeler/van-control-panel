@@ -2,17 +2,15 @@ import clsx from "clsx";
 import type { ButtonHTMLAttributes } from "react";
 import { Icon, type IconName } from "./Icon";
 
-export type IconButtonTone = "control" | "on" | "off" | "quiet";
+export type IconButtonTone = "control" | "on" | "off";
 
 // control: neutral, nothing to report. on: healthy / active. off: needs
-// attention. quiet: a secondary action that should not shout (a "check again"
-// inside a tile): a 48px tap area around a small translucent disc. Meaning
-// also goes in the aria-label ("Camera, off"), never in color alone.
+// attention. Meaning also goes in the aria-label ("Camera, off"), never in
+// color alone.
 export const ICON_TONE: Record<IconButtonTone, string> = {
   control: "bg-control text-surface",
   on: "bg-on text-ink",
   off: "bg-off text-ink",
-  quiet: "bg-ink/10 text-ink",
 };
 
 export function IconButton({
@@ -35,10 +33,6 @@ export function IconButton({
   busy?: boolean;
   className?: string;
 } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className" | "children" | "aria-label">) {
-  const quiet = tone === "quiet";
-  const glyph = (
-    <Icon name={icon} className={clsx(quiet ? "size-5" : "size-6", busy && "animate-spin")} />
-  );
   return (
     <button
       data-vc="icon-button"
@@ -48,30 +42,15 @@ export function IconButton({
       aria-busy={busy || undefined}
       disabled={disabled}
       className={clsx(
-        "group relative inline-flex shrink-0 items-center justify-center rounded-full transition",
-        "disabled:cursor-not-allowed",
-        quiet
-          ? // The button itself is only the tap area. The disc is drawn inside.
-            "size-12 text-ink disabled:opacity-50"
-          : [
-              "size-11 hover:brightness-110 disabled:bg-line disabled:text-disabled disabled:hover:brightness-100",
-              ICON_TONE[tone],
-            ],
+        "relative inline-flex size-11 shrink-0 items-center justify-center rounded-full transition",
+        "hover:brightness-110 disabled:cursor-not-allowed disabled:bg-line disabled:text-disabled disabled:hover:brightness-100",
         busy && "pointer-events-none",
+        ICON_TONE[tone],
         className,
       )}
       {...props}
     >
-      {quiet ? (
-        <span
-          aria-hidden="true"
-          className="inline-flex size-8 items-center justify-center rounded-full bg-ink/10 transition group-hover:bg-ink/20"
-        >
-          {glyph}
-        </span>
-      ) : (
-        glyph
-      )}
+      <Icon name={icon} className={clsx("size-6", busy && "animate-spin")} />
       {badge !== undefined && (
         <span
           aria-hidden="true"

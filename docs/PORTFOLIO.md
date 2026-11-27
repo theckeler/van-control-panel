@@ -1,7 +1,7 @@
 # Van Control Panel — Portfolio
 
 
-**Last updated:** 2026-11-24
+**Last updated:** 2026-11-27
 ## Project Overview
 
 A fully self-hosted IoT monitoring and automation system for a converted 2023 Mercedes Sprinter VS30 AWD van. Built from the ground up combining React/TypeScript front-end development, Python backend engineering, Bluetooth hardware integration, and 12V electrical system design.
@@ -43,7 +43,7 @@ The software monitors hardware that had to be designed and wired first:
 - Vite + React 18 + TypeScript + Tailwind CSS
 - Zustand store with independent per-endpoint polling — a failed or slow endpoint never breaks or delays the rest of the UI, and a stale in-flight poll can never overwrite a click
 - 5-second polling via custom `usePolling` hook
-- Battery card shows last known values when BLE is offline with elapsed time and reconnect countdown timer. Starlink, the fridge, the BMS and the Shellys have check-now buttons
+- Battery card shows last known values when BLE is offline with elapsed time and reconnect countdown timer. An offline circuit, Starlink or fridge can be checked again by tapping it, and the BMS has a retry button
 - Recharts for history charts (data accumulating)
 - **Rebuilt in November 2026 on a component set of its own:** no UI library, design tokens in one place, native `<dialog>` for drawers and dialogs, designed at 375px first with 44px tap targets and 16px inputs. A `/components` page shows every component in every state
 - Served by Express (Node) with signed-cookie auth and a `/api/*` proxy to FastAPI, behind nginx on :80

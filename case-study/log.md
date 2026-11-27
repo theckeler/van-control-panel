@@ -1,6 +1,6 @@
 # Log
 
-**Last updated:** 2026-11-20
+**Last updated:** 2026-11-27
 
 One entry per working session, newest last. Held while work is in progress and finalised at PR time.
 
@@ -137,3 +137,30 @@ One entry per working session, newest last. Held while work is in progress and f
 - The low-voltage cutoff and high-temperature limit of the BMS.
 
 **Next:** Todd decides on the idle-drain work (a nightly drain readout from data already logged, applying a mode to the Shellys, the fridge setpoint).
+
+## 2026-11-27: Session 6, the whole tile is the button
+
+**Asked for:** after PR #34, help booting the Pi and testing it. Then, from the demo: "For the Shelly and maybe the other components when offline the button can be the whole button not just the small button inside a div", and next, "go into a loading state until it connects or fails say 3 tries and fail?"
+
+**Done**
+- Claude merged PR #34 on Todd's go-ahead, after both checks passed.
+- Offline circuit tiles, the Starlink row and the fridge row are each one button. `RetryGlyph` replaces the small `quiet` icon button.
+- A tap shows "Checking…" and tries up to 3 times, 2 seconds apart, then says whether the source came back. The backend did not change.
+- A relay tile that has just come back ignores taps for 1 second.
+- Demo mode: a dead source now answers on its fifth try, so both the failure and the success can be seen.
+
+**Found**
+- A bigger button added a hazard: the same spot means "check again" while offline and "switch a real load" once the unit is back. Claude raised it while building, which led to the tap guard.
+- Claude first handed the guard to Todd as a coding exercise (the session's learning style). He answered "Unsure of your question". A plain table of what a tap does in each state worked better, and he answered with a design idea of his own.
+- "Checking…" ran into the spinner at 375px. The numbers had reported no overflow; the screenshot showed it.
+- Session 5 said the Pi needed `ECOFLOW_MAC` added before the next deploy. It needs `VICTRON_MAC` and `BMS_MAC` too, because the old `config.py` defaulted all three.
+- The Pi checks were first run on the Mac by mistake. The Pi's `backend/.env` has not been checked.
+
+**Checked:** type check and build; demo mode at 375, 768 and 1280px; the Shelly tile by touch-style clicks and by keyboard (Tab, Enter, Space).
+
+**Not checked**
+- Anything on the Pi, a real phone, or a screen reader.
+- How long three real tries take. From the timeouts in the code a dead Shelly or Starlink could show "Checking…" for about half a minute. The fridge's time was not worked out.
+- Screenshots were not saved to `case-study/assets/`.
+
+**Next:** Todd merges, adds the three addresses to the Pi's `backend/.env`, deploys by hand and runs the live checks.

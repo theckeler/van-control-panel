@@ -1,6 +1,6 @@
 # UI Patterns
 
-**Last updated:** 2026-11-18
+**Last updated:** 2026-11-27
 
 **Status: Built** (2026-11-13). How screens, drawers and menus are put together from the component set in `docs/DESIGN-SYSTEM.md`. When you build a screen, check here first and reuse a pattern rather than inventing one. `case-study/decisions.md` records which calls Todd made and which are still Claude's proposals.
 
@@ -77,7 +77,10 @@ The Power tile opens one `Dialog` with the three actions stacked, the primary at
 Confirmed correct in `docs/CLAUDE.md`, kept in the new design. When a source drops: the card keeps its last reading, dims it, and says "Offline · last seen 4 min ago". Device rows go to a dashed border with "Offline". Circuit tiles go dashed with "Unreachable". Never blank a card on one missed poll.
 
 ## Relay tiles
-`SwitchTile` states: **on** (lime fill, "ON"), **off** (white, "OFF"), **offline** (dashed, "Unreachable"; not a button, so it can hold a refresh button that probes the unit again, and phones and tablets say "Offline" beside it because the longer word does not fit until 1024px), **busy** (taps ignored). A tap toggles and waits for the backend's confirmed state before showing the new one: the UI never claims on until the Shelly said so. The mock's "Door Lights" tile is a placeholder and is not built.
+`SwitchTile` states: **on** (lime fill, "ON"), **off** (white, "OFF"), **offline** (dashed, "Unreachable", or "Offline" below 1024px because the longer word does not fit; the whole tile is the "check again" button), **checking** ("Checking…" with a spinning mark, taps ignored, until the unit answers or three tries fail), **busy** (taps ignored). A tap toggles and waits for the backend's confirmed state before showing the new one: the UI never claims on until the Shelly said so. The mock's "Door Lights" tile is a placeholder and is not built.
+
+## Check again
+An offline source that can be asked again is one big button: the tile or row itself, with a `RetryGlyph` as the sign. Never put a small button inside it. A tap tries up to three times, 2s apart (`RECHECK_TRIES` in `store/van.ts`), showing "Checking…", then a toast says whether it came back. A relay tile that comes back ignores taps for 1s (`SETTLE_MS`), because the same spot now switches a real load. The battery is the exception: it keeps a separate "Retry now" button and tries once, because retrying the BMS too fast can lock it up.
 
 ## Feedback
 - **Toast** for the result of a quick action ("Found 4 networks", "Hotspot off"). Dark, red for errors, never green, because it floats over the lime tiles. It is a popover so it sits above open drawers; while a modal is open the page behind it is inert, so a toast over a drawer can't be tapped (it times out on its own).

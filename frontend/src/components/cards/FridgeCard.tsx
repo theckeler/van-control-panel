@@ -41,9 +41,9 @@ export function FridgeCard() {
       checking={checking}
     >
       {doorOpen && (
-        <div>
+        <span className="flex">
           <Badge tone="warn">Door open</Badge>
-        </div>
+        </span>
       )}
     </DeviceRow>
   );

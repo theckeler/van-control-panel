@@ -72,6 +72,12 @@ type PollKey =
 // answers would block that endpoint forever.
 const POLL_TIMEOUT_MS = 15_000;
 
+// A check-now tap keeps trying until the source answers or the tries run out
+// (Todd, 2026-11-27). The gap matters when a try fails at once, which would
+// otherwise use up all three in the same instant.
+const RECHECK_TRIES = 3;
+const RECHECK_GAP_MS = 2_000;
+
 const inflight: Partial<Record<PollKey, number>> = {};
 const lastApplied: Partial<Record<PollKey, number>> = {};
 // When something was last changed locally ("battery", "mode", "hotspot",
@@ -104,6 +110,22 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
+/**
+ * Probe until the source answers or RECHECK_TRIES is reached, and return the
+ * last answer. A thrown error (the Pi itself is unreachable) is not retried.
+ */
+async function probeUntilAnswered<T>(
+  probe: () => Promise<T>,
+  answered: (value: T) => boolean,
+): Promise<T> {
+  let value = await probe();
+  for (let tries = 1; tries < RECHECK_TRIES && !answered(value); tries++) {
+    await new Promise((resolve) => setTimeout(resolve, RECHECK_GAP_MS));
+    value = await probe();
+  }
+  return value;
+}
+
 interface VanStore {
   // Live data
   battery: BatteryData | null;
@@ -115,7 +137,7 @@ interface VanStore {
   orion: OrionData | null;
   shellys: ShellyUnit[];
   /** Ids with a check-now in flight ("starlink", "fridge", "bms", or a Shelly
-   *  id), for the refresh buttons. */
+   *  id), for the "Checking…" states. */
   rechecking: string[];
   system: SystemData | null;
   hotspot: HotspotStatus | null;
@@ -176,7 +198,7 @@ export const useVanStore = create<VanStore>((set, get) => {
   }
 
   /**
-   * Ask a source to check itself now, for the refresh buttons. Shared by
+   * Ask a source to check itself now, when its offline row is tapped. Shared by
    * Starlink and the fridge. Holds the same `pending` key as that source's
    * poll, so a poll that was already in flight cannot overwrite the answer.
    */
@@ -192,11 +214,11 @@ export const useVanStore = create<VanStore>((set, get) => {
     pending.add(key);
     set((state) => ({ rechecking: [...state.rechecking, id] }));
     try {
-      const value = await call();
+      const value = await probeUntilAnswered(call, answered);
       touch(key);
       apply(value);
       if (answered(value)) toast.success(`${label} is back`);
-      else toast.info(`${label} still isn't answering`);
+      else toast.info(`${label} didn't answer after ${RECHECK_TRIES} tries`);
     } catch (err) {
       toast.error(`Couldn't check ${label} — ${describe(err)}`);
     } finally {
@@ -338,7 +360,7 @@ export const useVanStore = create<VanStore>((set, get) => {
       }
     },
 
-    // Ask the Pi to probe one unit now. Used by the refresh button on an
+    // Ask the Pi to probe one unit now. Used by a tap on an
     // unreachable tile, and the only way a paused unit starts being polled
     // again. Reads state only; it never switches the relay.
     recheckShelly: async (id: string) => {
@@ -348,13 +370,17 @@ export const useVanStore = create<VanStore>((set, get) => {
       pending.add(key);
       set((state) => ({ rechecking: [...state.rechecking, id] }));
       try {
-        const unit = await api.shelly.recheck(id);
+        const unit = await probeUntilAnswered(
+          () => api.shelly.recheck(id),
+          (u) => u.reachable !== false,
+        );
         touch(key);
         set((state) => ({
           shellys: state.shellys.map((s) => (s.id === id ? { ...s, ...unit } : s)),
         }));
-        if (unit.reachable === false) toast.info(`${label} still isn't answering`);
-        else toast.success(`${label} is back`);
+        if (unit.reachable === false) {
+          toast.info(`${label} didn't answer after ${RECHECK_TRIES} tries`);
+        } else toast.success(`${label} is back`);
       } catch (err) {
         toast.error(`Couldn't check ${label} — ${describe(err)}`);
       } finally {
