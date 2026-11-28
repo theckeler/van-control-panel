@@ -7,7 +7,7 @@ export type IconButtonTone = "control" | "on" | "off";
 // control: neutral, nothing to report. on: healthy / active. off: needs
 // attention. Meaning also goes in the aria-label ("Camera, off"), never in
 // color alone.
-export const ICON_TONE: Record<IconButtonTone, string> = {
+const ICON_TONE: Record<IconButtonTone, string> = {
   control: "bg-control text-surface",
   on: "bg-on text-ink",
   off: "bg-off text-ink",

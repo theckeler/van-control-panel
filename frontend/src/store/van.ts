@@ -164,6 +164,8 @@ interface VanStore {
   setMode: (mode: string) => Promise<void>;
   releaseBms: () => Promise<void>;
   connectBms: () => Promise<void>;
+  /** True while a hotspot on/off call is in flight. */
+  hotspotBusy: boolean;
   toggleHotspot: (on: boolean) => Promise<void>;
 }
 
@@ -242,6 +244,7 @@ export const useVanStore = create<VanStore>((set, get) => {
     rechecking: [],
     system: null,
     hotspot: null,
+    hotspotBusy: false,
     mode: null,
     loading: false,
     lastUpdated: null,
@@ -489,6 +492,10 @@ export const useVanStore = create<VanStore>((set, get) => {
     },
 
     toggleHotspot: async (on: boolean) => {
+      // One switch at a time; a poll that lands mid-call is dropped too.
+      if (pending.has("hotspot")) return;
+      pending.add("hotspot");
+      set({ hotspotBusy: true });
       try {
         const result = await api.system.setHotspot(on);
         if (!result.ok) {
@@ -507,6 +514,9 @@ export const useVanStore = create<VanStore>((set, get) => {
         toast.error(
           `Couldn't turn hotspot ${on ? "on" : "off"} — ${describe(err)}`,
         );
+      } finally {
+        pending.delete("hotspot");
+        set({ hotspotBusy: false });
       }
     },
   };

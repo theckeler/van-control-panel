@@ -230,6 +230,7 @@ let diskImageStartedAt: number | null = null;
 
 let currentMode: ModeName = "camp";
 let bmsReleased = false;
+let hotspotOn = true;
 let orionEnabled = false;
 
 const MODE_CONFIG: Record<ModeName, ModeResponse["config"]> = {
@@ -714,9 +715,13 @@ export const mockApi = {
       ]),
     wifiConnect: (_ssid: string, _password: string, _bssid?: string) =>
       delay({ ok: false, message: "Connect disabled in demo mode" }),
-    hotspot: () => delay({ active: true, ssid: "VanHotspot" }),
-    setHotspot: (_on: boolean) =>
-      delay({ ok: false, message: "Hotspot toggle disabled in demo mode" }),
+    hotspot: () =>
+      delay({ active: hotspotOn, ssid: hotspotOn ? "VanHotspot" : null }),
+    // Switches the pretend hotspot only.
+    setHotspot: (on: boolean) => {
+      hotspotOn = on;
+      return delay({ ok: true, message: "ok" }, 800);
+    },
     // Destructive controls are inert in demo mode.
     shutdown: () =>
       delay({ status: "demo", message: "Shutdown disabled in demo mode" }),

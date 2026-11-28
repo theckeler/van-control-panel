@@ -10,7 +10,6 @@ import { WifiCard } from "../components/cards/WifiCard";
 import { StarlinkCard } from "../components/cards/StarlinkCard";
 import { PowerDialog } from "../components/dialogs/PowerDialog";
 import { BackupDrawer } from "../components/drawers/BackupDrawer";
-import { CameraDrawer } from "../components/drawers/CameraDrawer";
 import { HistoryDrawer, type HistoryTab } from "../components/drawers/HistoryDrawer";
 import { ModeDrawer } from "../components/drawers/ModeDrawer";
 import { SystemDrawer } from "../components/drawers/SystemDrawer";
@@ -23,7 +22,7 @@ import { usePolling } from "../hooks/usePolling";
 import { useSettingsStore } from "../store/settings";
 import { useVanStore } from "../store/van";
 
-type DrawerName = "wifi" | "camera" | "mode" | "backup" | "system" | "history";
+type DrawerName = "wifi" | "mode" | "backup" | "system" | "history";
 
 export function Dashboard() {
   usePolling(5000);
@@ -62,8 +61,6 @@ export function Dashboard() {
           <Card vc="actions-card">
             <div className="grid grid-cols-2 items-stretch gap-3">
               <ActionRow
-                onWifi={() => setDrawer("wifi")}
-                onCamera={() => setDrawer("camera")}
                 onBackup={() => setDrawer("backup")}
                 onPower={() => setPowerOpen(true)}
               />
@@ -95,7 +92,6 @@ export function Dashboard() {
       <Toaster />
 
       <WifiDrawer open={drawer === "wifi"} onClose={close} />
-      <CameraDrawer open={drawer === "camera"} onClose={close} />
       <ModeDrawer open={drawer === "mode"} onClose={close} />
       <BackupDrawer open={drawer === "backup"} onClose={close} />
       <SystemDrawer open={drawer === "system"} onClose={close} />
