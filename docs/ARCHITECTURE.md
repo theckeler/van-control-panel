@@ -1,7 +1,7 @@
 # Architecture — Van Control Panel
 
 
-**Last updated:** 2026-11-24
+**Last updated:** 2026-11-27
 ## Overview
 
 The system has three physical layers: the van's 12V electrical hardware, a Raspberry Pi 4B that reads and controls it, and a web dashboard that the user interacts with from any device on the local network or remotely via Tailscale.
@@ -71,8 +71,8 @@ src/
 │
 ├── components/            Presentational — read from Zustand, no local state
 │   ├── ui/                The standard set (docs/DESIGN-SYSTEM.md): Button,
-│   │                      IconButton, TileButton, SwitchTile, Stat, StatusList,
-│   │                      DeviceRow, Card, Progress, Badge, Drawer, Dialog ...
+│   │                      IconButton, TileButton, SwitchTile, InfoTile, Stat,
+│   │                      Card, Progress, Badge, Drawer, Dialog ...
 │   ├── cards/              One per device: BatteryCard, ChargeSourcesCard,
 │   │                      ShellyCard, EcoflowCard, FridgeCard, StarlinkCard,
 │   │                      WifiCard, Cameras

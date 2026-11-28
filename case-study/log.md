@@ -1,6 +1,6 @@
 # Log
 
-**Last updated:** 2026-11-20
+**Last updated:** 2026-11-27
 
 One entry per working session, newest last. Held while work is in progress and finalised at PR time.
 
@@ -137,3 +137,60 @@ One entry per working session, newest last. Held while work is in progress and f
 - The low-voltage cutoff and high-temperature limit of the BMS.
 
 **Next:** Todd decides on the idle-drain work (a nightly drain readout from data already logged, applying a mode to the Shellys, the fridge setpoint).
+
+## 2026-11-27: Session 6, the whole tile is the button
+
+**Asked for:** after PR #34, help booting the Pi and testing it. Then, from the demo: "For the Shelly and maybe the other components when offline the button can be the whole button not just the small button inside a div", and next, "go into a loading state until it connects or fails say 3 tries and fail?"
+
+**Done**
+- Claude merged PR #34 on Todd's go-ahead, after both checks passed.
+- Offline circuit tiles, the Starlink row and the fridge row are each one button. `RetryGlyph` replaces the small `quiet` icon button.
+- A tap shows "Checking…" and tries up to 3 times, 2 seconds apart, then says whether the source came back. The backend did not change.
+- A relay tile that has just come back ignores taps for 1 second.
+- Demo mode: a dead source now answers on its fifth try, so both the failure and the success can be seen.
+
+**Found**
+- A bigger button added a hazard: the same spot means "check again" while offline and "switch a real load" once the unit is back. Claude raised it while building, which led to the tap guard.
+- Claude first handed the guard to Todd as a coding exercise (the session's learning style). The answer was "Unsure of your question". A plain table of what a tap does in each state worked better, and Todd answered with a design idea.
+- "Checking…" ran into the spinner at 375px. The numbers had reported no overflow; the screenshot showed it.
+- Session 5 said the Pi needed `ECOFLOW_MAC` added before the next deploy. It needs `VICTRON_MAC` and `BMS_MAC` too, because the old `config.py` defaulted all three.
+- The Pi checks were first run on the Mac by mistake. The Pi's `backend/.env` has not been checked.
+
+**Checked:** type check and build; demo mode at 375, 768 and 1280px; the Shelly tile by touch-style clicks and by keyboard (Tab, Enter, Space).
+
+**Not checked**
+- Anything on the Pi, a real phone, or a screen reader.
+- How long three real tries take. From the timeouts in the code a dead Shelly or Starlink could show "Checking…" for about half a minute. The fridge's time was not worked out.
+- Screenshots were not saved to `case-study/assets/`.
+
+**Next:** Todd merges, adds the three addresses to the Pi's `backend/.env`, deploys by hand and runs the live checks.
+
+## 2026-11-27: Session 7, Home Screen, a color that did not stick, and tiles
+
+**Asked for:** from a phone screenshot, to make the Home Screen view look right; whether orange could replace lime, as a setting; whether light and dark are checked with Jest; that new features not be costly for the Pi; and tiles with icons for the network, charging and device areas.
+
+**Done**
+- The page keeps clear of the iPhone's status bar and home bar, including drawers and toasts. Circuit tile dots sit at the right on older iOS.
+- Built an Orange/Lime accent setting, then removed all of it. Lime stays.
+- A cost check for the Pi: build size, requests per update and new packages, with a GitHub workflow for pull requests. Todd took the suggested limits.
+- "Low" and "Very low" beside a low battery percentage.
+- Network, charging and device areas are now icon tiles. `DeviceRow` and `StatusList` are gone.
+
+**Found**
+- `viewport-fit=cover` was set with no safe-area spacing anywhere. A desktop preview reports zero insets, so it could not show the bug; putting the insets in CSS variables let desktop fake an iPhone, and the iOS simulator confirmed it.
+- The simulator opened the Home Screen icon in Safari until one more meta tag was added, and drew a button's contents differently from Chrome.
+- Previews drawn by overriding colors in the browser showed that "all orange" made a 35% battery look like a full one. Todd kept green health, then dropped orange altogether. About one build's worth of work was removed cleanly because it had not been committed.
+- Claude first read "I'm not liking that at all" as being about the battery wording and removed it. It was about the orange. The reply that followed settled it.
+- Claude's advice to add Playwright overlooked that the Pi installs the frontend's development packages on every deploy. The check tools went into their own folder.
+- A new color in the Tailwind config did not reach the running dev server until it was restarted, although the build was correct.
+- The UI patterns doc still described the battery power chip in watts; the code has judged it in amps since 2026-11-24. Fixed here.
+
+**Checked:** type check, build and cost check; demo mode at 320, 375, 768 and 1280px; the iOS simulator, including the Home Screen app for the spacing fix; offline fridge recheck and opening the WiFi drawer by keyboard. The cost check was run against a temporary copy to see it fail and pass.
+
+**Not checked**
+- Anything on the Pi, a real iPhone with this build, or a screen reader.
+- The GitHub check before this pull request: it had never run.
+- At 320px "Hotspot" and "Ethernet" are cut off.
+- Screenshots were not saved to `case-study/assets/`, and the README images still show the old rows.
+
+**Next:** Todd merges, adds the three addresses to the Pi's `backend/.env`, deploys by hand and runs the live checks. Then dark mode.

@@ -31,6 +31,13 @@
   --info-text: 0 105 168; /* #0069A8 */
   --warn-text: 183 80 0; /* #B75000 */
   --danger-text: 193 0 7; /* #C10007 */
+
+  /* The room iOS keeps for the status bar, notch and home bar when the page
+     runs from the Home Screen. Zero in an ordinary browser window. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
 }
 
 * {
@@ -65,4 +72,29 @@ textarea {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* The page gutter, widened wherever iOS needs more room than that. */
+.vc-dashboard__main {
+  --gutter: 1rem;
+  padding: calc(var(--gutter) + var(--safe-top))
+    max(var(--gutter), var(--safe-right))
+    calc(var(--gutter) + var(--safe-bottom))
+    max(var(--gutter), var(--safe-left));
+}
+
+@media (min-width: 768px) {
+  .vc-dashboard__main {
+    --gutter: 1.5rem;
+  }
+}
+
+/* A solid strip behind the status bar, so cards never scroll under the clock. */
+.vc-dashboard::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 10;
+  height: var(--safe-top);
+  background-color: rgb(var(--page));
 }

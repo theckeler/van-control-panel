@@ -1,7 +1,7 @@
 # Future Features
 
 
-**Last updated:** 2026-11-24
+**Last updated:** 2026-11-27
 This roadmap captures the next useful improvements for the Van Control Panel.
 The focus is reliability, visibility, and recoverable automation rather than
 adding hardware faster than the system can safely support it.
@@ -253,7 +253,7 @@ Shelly item, which is partly done (below).
   would make `GET /shelly/` instant. The simpler option is to mark the two dead
   PS Input units `installed: False`. **Partly done 2026-11-18, not yet run on the
   Pi:** a unit that keeps failing can be paused so it stops costing the timeout,
-  and the refresh button on its tile probes it again (`POST /shelly/{id}/recheck`).
+  and tapping its tile probes it again, up to three times (`POST /shelly/{id}/recheck`).
   A unit pauses after 3 failed polls in a row, about 15 seconds
   (`PAUSE_AFTER_FAILURES` in `routers/shelly.py`, Todd 2026-11-24). There is
   still no background poller.

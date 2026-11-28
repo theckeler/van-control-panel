@@ -1,7 +1,7 @@
 # API Reference — Van Control Panel
 
 
-**Last updated:** 2026-11-24
+**Last updated:** 2026-11-27
 Base URL (local): `http://van-pi.local/api`
 Base URL (Tailscale): `http://van-pi.<tailnet>.ts.net/api`
 
@@ -231,7 +231,8 @@ Probe one unit now, even if it is paused. Reads the relay state only and never
 switches anything. If the unit answers, polling resumes. If it does not, it
 stays paused, so a dead unit costs one timeout per tap and nothing on the 5s
 poll. Returns the unit's status (same shape as `GET /shelly/{unit_id}`), or 404
-for an unknown ID. The dashboard's refresh button on an offline tile calls this.
+for an unknown ID. Tapping an offline tile on the dashboard calls this, up to
+three times 2s apart, stopping as soon as the unit answers.
 
 ### `POST /shelly/{unit_id}/toggle`
 Toggle relay. Body: `{ "on": true }`. Returns 503 if the unit isn't installed
@@ -370,6 +371,7 @@ Ask the dish right now instead of waiting for the next poll. Returns the same sh
 once a minute, so this is the way to find out sooner (for instance just after the Pi
 rejoins Starlink's network). Can take up to 10s when the dish does not answer. One check
 runs at a time; a second call while one is in flight returns the current reading.
+Tapping the offline Starlink tile calls this up to three times, 2s apart.
 
 ### `GET /starlink/raw`
 Every field from the last successful poll, unmodelled. Field names shift
@@ -392,7 +394,8 @@ distinguish that from "ESP32 is up but hasn't rebonded to the fridge yet."
 ### `POST /dometic/recheck`
 Ask the ESP32 bridge right now. Returns the same shape as `GET /dometic/`. Reads only; it
 never changes the fridge. While the bridge is silent the loop backs off from 5s to once a
-minute, so this is the way to find out sooner. One check at a time.
+minute, so this is the way to find out sooner. One check at a time. Tapping the
+offline fridge tile calls this up to three times, 2s apart.
 
 ---
 

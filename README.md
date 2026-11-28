@@ -1,7 +1,7 @@
 # Van Control Panel
 
 
-**Last updated:** 2026-11-24
+**Last updated:** 2026-11-27
 > A self-hosted monitoring and control dashboard for a 2023 Mercedes Sprinter VS30 AWD 144" High Roof conversion.
 
 ![Stack](https://img.shields.io/badge/stack-React%20%2B%20FastAPI-orange)
@@ -43,6 +43,9 @@ Run it locally:
 cd frontend && VITE_DEMO=true npm run dev
 ```
 
+Add `?offline=starlink,fridge,bms` to the address to see sources down, or
+`?soc=35` to hold the battery at that charge.
+
 Built for a phone first, since that is how it is used in the van. These are
 the demo at 375px: the dashboard, the WiFi drawer, the battery history drawer
 and the Power dialog (Restart API is two taps from the dashboard).
@@ -65,7 +68,7 @@ and the Power dialog (Restart API is two taps from the dashboard).
 | **Fridge** — Dometic CFX5 35                | Temp, set point, compressor, door, power source via an ESP32 BLE bridge |
 | **Starlink Mini**                           | Latency, throughput, obstruction, and measured power draw over local gRPC |
 | **EcoFlow River 2 Max**                     | Battery % decoded from the raw BLE advertisement — no auth, no cloud |
-| **Smart relays** — Shelly 1 Gen4 ×4 configured | USB outlets, garage, PS Input 1 and 2 — all on the Pi's own hotspot (10.42.0.x), local HTTP, no cloud. The two PS Input units are currently unreachable. An unreachable unit shows as its own state, not as "off", and can be paused and re-checked with a refresh button (*not yet run on the Pi*) |
+| **Smart relays** — Shelly 1 Gen4 ×4 configured | USB outlets, garage, PS Input 1 and 2 — all on the Pi's own hotspot (10.42.0.x), local HTTP, no cloud. The two PS Input units are currently unreachable. An unreachable unit shows as its own state, not as "off", and can be paused and re-checked by tapping its tile (*not yet run on the Pi*) |
 | **Camera** — Logitech C922, one, inside the van | Timed captures at the active mode's interval (24h retention) plus on-demand snapshots, with UVC settings re-applied before each shot |
 | **History** — SQLite, four tiers            | Raw → hourly → daily → monthly, automatic rollup and pruning     |
 | **Operating modes**                         | Storage / Camp / Trail / In Town, persisted across restarts      |
@@ -73,8 +76,9 @@ and the Power dialog (Restart API is two taps from the dashboard).
 | **Networking**                              | Dual WiFi with automatic failover, switchable from the dashboard |
 | **Event log**                               | Every state change recorded — toggles, mode changes, reboots     |
 | **Backups**                                 | Nightly snapshot over Tailscale, plus on-demand download. The Backup drawer also has a button that writes a gzipped image of the whole SD card to a USB stick (*not yet run on the Pi*) |
-| **Offline devices**                         | A device that stops answering keeps its last reading on screen, dimmed, with its age. Starlink, the fridge and the BMS have check-now buttons, and polling backs off while they are down (*not yet run on the Pi*) |
+| **Offline devices**                         | A device that stops answering keeps its last reading on screen, dimmed, with its age. Tapping an offline circuit, Starlink or the fridge checks it up to three times; the BMS has a Retry now button. Polling backs off while a source is down (*not yet run on the Pi*) |
 | **Remote access**                           | Tailscale — works from any network                               |
+| **iPhone Home Screen**                      | Opens full screen and keeps clear of the status bar and home bar (checked in the iOS simulator, *not yet run on the Pi*) |
 
 ## Not built yet
 
@@ -83,7 +87,7 @@ than one admitting the gaps.
 
 | Feature                 | Why not                                                                |
 | ----------------------- | ---------------------------------------------------------------------- |
-| **A second camera**     | Not planned for now. There is one camera, and the API still has an unused second slot |
+| **A second camera**     | Not planned for now. There is one camera |
 | **Shore power**         | Inferred from the BMS/MPPT current delta — no charger telemetry        |
 | **Measured load**       | Load is inferred from the BMS and MPPT. A Victron SmartShunt would measure it, and none is planned |
 | **DC-DC charger**       | Orion-Tr 12/12-18 is non-smart. Static config only                     |
@@ -157,7 +161,7 @@ self-hosted GitHub Actions runner that deploys on push.
   only its own card, and a stale in-flight response can't overwrite a click.
 - **A dead device should not slow everything else down.** An unreachable Shelly
   costs a 3-second timeout on every poll, so a unit that keeps failing can be
-  paused until someone taps its refresh button. Starlink and the fridge back off
+  paused until someone taps its tile. Starlink and the fridge back off
   from 5 seconds to 60 while they do not answer (*not yet run on the Pi*).
 - **Polling pauses when the tab is hidden**, which cut idle request volume by
   roughly 85%.
@@ -181,6 +185,13 @@ cd frontend && npm install --include=dev && npm run dev
 # backend
 cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/uvicorn app.main:app --reload --port 8000
+```
+
+Before a pull request, check that a change stays cheap for the Pi. GitHub runs
+the same check on pull requests; the limits are in `checks/`.
+
+```bash
+npm --prefix frontend run build && node checks/cost.mjs
 ```
 
 `--include=dev` matters if `NODE_ENV=production` is set in your shell — npm will

@@ -4,7 +4,7 @@ import { Icon, type IconName } from "./Icon";
 
 export type TileTone = "neutral" | "on" | "off";
 
-// Same language as DeviceRow and Stat: a lime border and soft tint when on,
+// Same language as InfoTile and Stat: a lime border and soft tint when on,
 // orange when it needs attention, plain when it just opens something.
 const TONE: Record<TileTone, string> = {
   neutral: "border-line bg-surface hover:bg-page",

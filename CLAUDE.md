@@ -1,6 +1,6 @@
 # CLAUDE.md: Van Control Panel
 
-**Last updated:** 2026-11-20
+**Last updated:** 2026-11-27
 
 Instructions for Claude (and humans) working in this repo.
 
@@ -22,6 +22,7 @@ Read `README.md` first. `docs/CLAUDE.md` is the long hardware and backend refere
 - **Preview UI work locally, in demo mode:** `cd frontend && VITE_DEMO=true npm run dev`. Demo mode needs no Pi, no backend and no hardware. Never test against the live Pi.
 - **Hardware has side effects.** Relays switch real loads and power options reboot a real computer. Don't call POST routes against a real backend. Demo mode and the `scripts/` dry runs are the way to check behavior.
 - Never commit `.env`, `esp32-dometic/secrets.yaml`, `*.db`, photos or Tailscale details. Never print keys, passwords or session secrets.
+- **Keep it cheap for the Pi** (1GB). Before a PR, run `npm --prefix frontend run build && node checks/cost.mjs`; GitHub runs it on pull requests. A new backend loop or poll states how often it runs and whether it uses Bluetooth, starts a process or writes to the SD card. Check-only tools go in `checks/`, never in `frontend/package.json`, because the Pi installs that on each frontend deploy. Raising a limit or approving a package (`checks/`) is Todd's call.
 - Auth fails open on purpose when a key is unset, so a bad deploy cannot lock Todd out of the van. Changing that is a decision for Todd, not a cleanup (`docs/FUTURE-FEATURES.md`).
 
 ## Stack facts
@@ -59,4 +60,4 @@ Every doc starts with `**Last updated:** YYYY-MM-DD` under its title.
 - `van-case-study`: keep `case-study/` updated (run at the end of every session)
 
 ## Where things are
-`frontend/src/components/ui/` the standard component set · `cards/` dashboard cards · `drawers/` one drawer per concern · `dialogs/` the Power dialog · `store/` zustand · `api/mock.ts` demo data · `docs/` reference · `case-study/` log, decisions, baseline · `bin/` scripts · `scripts/` Pi-side scripts (never run on this machine).
+`frontend/src/components/ui/` the standard component set · `cards/` dashboard cards · `drawers/` one drawer per concern · `dialogs/` the Power dialog · `store/` zustand · `api/mock.ts` demo data · `docs/` reference · `case-study/` log, decisions, baseline · `bin/` scripts · `checks/` cost limits for the Pi · `scripts/` Pi-side scripts (never run on this machine).

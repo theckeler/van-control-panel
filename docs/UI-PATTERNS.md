@@ -1,6 +1,6 @@
 # UI Patterns
 
-**Last updated:** 2026-11-18
+**Last updated:** 2026-11-27
 
 **Status: Built** (2026-11-13). How screens, drawers and menus are put together from the component set in `docs/DESIGN-SYSTEM.md`. When you build a screen, check here first and reuse a pattern rather than inventing one. `case-study/decisions.md` records which calls Todd made and which are still Claude's proposals.
 
@@ -21,10 +21,10 @@ Each component has one key, and every hook for it contains that key, so one sear
 Mobile first, one column, `max-w-2xl` centered. From `md` the page widens to `max-w-4xl` and pairs cards into two columns.
 
 1. **Header:** van name, a Demo badge in demo mode, the time and current mode name under it, then two round buttons: Mode and System (gear).
-2. **Battery** (paired with the actions card from `md`): SOC as `display` with a lime circle (the live indicator) and a round History button, a `Progress`, then three `Stat` chips for volts, watts and temp. The chips tint when out of range (below). Offline dims the card and shows "Offline · last seen".
-3. **Actions card:** a 2x2 grid of `TileButton`s (WiFi, Camera, Backup, Power) beside a `StatusList` of the WiFi uplink, the hotspot and the Ethernet rescue port.
+2. **Battery** (paired with the actions card from `md`): SOC as `display` with a lime circle (the live indicator) and a round History button, a `Progress`, then three `Stat` chips for volts, watts and temp. At 50% and below the percentage turns amber and says "Low"; at 20% and below it turns red and says "Very low". Offline it keeps the number only. The chips tint when out of range (below). Offline dims the card and shows "Offline · last seen".
+3. **Actions card:** a 2x2 grid of `TileButton`s (WiFi, Camera, Backup, Power) beside three `InfoTile`s for the Pi's links: the WiFi uplink across the top, then the hotspot and the Ethernet rescue port side by side. Any of the three opens the WiFi drawer.
 4. **Circuits:** `SwitchTile`s from `/shelly`. Two across on phones, four from `md`.
-5. **Charging** and **Devices** (side by side from `md`): Solar and Shore rows, then EcoFlow, Starlink and fridge rows. `EcoflowCard`, `StarlinkCard` and `FridgeCard` each render one `DeviceRow` and stay three components; the dashboard groups them in one card.
+5. **Charging** and **Devices** (side by side from `md`): `InfoTile`s, two across. Solar and Shore; then EcoFlow and the fridge, with Starlink full width below because its reading is the longest. `EcoflowCard`, `StarlinkCard` and `FridgeCard` each render one `InfoTile` and stay three components; the dashboard groups them in one card.
 6. **Camera:** the latest frame (16:9), the capture time, and three round buttons: photo history, take a photo, camera on/off.
 
 Keep the existing order of importance: what is on, what is charging, what's cold, what I can see. Changing it is a design decision, not a cleanup.
@@ -38,13 +38,14 @@ Keep the existing order of importance: what is on, what is charging, what's cold
 | Action tile | Camera (lime when on, orange and labelled "Camera off" when off) | Camera drawer |
 | Action tile | Backup | Backup drawer |
 | Action tile | Power | Power dialog |
+| Network tile | VanNet, Hotspot, Ethernet (lime border when up, amber when the WiFi signal is weak) | WiFi drawer |
 | Battery card | History (round, clock icon) | History drawer, SOC tab |
 | Camera card | Photo history (round, images icon) | History drawer, Photos tab |
 
 Tile state is a border and tint plus a word in the label, never color alone. The icon-only round buttons have an `aria-label`.
 
 ## Stat chips tint when out of range
-`Stat` has tones `neutral` (blue outline), `good` (lime), `warn` (amber) and `bad` (red), and a `hint` word beside the value. Thresholds sit at the top of `BatteryCard.tsx`. They are starting points for a 12V LiFePO4 pack, not manufacturer limits, and are Claude's guesses until Todd confirms them: voltage under 12.8V warn and under 12.0V bad ("low"), over 14.6V bad ("high"); watts green when charging, 150W or more drawn warn ("high"), 300W or more bad ("heavy"); temp 45°C or more warn ("hot"), 55°C or more bad, 0°C or less warn ("cold").
+`Stat` has tones `neutral` (blue outline), `good` (lime), `warn` (amber) and `bad` (red), and a `hint` word beside the value. Thresholds sit at the top of `BatteryCard.tsx`. Voltage: under 12.8V warn and under 12.0V bad ("low"), over 14.6V bad ("high"). Power: green while charging; when drawing it is judged by current against the BMS's 100A rating, 80A or more warn ("heavy"), 100A or more bad ("at limit"). Temp: 45°C or more warn and 55°C or more bad ("hot"); 0°C or less warn ("cold"), or bad ("no charge") while charging; -20°C or less bad ("freezing"). The 100A rating is from Power Queen's listing; the low-voltage and high-temperature limits are still unconfirmed.
 
 ## Drawers: one per concern
 **One drawer per concern, one `Drawer` component.** Only one is open at a time, and none opens another (`Dashboard.tsx` holds which).
@@ -74,10 +75,16 @@ The Power tile opens one `Dialog` with the three actions stacked, the primary at
 - While it works the dialog is `busy` (spinner, ignores Esc and the backdrop). Restart API and Shut down leave a Close button, because the Pi is still up or already off.
 
 ## Offline and last-known value
-Confirmed correct in `docs/CLAUDE.md`, kept in the new design. When a source drops: the card keeps its last reading, dims it, and says "Offline · last seen 4 min ago". Device rows go to a dashed border with "Offline". Circuit tiles go dashed with "Unreachable". Never blank a card on one missed poll.
+Confirmed correct in `docs/CLAUDE.md`, kept in the new design. When a source drops: the card keeps its last reading, dims it, and says "Offline · last seen 4 min ago". Info tiles go to a dashed border and say "Offline". Circuit tiles go dashed with "Unreachable". Never blank a card on one missed poll.
 
 ## Relay tiles
-`SwitchTile` states: **on** (lime fill, "ON"), **off** (white, "OFF"), **offline** (dashed, "Unreachable"; not a button, so it can hold a refresh button that probes the unit again, and phones and tablets say "Offline" beside it because the longer word does not fit until 1024px), **busy** (taps ignored). A tap toggles and waits for the backend's confirmed state before showing the new one: the UI never claims on until the Shelly said so. The mock's "Door Lights" tile is a placeholder and is not built.
+`SwitchTile` states: **on** (lime fill, "ON"), **off** (white, "OFF"), **offline** (dashed, "Unreachable", or "Offline" below 1024px because the longer word does not fit; the whole tile is the "check again" button), **checking** ("Checking…" with a spinning mark, taps ignored, until the unit answers or three tries fail), **busy** (taps ignored). A tap toggles and waits for the backend's confirmed state before showing the new one: the UI never claims on until the Shelly said so. The mock's "Door Lights" tile is a placeholder and is not built.
+
+## Check again
+An offline source that can be asked again is one big button: the tile itself, with a `RetryGlyph` as the sign. Never put a small button inside it. A tap tries up to three times, 2s apart (`RECHECK_TRIES` in `store/van.ts`), showing "Checking…", then a toast says whether it came back. A relay tile that comes back ignores taps for 1s (`SETTLE_MS`), because the same spot now switches a real load. The battery is the exception: it keeps a separate "Retry now" button and tries once, because retrying the BMS too fast can lock it up.
+
+## Home Screen on iPhone
+Opened from the Home Screen, the app is full screen and draws under the status bar and home bar. The dashboard gutter, a solid strip behind the status bar, drawers and toasts add the `--safe-*` variables (`index.css`), which are zero in a browser. Anything new that touches a screen edge must too. To try it on a desktop, set the variables on the root element; the iOS simulator shows the real thing. `index.html` carries `apple-mobile-web-app-capable` so older iOS opens the icon as an app; a new tag only applies to an icon added after it.
 
 ## Feedback
 - **Toast** for the result of a quick action ("Found 4 networks", "Hotspot off"). Dark, red for errors, never green, because it floats over the lime tiles. It is a popover so it sits above open drawers; while a modal is open the page behind it is inert, so a toast over a drawer can't be tapped (it times out on its own).
