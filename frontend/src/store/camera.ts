@@ -14,8 +14,8 @@ function loadEnabled(): boolean {
 }
 
 // The camera switch and the latest frame, shared by the dashboard's camera
-// card, the action row's camera button and the camera drawer. "Enabled" is a
-// per-browser preference, not something on the Pi.
+// card and the action row's camera button. "Enabled" is a per-browser
+// preference, not something on the Pi.
 interface CameraStore {
   enabled: boolean;
   latest: Photo | null;

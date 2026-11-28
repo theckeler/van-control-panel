@@ -76,9 +76,9 @@ src/
 │   ├── cards/              One per device: BatteryCard, ChargeSourcesCard,
 │   │                      ShellyCard, EcoflowCard, FridgeCard, StarlinkCard,
 │   │                      WifiCard, Cameras
-│   ├── drawers/            One per concern: WiFi, Camera, Mode, Backup, System,
+│   ├── drawers/            One per concern: WiFi, Mode, Backup, System,
 │   │                      History (SOC, Solar, Photos)
-│   ├── dialogs/            PowerDialog
+│   ├── dialogs/            PowerDialog, HotspotOffDialog
 │   └── layout/             Header, ActionRow, Toaster, ErrorBoundary
 │
 └── pages/

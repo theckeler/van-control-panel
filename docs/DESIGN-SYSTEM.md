@@ -7,7 +7,7 @@
 ## Principles
 1. **One source for every value.** Colors, type and radius are defined once (`tailwind.config.ts`, CSS variables in `index.css`). Components use semantic tokens, never raw hex or raw palette classes.
 2. **Color is never the only signal.** Every green or orange state also has text or an icon, because lime on white fails contrast (below).
-3. **Lime means "on".** Saturated fills are for things that are on (an ON circuit tile, a lit action tile, the live circle). Everything else is white with a border, so state stands out. This came from Todd's feedback that large green blocks hurt readability.
+3. **Lime means "on".** Saturated fills are for things that are on (an ON circuit tile). Tiles that can be tapped and are on get a light tint; everything else is white with a border, so state stands out. This came from Todd's feedback that large green blocks hurt readability.
 4. **Standard set first.** A screen uses a component from `ui/` or adds one to it. No one-off buttons or hand-built dialogs.
 5. **Phone first.** The dashboard is used one-handed on a phone in a moving or parked van: 44px tap targets, one primary action, nothing important behind hover.
 6. **Offline is a state, not an error.** Cards keep the last known value, dimmed, with its age.
@@ -62,7 +62,7 @@ System font stack, no web fonts. Numbers use `tabular-nums` so values don't jitt
 | `display` | 36 / 700 | Battery percentage |
 | `title` | 20 / 700 | Van name, drawer and dialog title |
 | `value` | 18 / 600 | Circuit tile state ("ON") |
-| `body` | 14 / 400 | Default. Info-tile values and stat chips use it semibold; so do the battery's "Low" and "Very low" |
+| `body` | 14 / 400 | Default. Info-tile values and stat chips use it semibold |
 | `label` | 12 / 600, tracked (add `uppercase`) | Card and section labels |
 | `caption` | 12 / 400 | Timestamps, info-tile names (semibold) and details, captions under icons |
 | `input` | 16 / 400 | Every input, at every width |
@@ -83,15 +83,14 @@ All live in `frontend/src/components/ui/`. Each has one key used in the file nam
 |---|---|---|---|
 | `button` | `Button` | Text button. Variants `solid` (lime), `outline`, `ghost`, `danger`. Sizes `sm`, `md` (both keep 44px). | default, hover, focus, disabled, busy |
 | `icon-button` | `IconButton` | 44px round icon button. `aria-label` required. Tones `control`, `on`, `off`. `busy` spins the icon and ignores taps. | default, disabled, busy |
-| `icon-circle` | `IconCircle` | The IconButton look without the button: a 44px circle that reports a state (the battery's live circle). `role="img"`. | tones `control`, `on`, `off` |
-| `tile-button` | `TileButton` | A shortcut tile: icon centered over its label, bordered. Tones `neutral`, `on` (lime border and tint), `off` (orange). Used for the 2x2 action grid. | neutral, on, off |
+| `tile-button` | `TileButton` | A shortcut tile: icon centered over its label, bordered. Tones `neutral`, `on` (lime border and tint), `off` (orange). Used for Backup, Power and the camera switch. | neutral, on, off |
 | `switch-tile` | `SwitchTile` | A relay: name, big ON/OFF, dot. Tap toggles. ON is the one solid lime fill. Offline with `onRecheck`, the whole tile is a "check again" button that shows "Checking…" while it works; without it, a plain `div`. A tile that has just come back ignores taps for 1s, so a late "check again" can't switch the relay. | on, off, offline (dashed), checking, busy |
 | `stat` | `Stat` | Label and value. `chip` (centered, outlined in `info`) or `row`. Tones `neutral`, `good`, `warn`, `bad` tint the chip; a `hint` word ("low", "hot") says why. | neutral, good, warn, bad, offline |
-| `info-tile` | `InfoTile` | One link, source or device: icon, name, reading, detail, centered and top-aligned so icons line up across a row. White, with a lime 1px border when on, plain when idle, an amber tint for a warning, dashed when offline. For the network links, solar, shore, EcoFlow, Starlink and the fridge. With `onClick` the tile is a button that opens something; with `onRecheck`, an offline tile is one button that asks the source again and shows "Checking…" while it works. | on, off, warn, offline, checking |
+| `info-tile` | `InfoTile` | One link, source or device: icon, name, reading, detail, centered and top-aligned so icons line up across a row. White, with a lime 1px border when on, plain when idle, an amber tint for a warning, dashed when offline. With `control` it is filled like a `TileButton` (lime on, orange off) because it can be tapped; `waiting` says "Working…" and ignores taps. For the network links, solar, shore, EcoFlow, Starlink and the fridge. With `onClick` the tile is a button that opens something; with `onRecheck`, an offline tile is one button that asks the source again and shows "Checking…" while it works. | on, off, warn, offline, checking |
 | `retry-glyph` | `RetryGlyph` | The 32px translucent disc with a refresh icon on an offline tile (top right on an info tile). Decoration only: the tile around it is the button. | idle, busy (spins) |
 | `card` | `Card` | Container with an optional title and header action, and an offline treatment (dim plus "Offline · last seen"). | default, offline |
 | `progress` | `Progress` | Bar for SOC and EcoFlow, with an optional text value. Turns `warn` under 20%. | default, low, offline |
-| `badge` | `Badge` | Small outlined pill: Demo, Released, Connected. Tones `neutral`, `on`, `off`, `warn`. | |
+| `badge` | `Badge` | Small outlined pill: Demo, Released, Connected, and the battery's Good / Low / Very low. Tones `neutral`, `on`, `off`, `warn`, `danger`. | |
 | `status-dot` | `StatusDot` | 8px dot. Never used without text beside it. | on, off, warn, unknown, ink |
 | `key-value` | `KeyValue` | Label and value list rows. `warn` and `bad` also bold the value. | default, warn, bad |
 | `section` | `Section` | Titled group inside a drawer. | |

@@ -194,3 +194,23 @@ One entry per working session, newest last. Held while work is in progress and f
 - Screenshots were not saved to `case-study/assets/`, and the README images still show the old rows.
 
 **Next:** Todd merges, adds the three addresses to the Pi's `backend/.env`, deploys by hand and runs the live checks. Then dark mode.
+
+## 2026-11-27: Session 8, tiles that do something
+
+**Asked for:** pointing at elements in the preview: remove the WiFi button, put Backup and Power over Camera, make Camera and Hotspot switches and Ethernet display only, and replace the battery circle with a word. Then "Just merge this into main".
+
+**Done**
+- The uplink tile is the WiFi button. Camera and Hotspot switch in place. Ethernet only reports.
+- The battery shows "Good", "Low" or "Very low" where the circle was.
+- Deleted the camera drawer and `IconCircle`. One shared confirm for turning the hotspot off.
+
+**Found**
+- A one-tap hotspot switch could cut off the phone using it, plus the circuits and the fridge. The confirm stayed on the off direction, and its wording now names them.
+- The demo's hotspot switch only returned "disabled", so the new switch could not be seen working until the mock kept its own state.
+- PR #35 was merged while these changes were still uncommitted, so they went in a second pull request.
+
+**Checked:** type check, build and cost check; demo at 320, 375, 768 and 1280px (switches, the confirm, battery words, Power still opens); the layout in the iOS simulator.
+
+**Not checked:** the real hotspot switch, anything on the Pi, a real iPhone or a screen reader. "Hotspot" and "Ethernet" are still cut off at 320px.
+
+**Next:** deploy to the Pi and run the live checks, including the hotspot switch from a phone that is not on the hotspot. Then dark mode.

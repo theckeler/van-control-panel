@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useVanStore } from "../../store/van";
-import { Button, Dialog, Drawer, KeyValue, Section } from "../ui";
+import { HotspotOffDialog } from "../dialogs/HotspotOffDialog";
+import { Button, Drawer, KeyValue, Section } from "../ui";
 import { WifiScan } from "./WifiScan";
 
 // Everything about WiFi in one place: the uplink the Pi is on (wlan1), its
@@ -65,31 +66,7 @@ export function WifiDrawer({
         </Section>
       </Drawer>
 
-      <Dialog
-        open={confirmOff}
-        onClose={() => setConfirmOff(false)}
-        title="Turn off the hotspot?"
-        vc="dialog-hotspot-off"
-        actions={
-          <>
-            <Button onClick={() => setConfirmOff(false)}>Cancel</Button>
-            <Button
-              variant="danger"
-              onClick={() => {
-                setConfirmOff(false);
-                toggleHotspot(false);
-              }}
-            >
-              Turn off
-            </Button>
-          </>
-        }
-      >
-        Any device connected over {hotspot?.ssid ?? "the hotspot"}, including
-        this one if that's how you're viewing it, will be disconnected.
-        Tailscale and devices on the uplink
-        {system?.ssid ? ` (${system.ssid})` : ""} are unaffected.
-      </Dialog>
+      <HotspotOffDialog open={confirmOff} onClose={() => setConfirmOff(false)} />
     </>
   );
 }

@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
-export type BadgeTone = "neutral" | "on" | "off" | "warn";
+export type BadgeTone = "neutral" | "on" | "off" | "warn" | "danger";
 
 // Outlined, not filled: colored text on white is readable (the *-text tokens
 // pass 4.5:1) and it keeps the saturated fills for things that are on.
@@ -10,6 +10,7 @@ const TONE: Record<BadgeTone, string> = {
   on: "border-on-text/50 bg-surface text-on-text",
   off: "border-off-text/50 bg-surface text-off-text",
   warn: "border-warn-text/50 bg-surface text-warn-text",
+  danger: "border-danger-text/50 bg-surface text-danger-text",
 };
 
 export function Badge({

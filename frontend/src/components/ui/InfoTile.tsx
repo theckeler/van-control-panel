@@ -12,6 +12,15 @@ const FRAME: Record<InfoState, string> = {
   offline: "border-dashed border-line bg-page text-ink-muted",
 };
 
+// A tile that is itself a control is filled like a TileButton, so it looks
+// like something to tap.
+const CONTROL: Record<InfoState, string> = {
+  on: "border-on bg-on/15 text-ink hover:bg-on/25",
+  off: "border-off bg-off/15 text-ink hover:bg-off/25",
+  warn: "border-warn bg-warn/25 text-ink",
+  offline: FRAME.offline,
+};
+
 // One link, source or device: an icon over its name, then a reading and a
 // detail. The tile stays white so the page isn't a wall of green. State shows
 // as a lime border when on, a plain one when idle or unplugged, an amber tint
@@ -30,6 +39,8 @@ export function InfoTile({
   actionHint,
   onRecheck,
   checking = false,
+  control = false,
+  waiting = false,
   className,
   vc,
 }: {
@@ -48,6 +59,10 @@ export function InfoTile({
   onRecheck?: () => void;
   /** Offline only: a check is running. Shows the loading state. */
   checking?: boolean;
+  /** The tile is a button or a switch, not just a report. */
+  control?: boolean;
+  /** A switch is in flight: says "Working…" and ignores taps. */
+  waiting?: boolean;
   /** Layout only, e.g. "col-span-2". */
   className?: string;
   vc?: string;
@@ -55,8 +70,13 @@ export function InfoTile({
   const offline = state === "offline";
   const recheck = offline ? onRecheck : undefined;
   const press = recheck ?? onClick;
-  const busy = !!recheck && checking;
-  const line = busy ? "Checking…" : (detail ?? (offline ? "Offline" : undefined));
+  const probing = !!recheck && checking;
+  const busy = probing || waiting;
+  const line = probing
+    ? "Checking…"
+    : waiting
+      ? "Working…"
+      : (detail ?? (offline ? "Offline" : undefined));
 
   // Spans, not divs: this content also sits inside a <button>.
   const content = (
@@ -82,7 +102,7 @@ export function InfoTile({
   const frame = clsx(
     // Top-aligned, so icons line up across a row however much text follows.
     "flex min-h-16 min-w-0 flex-col items-center justify-start gap-0.5 rounded border px-1 py-2 text-center",
-    FRAME[state],
+    (control ? CONTROL : FRAME)[state],
     className,
   );
 
@@ -109,7 +129,7 @@ export function InfoTile({
       className={clsx(
         frame,
         "group relative transition",
-        recheck ? "hover:bg-surface" : "hover:bg-page",
+        recheck ? "hover:bg-surface" : !control && "hover:bg-page",
       )}
     >
       {content}

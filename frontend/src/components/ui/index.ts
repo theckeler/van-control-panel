@@ -7,7 +7,6 @@ export { Dialog } from "./Dialog";
 export { Drawer } from "./Drawer";
 export { Icon, type IconName } from "./Icon";
 export { IconButton, type IconButtonTone } from "./IconButton";
-export { IconCircle } from "./IconCircle";
 export { InfoTile, type InfoState } from "./InfoTile";
 export { KeyValue, type KeyValueItem } from "./KeyValue";
 export { Progress } from "./Progress";

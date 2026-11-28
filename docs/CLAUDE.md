@@ -213,7 +213,7 @@ frontend/
     store/settings.ts    Persisted vanName
     store/camera.ts      Camera on/off (a per-browser preference in localStorage), the
                          latest frame, and on-demand capture. Shared by the camera
-                         card, the action tile and the camera drawer
+                         card and the camera switch tile
     store/toast.ts       Toast queue, dedupes by message, kind-based auto-dismiss
     hooks/useVisibleInterval.ts
                          setInterval that pauses while the tab is hidden, fires
@@ -223,7 +223,7 @@ frontend/
     lib/format.ts        Time, countdown and uptime formatting shared by cards/drawers
     lib/tokens.ts        Reads a design token's CSS variable, for Recharts colors
     components/ui/       The standard component set (docs/DESIGN-SYSTEM.md): Button,
-                         IconButton, IconCircle, TileButton, SwitchTile, InfoTile,
+                         IconButton, TileButton, SwitchTile, InfoTile,
                          Stat, RetryGlyph, Card, Progress, Badge, StatusDot,
                          KeyValue, Section, TextField, Drawer, Dialog, Icon, Spinner.
                          Drawer and Dialog are native <dialog>
@@ -248,9 +248,9 @@ frontend/
                          tile checks it again
       StarlinkCard.tsx   Dish status; while unreachable, tapping the tile checks again. Distinguishes "Pi not on Starlink LAN" from
                          "dish unreachable" via IP-prefix check against wifi_ip
-      WifiCard.tsx       Three tiles: WiFi uplink, hotspot, and the eth0
-                         rescue-port cable. Each opens the WiFi drawer, where
-                         changes are made
+      WifiCard.tsx       Three tiles: the WiFi uplink (opens the WiFi drawer),
+                         the hotspot switch (asks before turning off), and the
+                         eth0 rescue-port cable (display only)
     components/drawers/  One drawer per concern. Content mounts only while open,
                          so data loads on open, not with the 5s poll
       WifiDrawer.tsx     Uplink and hotspot details, hotspot on/off (confirm dialog),
@@ -258,7 +258,6 @@ frontend/
                          NetworkManager profile at autoconnect-priority 75 (see
                          network.py) — the real "reconnect somewhere already
                          visited" mechanism, nothing client-side
-      CameraDrawer.tsx   Camera on/off and take a photo now
       ModeDrawer.tsx     Storage / Camp / Trail / In Town picker, with what the
                          current mode does (the one place a mode can be switched
                          from the UI)
@@ -277,10 +276,11 @@ frontend/
                          enough that no poll ever fails, and a Close button since
                          the Pi is still up. Reads no fetched data, so a hung poll
                          cannot block it
+      HotspotOffDialog.tsx The one confirm for turning the hotspot off
     components/layout/
       Header.tsx         Van name, demo badge, time and mode name, then round Mode
                          and System buttons
-      ActionRow.tsx      The 2x2 tiles: WiFi, Camera, Backup, Power
+      ActionRow.tsx      Backup and Power, with the camera switch under them
       ErrorBoundary.tsx  Class-based root boundary, console-only logging, "Try
                          again" reset button
       Toaster.tsx        Toast queue, drawn as a popover so it sits above the

@@ -7,7 +7,6 @@ import {
   Drawer,
   Icon,
   IconButton,
-  IconCircle,
   InfoTile,
   KeyValue,
   Progress,
@@ -25,7 +24,7 @@ import {
 const ICONS: IconName[] = [
   "settings", "power", "wifi", "camera", "video", "video-off", "battery",
   "save", "images", "lightbulb", "lightbulb-off", "sliders", "history", "x",
-  "check", "refresh", "globe", "hotspot", "ethernet", "sun", "plug",
+  "check", "refresh", "hotspot", "ethernet", "sun", "plug",
   "battery-charging", "satellite", "fridge",
 ];
 
@@ -69,8 +68,6 @@ export function Components() {
             <IconButton icon="power" label="Power" tone="on" />
             <IconButton icon="save" label="Backup" badge={3} />
             <IconButton icon="images" label="Photos" disabled />
-            <IconCircle icon="battery" tone="on" label="Live" />
-            <IconCircle icon="battery" label="Battery, offline" />
           </div>
           <div className="flex flex-wrap gap-3 rounded bg-surface p-3">
             {ICONS.map((n) => (
@@ -163,7 +160,10 @@ export function Components() {
             </InfoTile>
             <InfoTile icon="fridge" name="Fridge" value="64.4°F" detail="Running" />
             <InfoTile icon="plug" name="Shore" state="off" detail="Unplugged" />
-            <InfoTile icon="globe" name="VanNet" state="warn" detail="Weak" />
+            <InfoTile icon="wifi" name="VanNet" state="warn" detail="Weak signal" control onClick={() => {}} actionHint="Open WiFi" />
+            <InfoTile icon="hotspot" name="Hotspot" detail="On" control onClick={() => {}} actionHint="Turn off" />
+            <InfoTile icon="hotspot" name="Hotspot" state="off" detail="Off" control onClick={() => {}} actionHint="Turn on" />
+            <InfoTile icon="hotspot" name="Hotspot" control onClick={() => {}} waiting />
             <InfoTile
               icon="ethernet"
               name="A very long network name"
@@ -196,7 +196,8 @@ export function Components() {
             <Badge>Neutral</Badge>
             <Badge tone="on">Connected</Badge>
             <Badge tone="off">Camera off</Badge>
-            <Badge tone="warn">Low SOC</Badge>
+            <Badge tone="warn">Low</Badge>
+            <Badge tone="danger">Very low</Badge>
             <span className="flex items-center gap-1 text-caption"><StatusDot tone="on" />on</span>
             <span className="flex items-center gap-1 text-caption"><StatusDot tone="off" />off</span>
             <span className="flex items-center gap-1 text-caption"><StatusDot tone="warn" />warn</span>
