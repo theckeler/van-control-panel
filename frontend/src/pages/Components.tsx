@@ -3,18 +3,17 @@ import {
   Badge,
   Button,
   Card,
-  DeviceRow,
   Dialog,
   Drawer,
   Icon,
   IconButton,
   IconCircle,
+  InfoTile,
   KeyValue,
   Progress,
   Section,
   Stat,
   StatusDot,
-  StatusList,
   SwitchTile,
   TileButton,
   type IconName,
@@ -26,7 +25,8 @@ import {
 const ICONS: IconName[] = [
   "settings", "power", "wifi", "camera", "video", "video-off", "battery",
   "save", "images", "lightbulb", "lightbulb-off", "sliders", "history", "x",
-  "check", "refresh",
+  "check", "refresh", "globe", "hotspot", "ethernet", "sun", "plug",
+  "battery-charging", "satellite", "fridge",
 ];
 
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
@@ -154,29 +154,41 @@ export function Components() {
           </Card>
         </Block>
 
-        <Block title="DeviceRow">
-          <DeviceRow name="EcoFlow" value="16.7%">
-            <Progress value={16.7} label="EcoFlow charge" />
-          </DeviceRow>
-          <DeviceRow name="Starlink" value="28 ms · 0.7 Mbps" detail="obstructed" />
-          <DeviceRow name="CFX5" value="64.4°F" detail="Running" />
-          <DeviceRow
-            name="Fridge"
-            state="offline"
-            value="39.6°F · set 39°F"
-            detail="Offline · last seen 4m ago"
-            onRecheck={() => {}}
-          />
-          <DeviceRow
-            name="Starlink"
-            state="offline"
-            value="Dish unreachable"
-            detail="Offline"
-            onRecheck={() => {}}
-            checking
-          />
-          <DeviceRow name="Shore" state="off" detail="Unplugged" />
-          <DeviceRow name="Starlink" state="offline" />
+        <Block title="InfoTile">
+          <div className="grid grid-cols-2 gap-2">
+            <InfoTile icon="battery-charging" name="EcoFlow" value="16.7%" detail="Charging">
+              <div className="w-full px-3">
+                <Progress value={16.7} label="EcoFlow charge" />
+              </div>
+            </InfoTile>
+            <InfoTile icon="fridge" name="Fridge" value="64.4°F" detail="Running" />
+            <InfoTile icon="plug" name="Shore" state="off" detail="Unplugged" />
+            <InfoTile icon="globe" name="VanNet" state="warn" detail="Weak" />
+            <InfoTile
+              icon="ethernet"
+              name="A very long network name"
+              detail="Tap me"
+              onClick={() => {}}
+              actionHint="Open WiFi"
+            />
+            <InfoTile icon="satellite" name="Starlink" state="offline" />
+            <InfoTile
+              icon="fridge"
+              name="Fridge"
+              state="offline"
+              value="39.6°F · set 39°F"
+              detail="Offline · last seen 4m ago"
+              onRecheck={() => {}}
+            />
+            <InfoTile
+              icon="satellite"
+              name="Starlink"
+              state="offline"
+              value="Dish unreachable"
+              onRecheck={() => {}}
+              checking
+            />
+          </div>
         </Block>
 
         <Block title="Badge, StatusDot, KeyValue">
@@ -196,18 +208,6 @@ export function Components() {
                 { label: "CPU temp", value: "52°C" },
                 { label: "Memory", value: "71%", tone: "warn" },
                 { label: "Disk", value: "96%", tone: "bad" },
-              ]}
-            />
-          </div>
-        </Block>
-
-        <Block title="StatusList">
-          <div className="max-w-60">
-            <StatusList
-              items={[
-                { name: "VanNet", detail: "Connected · 5GHz", tone: "on" },
-                { name: "Hotspot", detail: "Weak signal", tone: "warn" },
-                { name: "Ethernet", detail: "No cable", tone: "unknown" },
               ]}
             />
           </div>

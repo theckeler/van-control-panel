@@ -55,7 +55,7 @@ export function Toaster() {
       ref={ref}
       data-vc="toast"
       {...{ popover: "manual" }}
-      className="fixed left-1/2 top-auto bottom-4 m-0 h-auto w-full max-w-sm -translate-x-1/2 overflow-visible border-0 bg-transparent p-0 px-4"
+      className="fixed left-1/2 top-auto bottom-[calc(1rem+var(--safe-bottom))] m-0 h-auto w-full max-w-sm -translate-x-1/2 overflow-visible border-0 bg-transparent p-0 px-4"
       role="status"
       aria-live="polite"
     >

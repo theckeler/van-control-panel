@@ -212,6 +212,11 @@ const demoDown = new Set(
     .split(",")
     .filter(Boolean),
 );
+// Demo only: ?soc=35 holds the battery at that charge, to see the low readings.
+const demoSoc =
+  typeof location !== "undefined"
+    ? new URLSearchParams(location.search).get("soc")
+    : null;
 let starlinkUp = !demoDown.has("starlink");
 let fridgeUp = !demoDown.has("fridge");
 let bmsUp = !demoDown.has("bms");
@@ -392,7 +397,7 @@ export const mockApi = {
     get: (): Promise<BatteryData> => {
       const p = now();
       return delay({
-        soc: p.soc,
+        soc: demoSoc ? Number(demoSoc) : p.soc,
         voltage: bmsReleased ? p.voltage : jitter(p.voltage, 0.004),
         current: jitter(p.current, 0.08),
         temperature: p.temp,

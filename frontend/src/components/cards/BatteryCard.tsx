@@ -29,6 +29,14 @@ type Read = { tone: StatTone; hint?: string };
 // own name, P-12100BNNA70, is only a part number.
 const BMS_MAX_A = 100;
 
+// The charge's color and its word together, so a low battery reads without
+// color. Changes at 50% and 20%.
+function socRead(soc: number): { color: string; word?: string } {
+  if (soc > 50) return { color: "text-on-text" };
+  if (soc > 20) return { color: "text-warn-text", word: "Low" };
+  return { color: "text-danger-text", word: "Very low" };
+}
+
 // Resting voltage of a LiFePO4 pack: 12.8V is roughly 20%, 12.0V is nearly
 // empty. Over 14.6V is above what the pack's own charger delivers.
 function voltageRead(v: number): Read {
@@ -160,13 +168,7 @@ export function BatteryCard({
     );
   }
 
-  const socTone =
-    battery.soc > 50
-      ? "text-on-text"
-      : battery.soc > 20
-        ? "text-warn-text"
-        : "text-danger-text";
-
+  const soc = socRead(battery.soc);
   const isCharging = battery.current > 0;
   const wattsNum = Math.abs(battery.current * battery.voltage);
   const watts = wattsNum.toFixed(0);
@@ -185,12 +187,20 @@ export function BatteryCard({
       <div className="flex items-center justify-between gap-3">
         <span
           className={clsx(
-            "text-display tabular-nums",
-            offlineNow ? "text-ink-muted" : socTone,
+            "flex min-w-0 flex-wrap items-baseline gap-x-2 text-display tabular-nums",
+            offlineNow ? "text-ink-muted" : soc.color,
           )}
         >
-          {battery.soc.toFixed(1)}
-          <span className="text-title">%</span>
+          <span>
+            {battery.soc.toFixed(1)}
+            <span className="text-title">%</span>
+          </span>
+          {/* Like the chips, an offline reading keeps its number only. */}
+          {!offlineNow && soc.word && (
+            <span className="whitespace-nowrap text-body font-semibold">
+              {soc.word}
+            </span>
+          )}
         </span>
         <div className="flex items-center gap-3">
           {/* Live is a lone circle: every other state says so in words (the

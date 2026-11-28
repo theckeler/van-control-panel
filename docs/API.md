@@ -371,7 +371,7 @@ Ask the dish right now instead of waiting for the next poll. Returns the same sh
 once a minute, so this is the way to find out sooner (for instance just after the Pi
 rejoins Starlink's network). Can take up to 10s when the dish does not answer. One check
 runs at a time; a second call while one is in flight returns the current reading.
-Tapping the offline Starlink row calls this up to three times, 2s apart.
+Tapping the offline Starlink tile calls this up to three times, 2s apart.
 
 ### `GET /starlink/raw`
 Every field from the last successful poll, unmodelled. Field names shift
@@ -395,7 +395,7 @@ distinguish that from "ESP32 is up but hasn't rebonded to the fridge yet."
 Ask the ESP32 bridge right now. Returns the same shape as `GET /dometic/`. Reads only; it
 never changes the fridge. While the bridge is silent the loop backs off from 5s to once a
 minute, so this is the way to find out sooner. One check at a time. Tapping the
-offline fridge row calls this up to three times, 2s apart.
+offline fridge tile calls this up to three times, 2s apart.
 
 ---
 

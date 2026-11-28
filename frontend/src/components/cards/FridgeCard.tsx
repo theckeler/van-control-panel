@@ -1,6 +1,6 @@
 import { formatLastSeen } from "../../lib/format";
 import { useVanStore } from "../../store/van";
-import { Badge, DeviceRow } from "../ui";
+import { Badge, InfoTile } from "../ui";
 
 export function FridgeCard() {
   const fridge = useVanStore((s) => s.dometic);
@@ -8,7 +8,9 @@ export function FridgeCard() {
   const checking = useVanStore((s) => s.rechecking.includes("fridge"));
 
   if (!fridge) {
-    return <DeviceRow vc="fridge-card" name="Fridge" state="offline" detail="Loading…" />;
+    return (
+      <InfoTile vc="fridge-card" icon="fridge" name="Fridge" state="offline" detail="Loading…" />
+    );
   }
 
   const doorOpen = fridge.door_open === true;
@@ -31,8 +33,9 @@ export function FridgeCard() {
       : undefined;
 
   return (
-    <DeviceRow
+    <InfoTile
       vc="fridge-card"
+      icon="fridge"
       name="Fridge"
       state={fridge.reachable ? "on" : "offline"}
       value={value}
@@ -45,6 +48,6 @@ export function FridgeCard() {
           <Badge tone="warn">Door open</Badge>
         </span>
       )}
-    </DeviceRow>
+    </InfoTile>
   );
 }

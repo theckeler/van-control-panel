@@ -1,5 +1,5 @@
 import { useVanStore } from "../../store/van";
-import { DeviceRow, Progress } from "../ui";
+import { InfoTile, Progress } from "../ui";
 
 /**
  * EcoFlow River 2 Max, a portable power station. Not wired into the house
@@ -27,16 +27,19 @@ export function EcoflowCard() {
     : null;
 
   return (
-    <DeviceRow
+    <InfoTile
       vc="ecoflow-card"
+      icon="battery-charging"
       name="EcoFlow"
       state={connected ? "on" : "offline"}
       value={pct != null ? `${pct}%` : undefined}
       detail={connected ? (chargeLabel ?? "Portable battery") : "No signal"}
     >
       {pct != null && (
-        <Progress value={pct} label="EcoFlow charge" offline={!connected} />
+        <div className="w-full px-3">
+          <Progress value={pct} label="EcoFlow charge" offline={!connected} />
+        </div>
       )}
-    </DeviceRow>
+    </InfoTile>
   );
 }

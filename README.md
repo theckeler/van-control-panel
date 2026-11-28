@@ -43,6 +43,9 @@ Run it locally:
 cd frontend && VITE_DEMO=true npm run dev
 ```
 
+Add `?offline=starlink,fridge,bms` to the address to see sources down, or
+`?soc=35` to hold the battery at that charge.
+
 Built for a phone first, since that is how it is used in the van. These are
 the demo at 375px: the dashboard, the WiFi drawer, the battery history drawer
 and the Power dialog (Restart API is two taps from the dashboard).
@@ -75,6 +78,7 @@ and the Power dialog (Restart API is two taps from the dashboard).
 | **Backups**                                 | Nightly snapshot over Tailscale, plus on-demand download. The Backup drawer also has a button that writes a gzipped image of the whole SD card to a USB stick (*not yet run on the Pi*) |
 | **Offline devices**                         | A device that stops answering keeps its last reading on screen, dimmed, with its age. Tapping an offline circuit, Starlink or the fridge checks it up to three times; the BMS has a Retry now button. Polling backs off while a source is down (*not yet run on the Pi*) |
 | **Remote access**                           | Tailscale — works from any network                               |
+| **iPhone Home Screen**                      | Opens full screen and keeps clear of the status bar and home bar (checked in the iOS simulator, *not yet run on the Pi*) |
 
 ## Not built yet
 
@@ -83,7 +87,7 @@ than one admitting the gaps.
 
 | Feature                 | Why not                                                                |
 | ----------------------- | ---------------------------------------------------------------------- |
-| **A second camera**     | Not planned for now. There is one camera, and the API still has an unused second slot |
+| **A second camera**     | Not planned for now. There is one camera |
 | **Shore power**         | Inferred from the BMS/MPPT current delta — no charger telemetry        |
 | **Measured load**       | Load is inferred from the BMS and MPPT. A Victron SmartShunt would measure it, and none is planned |
 | **DC-DC charger**       | Orion-Tr 12/12-18 is non-smart. Static config only                     |
@@ -181,6 +185,13 @@ cd frontend && npm install --include=dev && npm run dev
 # backend
 cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/uvicorn app.main:app --reload --port 8000
+```
+
+Before a pull request, check that a change stays cheap for the Pi. GitHub runs
+the same check on pull requests; the limits are in `checks/`.
+
+```bash
+npm --prefix frontend run build && node checks/cost.mjs
 ```
 
 `--include=dev` matters if `NODE_ENV=production` is set in your shell — npm will

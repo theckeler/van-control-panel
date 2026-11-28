@@ -62,15 +62,16 @@ System font stack, no web fonts. Numbers use `tabular-nums` so values don't jitt
 | `display` | 36 / 700 | Battery percentage |
 | `title` | 20 / 700 | Van name, drawer and dialog title |
 | `value` | 18 / 600 | Circuit tile state ("ON") |
-| `body` | 14 / 400 | Default. Device-row values and stat chips use it semibold |
-| `label` | 12 / 600, tracked (add `uppercase`) | Card and section labels, device names |
-| `caption` | 12 / 400 | Timestamps, device-row detail, captions under icons |
+| `body` | 14 / 400 | Default. Info-tile values and stat chips use it semibold; so do the battery's "Low" and "Very low" |
+| `label` | 12 / 600, tracked (add `uppercase`) | Card and section labels |
+| `caption` | 12 / 400 | Timestamps, info-tile names (semibold) and details, captions under icons |
 | `input` | 16 / 400 | Every input, at every width |
 
 ## Space, radius, elevation
 - **Spacing:** Tailwind's 4px scale. Page gutter 16px on phones, 24px from `md`. Card padding 16px. Gap between cards 12px. Content is `max-w-2xl`, and `max-w-4xl` from `md`.
 - **Radius:** Tailwind's own `rounded` (4px) for cards, tiles, chips, rows, inputs, drawers and dialogs. Todd found the first attempt (6px and 12px) too harsh. Pills and circles (`rounded-full`) are unchanged.
 - **Elevation:** cards are flat with a `line` border. Drawers, dialogs and toasts get one shadow (`shadow-overlay`). No other shadows.
+- **Safe areas:** `--safe-top`, `--safe-right`, `--safe-bottom` and `--safe-left` (`index.css`) are the room iOS keeps for the status bar, notch and home bar, and zero elsewhere. Anything that touches a screen edge adds them (`docs/UI-PATTERNS.md`).
 - **Tap targets:** 44px minimum. Icon buttons are 44px (the Figma's are 38px; same look).
 - **Focus:** a 3px outline in `info-text` on every interactive element, set globally in `index.css`, never removed.
 - **Motion:** `prefers-reduced-motion` collapses animation and transitions globally.
@@ -86,9 +87,8 @@ All live in `frontend/src/components/ui/`. Each has one key used in the file nam
 | `tile-button` | `TileButton` | A shortcut tile: icon centered over its label, bordered. Tones `neutral`, `on` (lime border and tint), `off` (orange). Used for the 2x2 action grid. | neutral, on, off |
 | `switch-tile` | `SwitchTile` | A relay: name, big ON/OFF, dot. Tap toggles. ON is the one solid lime fill. Offline with `onRecheck`, the whole tile is a "check again" button that shows "Checking…" while it works; without it, a plain `div`. A tile that has just come back ignores taps for 1s, so a late "check again" can't switch the relay. | on, off, offline (dashed), checking, busy |
 | `stat` | `Stat` | Label and value. `chip` (centered, outlined in `info`) or `row`. Tones `neutral`, `good`, `warn`, `bad` tint the chip; a `hint` word ("low", "hot") says why. | neutral, good, warn, bad, offline |
-| `status-list` | `StatusList` | A compact box of status lines: dot, name, state under it, dividers. For a few related links (WiFi, hotspot, Ethernet). | per-item tone |
-| `device-row` | `DeviceRow` | One source or device: dot and name, headline value, detail on the right. White, with a lime 1px border when on, grey dot when idle, dashed when offline. For solar, shore, EcoFlow, Starlink, fridge. With `onRecheck`, an offline row is one button that asks the source again and shows "Checking…" while it works. | on, off, offline, checking |
-| `retry-glyph` | `RetryGlyph` | The 32px translucent disc with a refresh icon on an offline tile or row. Decoration only: the tile or row around it is the button. | idle, busy (spins) |
+| `info-tile` | `InfoTile` | One link, source or device: icon, name, reading, detail, centered and top-aligned so icons line up across a row. White, with a lime 1px border when on, plain when idle, an amber tint for a warning, dashed when offline. For the network links, solar, shore, EcoFlow, Starlink and the fridge. With `onClick` the tile is a button that opens something; with `onRecheck`, an offline tile is one button that asks the source again and shows "Checking…" while it works. | on, off, warn, offline, checking |
+| `retry-glyph` | `RetryGlyph` | The 32px translucent disc with a refresh icon on an offline tile (top right on an info tile). Decoration only: the tile around it is the button. | idle, busy (spins) |
 | `card` | `Card` | Container with an optional title and header action, and an offline treatment (dim plus "Offline · last seen"). | default, offline |
 | `progress` | `Progress` | Bar for SOC and EcoFlow, with an optional text value. Turns `warn` under 20%. | default, low, offline |
 | `badge` | `Badge` | Small outlined pill: Demo, Released, Connected. Tones `neutral`, `on`, `off`, `warn`. | |

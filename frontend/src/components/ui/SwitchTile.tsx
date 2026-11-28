@@ -119,7 +119,9 @@ export function SwitchTile({
         if (!busy && acceptsTap(Date.now() - backAt.current)) onToggle();
       }}
       className={clsx(
-        "flex min-h-14 flex-col gap-1 rounded border px-3 py-2 text-left transition",
+        // items-stretch: older iOS aligns a button's contents to the start,
+        // which would pull the status dot in beside the name.
+        "flex min-h-14 flex-col items-stretch gap-1 rounded border px-3 py-2 text-left transition",
         state === "on" && "border-on-text/40 bg-on text-ink",
         state !== "on" && "border-line bg-surface text-ink hover:bg-page",
         className,

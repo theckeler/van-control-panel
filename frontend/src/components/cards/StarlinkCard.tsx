@@ -1,5 +1,5 @@
 import { useVanStore } from "../../store/van";
-import { DeviceRow } from "../ui";
+import { InfoTile } from "../ui";
 
 const STARLINK_LAN_PREFIX = "192.168.4.";
 
@@ -31,7 +31,7 @@ function uptime(seconds: number | null): string | null {
   return `up ${mins}m`;
 }
 
-export function StarlinkCard() {
+export function StarlinkCard({ className }: { className?: string }) {
   const starlink = useVanStore((s) => s.starlink);
   const system = useVanStore((s) => s.system);
   const recheckStarlink = useVanStore((s) => s.recheckStarlink);
@@ -93,8 +93,10 @@ export function StarlinkCard() {
     .join(" · ");
 
   return (
-    <DeviceRow
+    <InfoTile
       vc="starlink-card"
+      icon="satellite"
+      className={className}
       name="Starlink"
       state={online ? "on" : reachable ? "off" : "offline"}
       value={detail + (online && starlink?.power_w != null ? ` · ${starlink.power_w.toFixed(0)}W` : "")}

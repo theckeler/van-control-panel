@@ -40,9 +40,9 @@ export function Dashboard() {
   return (
     <div
       data-vc="dashboard"
-      className="min-h-dvh bg-page text-ink"
+      className="vc-dashboard min-h-dvh bg-page text-ink"
     >
-      <main className="mx-auto flex max-w-2xl flex-col gap-3 px-4 py-4 md:max-w-4xl md:px-6 md:py-6">
+      <main className="vc-dashboard__main mx-auto flex max-w-2xl flex-col gap-3 md:max-w-4xl">
         <Header
           isDemo={isDemo}
           vanName={vanName}
@@ -67,7 +67,7 @@ export function Dashboard() {
                 onBackup={() => setDrawer("backup")}
                 onPower={() => setPowerOpen(true)}
               />
-              <WifiCard />
+              <WifiCard onOpen={() => setDrawer("wifi")} />
             </div>
           </Card>
 
@@ -75,9 +75,11 @@ export function Dashboard() {
 
           <ChargeSourcesCard />
           <Card vc="devices-card" title="Devices">
-            <EcoflowCard />
-            <StarlinkCard />
-            <FridgeCard />
+            <div className="grid grid-cols-2 gap-2">
+              <EcoflowCard />
+              <FridgeCard />
+              <StarlinkCard className="col-span-2" />
+            </div>
           </Card>
 
           <Cameras

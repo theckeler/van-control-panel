@@ -38,18 +38,18 @@ export function Drawer({
       )}
     >
       {open && (
-        <div className="flex h-full flex-col">
-          <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+        <div className="flex h-full flex-col pl-[var(--safe-left)] pr-[var(--safe-right)] md:pl-0">
+          <header className="flex items-center justify-between gap-3 border-b border-line px-4 pb-3 pt-[calc(0.75rem+var(--safe-top))]">
             <h2 id={titleId} className="text-title">
               {title}
             </h2>
             <IconButton icon="x" label="Close" onClick={onClose} />
           </header>
-          <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-4">
+          <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-4 last:pb-[calc(1rem+var(--safe-bottom))]">
             {children}
           </div>
           {footer && (
-            <footer className="flex flex-col gap-2 border-t border-line p-4">
+            <footer className="flex flex-col gap-2 border-t border-line p-4 pb-[calc(1rem+var(--safe-bottom))]">
               {footer}
             </footer>
           )}

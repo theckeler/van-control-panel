@@ -1,0 +1,37 @@
+{
+  "frontend": [
+    "@types/react",
+    "@types/react-dom",
+    "@vitejs/plugin-react",
+    "autoprefixer",
+    "clsx",
+    "dexie",
+    "dexie-react-hooks",
+    "express",
+    "express-basic-auth",
+    "http-proxy-middleware",
+    "postcss",
+    "react",
+    "react-dom",
+    "react-router-dom",
+    "recharts",
+    "tailwindcss",
+    "typescript",
+    "vite",
+    "zustand"
+  ],
+  "backend": [
+    "aiofiles",
+    "bleak",
+    "fastapi",
+    "grpcio",
+    "httpx",
+    "pydantic",
+    "pydantic-settings",
+    "python-multipart",
+    "starlink-grpc-core",
+    "uvicorn",
+    "victron-ble",
+    "yagrc"
+  ]
+}
